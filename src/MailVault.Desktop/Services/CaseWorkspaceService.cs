@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using MailVault.Domain;
 using MailVault.Indexing;
 
 namespace MailVault.Desktop.Services;
@@ -11,27 +13,50 @@ namespace MailVault.Desktop.Services;
 /// </summary>
 public enum CaseOpenMode
 {
-    /// <summary>Full case.db + manifest found — full mode.</summary>
     Full,
-    /// <summary>case.db found but manifest.json absent — limited mode with a warning banner.</summary>
     LimitedNoManifest,
-    /// <summary>Journal file detected — opened with journal-recovery warning.</summary>
     LimitedJournal,
+    LimitedNoManifestAndJournal
 }
 
+public enum CaseWorkspaceStatus
+{
+    Intact,
+    Limited,
+    Warning,
+    Empty,
+    Error
+}
+
+public sealed record CaseWorkspaceStats(
+    int FolderCount,
+    int MessageCount,
+    int AttachmentCount,
+    int IssueCount,
+    long TotalAttachmentSizeBytes);
+
 /// <summary>
-/// Result returned when a case is successfully opened.
+/// Result returned when a case is successfully opened and read.
 /// </summary>
 public sealed record CaseOpenResult(
     string CaseFolderPath,
+    string CaseDbPath,
     SqliteCaseIndexStore Store,
     CaseOpenMode OpenMode,
-    string? WarningMessage);
+    CaseWorkspaceStatus Status,
+    CaseValidationResult Diagnostic,
+    CaseInfoRef? CaseInfo,
+    CaseWorkspaceStats Stats,
+    IReadOnlyList<string> Warnings,
+    string? ErrorMessage,
+    string? SuggestedAction)
+{
+    public string? WarningMessage => Warnings.Count == 0 ? null : string.Join(Environment.NewLine, Warnings);
+}
 
 /// <summary>
 /// Opens, creates and routes MailVault cases.
 /// Responsibility: lifecycle management of SqliteCaseIndexStore.
-/// Does NOT own diagnostic logic — delegates to CaseWorkspaceDiagnosticService.
 /// </summary>
 public sealed class CaseWorkspaceService : IDisposable
 {
@@ -44,56 +69,96 @@ public sealed class CaseWorkspaceService : IDisposable
     }
 
     /// <summary>
-    /// Opens an existing case folder. Validates with CaseWorkspaceDiagnosticService first.
-    /// Journal is a warning, not a fatal error. Absent manifest is a warning, not a fatal error.
-    /// Returns null if the folder cannot be opened at all.
+    /// Opens an existing case folder and loads case_info, stats and warnings.
+    /// Missing manifest and SQLite journal are warnings; invalid schema and unreadable DB are errors.
     /// </summary>
     public async Task<CaseOpenResult?> OpenExistingCaseAsync(string caseFolderPath, CancellationToken ct = default)
     {
         var diagnosis = await _diagnostics.DiagnoseAsync(caseFolderPath, ct);
 
-        // Hard fail: directory or DB missing
         if (!diagnosis.DirectoryExists)
-            throw new InvalidOperationException($"Diretório não encontrado: {caseFolderPath}");
+        {
+            throw new InvalidOperationException(diagnosis.ErrorMessage ?? $"Diretório não encontrado: {caseFolderPath}");
+        }
 
         if (!diagnosis.CaseDbExists)
-            throw new InvalidOperationException($"case.db não encontrado em: {caseFolderPath}");
+        {
+            throw new InvalidOperationException(diagnosis.ErrorMessage ?? $"case.db não encontrado em: {caseFolderPath}");
+        }
 
         if (!diagnosis.CaseDbReadable)
+        {
             throw new InvalidOperationException(diagnosis.ErrorMessage ?? "Não foi possível abrir case.db.");
+        }
 
-        // Dispose any previous store
+        if (!diagnosis.SchemaValid)
+        {
+            string missing = diagnosis.MissingSchemaObjects.Count == 0
+                ? "sem detalhes"
+                : string.Join(", ", diagnosis.MissingSchemaObjects);
+            throw new InvalidOperationException($"{diagnosis.ErrorMessage ?? "Schema do case.db incompatível."} Itens ausentes: {missing}");
+        }
+
         DisposeActiveStore();
 
         var store = new SqliteCaseIndexStore();
-        await store.InitializeAsync(caseFolderPath, ct);
-        _activeStore = store;
+        try
+        {
+            await store.InitializeAsync(caseFolderPath, ct);
+            _activeStore = store;
 
-        // Determine open mode and warning
-        CaseOpenMode mode;
-        string? warning = null;
+            using var reader = store.CreateReader();
+            CaseInfoRef? caseInfo = await reader.GetCaseInfoAsync(ct);
+            var stats = new CaseWorkspaceStats(
+                FolderCount: await reader.GetFolderCountAsync(ct),
+                MessageCount: await reader.GetMessageCountAsync(ct),
+                AttachmentCount: await reader.GetAttachmentCountAsync(ct),
+                IssueCount: await reader.GetIssueCountAsync(ct),
+                TotalAttachmentSizeBytes: await reader.GetTotalAttachmentSizeAsync(ct));
 
-        if (diagnosis.JournalFileExists && !diagnosis.ManifestExists)
-        {
-            mode = CaseOpenMode.LimitedJournal;
-            warning = "⚠ Journal SQLite detectado e manifest.json ausente. Caso aberto em modo limitado. Recomenda-se reindexar.";
-        }
-        else if (diagnosis.JournalFileExists)
-        {
-            mode = CaseOpenMode.LimitedJournal;
-            warning = "⚠ Arquivo de journal SQLite detectado. O SQLite recuperará automaticamente. Recomenda-se reindexar.";
-        }
-        else if (!diagnosis.ManifestExists)
-        {
-            mode = CaseOpenMode.LimitedNoManifest;
-            warning = "⚠ manifest.json ausente. Caso aberto em modo limitado. Metadados de auditoria podem estar incompletos.";
-        }
-        else
-        {
-            mode = CaseOpenMode.Full;
-        }
+            var warnings = new List<string>(diagnosis.Warnings);
+            if (caseInfo is null)
+            {
+                warnings.Add("case_info não contém metadados do caso.");
+            }
 
-        return new CaseOpenResult(caseFolderPath, store, mode, warning);
+            if (stats.MessageCount == 0)
+            {
+                warnings.Add("case.db foi aberto, mas não há mensagens indexadas.");
+            }
+
+            CaseOpenMode mode = DetermineOpenMode(diagnosis);
+            CaseWorkspaceStatus status = DetermineStatus(diagnosis, stats, warnings);
+            string? suggestedAction = status == CaseWorkspaceStatus.Empty
+                ? "Reindexe a mídia de origem ou confira o audit.log para entender por que nenhuma mensagem foi gravada."
+                : diagnosis.SuggestedAction;
+
+            return new CaseOpenResult(
+                CaseFolderPath: caseFolderPath,
+                CaseDbPath: diagnosis.CaseDbPath,
+                Store: store,
+                OpenMode: mode,
+                Status: status,
+                Diagnostic: diagnosis,
+                CaseInfo: caseInfo,
+                Stats: stats,
+                Warnings: warnings,
+                ErrorMessage: null,
+                SuggestedAction: suggestedAction);
+        }
+        catch
+        {
+            if (!ReferenceEquals(_activeStore, store))
+            {
+                store.Dispose();
+            }
+            else
+            {
+                DisposeActiveStore();
+            }
+
+            throw;
+        }
     }
 
     /// <summary>
@@ -125,6 +190,49 @@ public sealed class CaseWorkspaceService : IDisposable
     public void CloseActiveCase()
     {
         DisposeActiveStore();
+    }
+
+    private static CaseOpenMode DetermineOpenMode(CaseValidationResult diagnosis)
+    {
+        if (!diagnosis.ManifestExists && diagnosis.JournalFileExists)
+        {
+            return CaseOpenMode.LimitedNoManifestAndJournal;
+        }
+
+        if (!diagnosis.ManifestExists)
+        {
+            return CaseOpenMode.LimitedNoManifest;
+        }
+
+        if (diagnosis.JournalFileExists)
+        {
+            return CaseOpenMode.LimitedJournal;
+        }
+
+        return CaseOpenMode.Full;
+    }
+
+    private static CaseWorkspaceStatus DetermineStatus(
+        CaseValidationResult diagnosis,
+        CaseWorkspaceStats stats,
+        IReadOnlyCollection<string> warnings)
+    {
+        if (stats.MessageCount == 0)
+        {
+            return CaseWorkspaceStatus.Empty;
+        }
+
+        if (!diagnosis.ManifestExists)
+        {
+            return CaseWorkspaceStatus.Limited;
+        }
+
+        if (warnings.Count > 0)
+        {
+            return CaseWorkspaceStatus.Warning;
+        }
+
+        return CaseWorkspaceStatus.Intact;
     }
 
     private void DisposeActiveStore()

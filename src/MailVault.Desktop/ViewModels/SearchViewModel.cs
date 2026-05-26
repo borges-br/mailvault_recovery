@@ -1,6 +1,5 @@
 using System;
 using System.Collections.ObjectModel;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using MailVault.Core;
@@ -9,11 +8,12 @@ using ReactiveUI;
 
 namespace MailVault.Desktop.ViewModels;
 
-public class SearchViewModel : ViewModelBase
+public class SearchViewModel : LoadableViewModelBase
 {
     private string _searchQuery = "";
     private string _statusText = "";
     private MailItem? _selectedMessage;
+    private ICaseIndexReader? _reader;
 
     public string SearchQuery
     {
@@ -42,8 +42,6 @@ public class SearchViewModel : ViewModelBase
         }
     }
 
-    private ICaseIndexReader? _reader;
-
     public ICommand SearchCommand { get; }
 
     public event Action<MailItem>? MessageSelected;
@@ -58,35 +56,55 @@ public class SearchViewModel : ViewModelBase
         _reader = reader;
     }
 
+    public void ClearReader()
+    {
+        _reader = null;
+        SelectedMessage = null;
+        Results.Clear();
+        SearchQuery = "";
+        StatusText = "";
+        Reset();
+    }
+
     public async Task OnSearchAsync()
     {
         if (_reader == null)
         {
-            StatusText = "Erro: Leitor do caso não inicializado.";
+            ShowSearchError("Erro: leitor do caso não inicializado.");
             return;
         }
 
         if (string.IsNullOrWhiteSpace(SearchQuery))
         {
-            StatusText = "Por favor, digite um termo de busca.";
+            ShowSearchError("Digite um termo de busca.");
             return;
         }
 
-        Results.Clear();
-        StatusText = "Buscando...";
-
-        var list = new System.Collections.Generic.List<MailItem>();
-        await foreach (var msg in _reader.SearchMessagesAsync(SearchQuery, null, 100, 0, CancellationToken.None))
+        await ExecuteLoadAsync(async ct =>
         {
-            list.Add(msg);
-        }
+            Results.Clear();
+            StatusText = "Buscando...";
 
-        foreach (var msg in list)
-        {
-            Results.Add(msg);
-        }
+            var list = new System.Collections.Generic.List<MailItem>();
+            await foreach (var msg in _reader.SearchMessagesAsync(SearchQuery, null, 100, 0, ct))
+            {
+                list.Add(msg);
+            }
 
-        StatusText = $"Busca concluída. Encontradas {Results.Count} correspondências.";
+            foreach (var msg in list)
+            {
+                Results.Add(msg);
+            }
+
+            StatusText = $"Busca concluída. Encontradas {Results.Count} correspondências.";
+            State = Results.Count == 0 ? LoadingState.Empty : LoadingState.Loaded;
+        }, "Buscando mensagens...");
     }
 
+    private void ShowSearchError(string message)
+    {
+        State = LoadingState.Error;
+        ErrorMessage = message;
+        StatusText = message;
+    }
 }

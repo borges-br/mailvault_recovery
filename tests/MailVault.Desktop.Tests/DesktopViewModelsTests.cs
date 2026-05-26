@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using MailVault.Core;
@@ -39,7 +40,7 @@ public class DesktopViewModelsTests
         public Task<(string fileName, long sizeBytes)> GetLargestAttachmentAsync(CancellationToken ct) 
             => Task.FromResult(("test.bin", 0L));
 
-        public async IAsyncEnumerable<MailItem> SearchMessagesAsync(string queryText, string? folderPath, int limit, int offset, CancellationToken ct)
+        public async IAsyncEnumerable<MailItem> SearchMessagesAsync(string queryText, string? folderPath, int limit, int offset, [EnumeratorCancellation] CancellationToken ct)
         {
             foreach (var msg in SearchResults)
             {
@@ -48,7 +49,7 @@ public class DesktopViewModelsTests
             await Task.CompletedTask;
         }
 
-        public async IAsyncEnumerable<FolderNode> GetFolderHierarchyAsync(CancellationToken ct)
+        public async IAsyncEnumerable<FolderNode> GetFolderHierarchyAsync([EnumeratorCancellation] CancellationToken ct)
         {
             foreach (var folder in Folders)
             {
@@ -57,7 +58,7 @@ public class DesktopViewModelsTests
             await Task.CompletedTask;
         }
 
-        public async IAsyncEnumerable<MailItem> GetMessagesInFolderAsync(FolderId folderId, int limit, int offset, CancellationToken ct)
+        public async IAsyncEnumerable<MailItem> GetMessagesInFolderAsync(FolderId folderId, int limit, int offset, [EnumeratorCancellation] CancellationToken ct)
         {
             foreach (var msg in Messages)
             {
@@ -533,6 +534,310 @@ public class DesktopViewModelsTests
         Assert.Contains("MailVault.Desktop", asm.FullName);
     }
 
+    [Fact]
+    public async Task CaseWorkspaceDiagnosticService_ReadsExistingCaseDb()
+    {
+        string tempDir = CreateTempDir();
+        try
+        {
+            await CreateMinimalCaseDbAsync(Path.Combine(tempDir, "case.db"), messageCount: 2, attachmentCount: 1, issueCount: 1);
+            File.WriteAllText(Path.Combine(tempDir, "manifest.json"), "{}");
+
+            var svc = new CaseWorkspaceDiagnosticService();
+            var result = await svc.DiagnoseAsync(tempDir, CancellationToken.None);
+
+            Assert.True(result.DirectoryExists);
+            Assert.True(result.CaseDbExists);
+            Assert.True(result.CaseDbReadable);
+            Assert.True(result.SchemaValid);
+            Assert.Equal(2, result.SchemaVersion);
+            Assert.Equal(1, result.CaseInfoRowCount);
+            Assert.Equal(1, result.FolderRowCount);
+            Assert.Equal(2, result.MessageRowCount);
+            Assert.Equal(1, result.AttachmentRowCount);
+            Assert.Equal(1, result.IssueRowCount);
+        }
+        finally
+        {
+            DeleteDirectoryWithRetry(tempDir);
+        }
+    }
+
+    [Fact]
+    public async Task CaseWorkspaceDiagnosticService_DetectsMissingManifestAsWarning()
+    {
+        string tempDir = CreateTempDir();
+        try
+        {
+            await CreateMinimalCaseDbAsync(Path.Combine(tempDir, "case.db"), messageCount: 1);
+
+            var result = await new CaseWorkspaceDiagnosticService().DiagnoseAsync(tempDir, CancellationToken.None);
+
+            Assert.False(result.ManifestExists);
+            Assert.True(result.CanOpenLimited);
+            Assert.Contains(result.Warnings, warning => warning.Contains("manifest.json ausente"));
+            Assert.Null(result.ErrorMessage);
+        }
+        finally
+        {
+            DeleteDirectoryWithRetry(tempDir);
+        }
+    }
+
+    [Fact]
+    public async Task CaseWorkspaceDiagnosticService_DetectsJournalAsWarning()
+    {
+        string tempDir = CreateTempDir();
+        try
+        {
+            await CreateMinimalCaseDbAsync(Path.Combine(tempDir, "case.db"), messageCount: 1);
+            File.WriteAllText(Path.Combine(tempDir, "case.db-journal"), "");
+
+            var result = await new CaseWorkspaceDiagnosticService().DiagnoseAsync(tempDir, CancellationToken.None);
+
+            Assert.True(result.JournalFileExists);
+            Assert.True(result.CanOpenLimited);
+            Assert.Contains(result.Warnings, warning => warning.Contains("case.db-journal detectado"));
+            Assert.Null(result.ErrorMessage);
+        }
+        finally
+        {
+            DeleteDirectoryWithRetry(tempDir);
+        }
+    }
+
+    [Fact]
+    public async Task CaseWorkspaceService_LoadsCaseInfoFromSyntheticCaseDb()
+    {
+        string tempDir = CreateTempDir();
+        try
+        {
+            await CreateMinimalCaseDbAsync(Path.Combine(tempDir, "case.db"), messageCount: 1);
+            File.WriteAllText(Path.Combine(tempDir, "manifest.json"), "{}");
+
+            using var service = new CaseWorkspaceService(new CaseWorkspaceDiagnosticService());
+            var workspace = await service.OpenExistingCaseAsync(tempDir, CancellationToken.None);
+
+            Assert.NotNull(workspace);
+            Assert.NotNull(workspace!.CaseInfo);
+            Assert.Equal("SYNTH-CASE-001", workspace.CaseInfo!.CaseId);
+            Assert.Equal("SyntheticAdapter", workspace.CaseInfo.AdapterName);
+            Assert.Equal("9.1.0", workspace.CaseInfo.AdapterVersion);
+            Assert.EndsWith("synthetic.ost", workspace.CaseInfo.SourceFile);
+        }
+        finally
+        {
+            DeleteDirectoryWithRetry(tempDir);
+        }
+    }
+
+    [Fact]
+    public async Task CaseWorkspaceService_LoadsStatsFromSyntheticCaseDb()
+    {
+        string tempDir = CreateTempDir();
+        try
+        {
+            await CreateMinimalCaseDbAsync(Path.Combine(tempDir, "case.db"), folderCount: 2, messageCount: 3, attachmentCount: 2, issueCount: 1);
+            File.WriteAllText(Path.Combine(tempDir, "manifest.json"), "{}");
+
+            using var service = new CaseWorkspaceService(new CaseWorkspaceDiagnosticService());
+            var workspace = await service.OpenExistingCaseAsync(tempDir, CancellationToken.None);
+
+            Assert.NotNull(workspace);
+            Assert.Equal(2, workspace!.Stats.FolderCount);
+            Assert.Equal(3, workspace.Stats.MessageCount);
+            Assert.Equal(2, workspace.Stats.AttachmentCount);
+            Assert.Equal(1, workspace.Stats.IssueCount);
+            Assert.True(workspace.Stats.TotalAttachmentSizeBytes > 0);
+        }
+        finally
+        {
+            DeleteDirectoryWithRetry(tempDir);
+        }
+    }
+
+    [Fact]
+    public async Task CaseOverviewViewModel_PopulatesFieldsFromWorkspace()
+    {
+        string tempDir = CreateTempDir();
+        try
+        {
+            await CreateMinimalCaseDbAsync(Path.Combine(tempDir, "case.db"), messageCount: 2, attachmentCount: 1);
+            File.WriteAllText(Path.Combine(tempDir, "manifest.json"), "{}");
+
+            using var service = new CaseWorkspaceService(new CaseWorkspaceDiagnosticService());
+            var workspace = await service.OpenExistingCaseAsync(tempDir, CancellationToken.None);
+            var vm = new CaseOverviewViewModel();
+
+            await vm.LoadFromWorkspaceAsync(workspace!, CancellationToken.None);
+
+            Assert.Equal("SYNTH-CASE-001", vm.CaseId);
+            Assert.Equal("SyntheticAdapter", vm.AdapterName);
+            Assert.Equal("9.1.0", vm.AdapterVersion);
+            Assert.Equal("SyntheticAdapter (9.1.0)", vm.AdapterNameVersion);
+            Assert.Contains("<USER>", vm.SourceFileMasked);
+            Assert.Equal("0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF", vm.SourceSha256);
+            Assert.Equal(2, vm.MessageCount);
+            Assert.Equal(1, vm.AttachmentCount);
+            Assert.Equal("Íntegro", vm.HealthStatus);
+            Assert.Equal(LoadingState.Loaded, vm.State);
+        }
+        finally
+        {
+            DeleteDirectoryWithRetry(tempDir);
+        }
+    }
+
+    [Fact]
+    public async Task CaseOverviewViewModel_ShowsEmptyStateWhenDbHasNoMessages()
+    {
+        string tempDir = CreateTempDir();
+        try
+        {
+            await CreateMinimalCaseDbAsync(Path.Combine(tempDir, "case.db"), includeCaseInfo: false);
+
+            using var service = new CaseWorkspaceService(new CaseWorkspaceDiagnosticService());
+            var workspace = await service.OpenExistingCaseAsync(tempDir, CancellationToken.None);
+            var vm = new CaseOverviewViewModel();
+
+            await vm.LoadFromWorkspaceAsync(workspace!, CancellationToken.None);
+
+            Assert.Equal(LoadingState.Empty, vm.State);
+            Assert.Equal("Vazio", vm.HealthStatus);
+            Assert.Equal(0, vm.MessageCount);
+            Assert.Contains(vm.Warnings, warning => warning.Contains("não há mensagens indexadas"));
+            Assert.Contains(vm.Warnings, warning => warning.Contains("case_info"));
+            Assert.False(string.IsNullOrWhiteSpace(vm.SuggestedAction));
+        }
+        finally
+        {
+            DeleteDirectoryWithRetry(tempDir);
+        }
+    }
+
+    [Fact]
+    public async Task CaseOverviewViewModel_DoesNotShowIntactStatusWhenWarningsExist()
+    {
+        string tempDir = CreateTempDir();
+        try
+        {
+            await CreateMinimalCaseDbAsync(Path.Combine(tempDir, "case.db"), messageCount: 1);
+
+            using var service = new CaseWorkspaceService(new CaseWorkspaceDiagnosticService());
+            var workspace = await service.OpenExistingCaseAsync(tempDir, CancellationToken.None);
+            var vm = new CaseOverviewViewModel();
+
+            await vm.LoadFromWorkspaceAsync(workspace!, CancellationToken.None);
+
+            Assert.NotEqual("Íntegro", vm.HealthStatus);
+            Assert.Equal("Modo limitado", vm.HealthStatus);
+            Assert.Contains(vm.Warnings, warning => warning.Contains("manifest.json ausente"));
+        }
+        finally
+        {
+            DeleteDirectoryWithRetry(tempDir);
+        }
+    }
+
+    [Fact]
+    public async Task MainWindowViewModel_OpenCaseLoadsOverviewAndFolderTree()
+    {
+        string tempDir = CreateTempDir();
+        string recentFile = Path.Combine(Path.GetTempPath(), $"mv-recent-{Guid.NewGuid():N}.json");
+        MainWindowViewModel? vm = null;
+        try
+        {
+            await CreateMinimalCaseDbAsync(Path.Combine(tempDir, "case.db"), folderCount: 2, messageCount: 2);
+            File.WriteAllText(Path.Combine(tempDir, "manifest.json"), "{}");
+
+            vm = new MainWindowViewModel(
+                new CaseWorkspaceDiagnosticService(),
+                recentCasesService: new RecentCasesService(recentFile));
+
+            await vm.LoadCaseAsync(tempDir);
+
+            Assert.True(vm.IsCaseLoaded);
+            Assert.Same(vm.OverviewVm, vm.CurrentView);
+            Assert.Equal("SYNTH-CASE-001", vm.OverviewVm.CaseId);
+            Assert.Equal(2, vm.OverviewVm.MessageCount);
+            Assert.Equal(2, vm.FolderTreeVm.RootFolders.Count);
+            Assert.Equal("Íntegro", vm.CaseStatusText);
+        }
+        finally
+        {
+            vm?.CloseCase();
+
+            if (File.Exists(recentFile))
+            {
+                File.Delete(recentFile);
+            }
+
+            DeleteDirectoryWithRetry(tempDir);
+        }
+    }
+
+    [Fact]
+    public async Task HomeViewModel_RecentCaseOpensRealWorkspace()
+    {
+        string tempDir = CreateTempDir();
+        try
+        {
+            await CreateMinimalCaseDbAsync(Path.Combine(tempDir, "case.db"), messageCount: 1);
+            var vm = new HomeViewModel(new CaseWorkspaceDiagnosticService());
+            string? openedPath = null;
+            vm.CaseSelected += path => openedPath = path;
+
+            await vm.OpenRecentCaseAsync(new RecentCaseEntry
+            {
+                CaseId = "SYNTH-CASE-001",
+                CaseFolderPath = tempDir,
+                OpenMode = "Full",
+                LastOpenedAt = DateTimeOffset.UtcNow,
+                SchemaVersion = 2
+            });
+
+            Assert.Equal(tempDir, openedPath);
+            Assert.Equal(tempDir, vm.SelectedCasePath);
+            Assert.NotNull(vm.RemoveRecentCaseCommand);
+        }
+        finally
+        {
+            DeleteDirectoryWithRetry(tempDir);
+        }
+    }
+
+    [Fact]
+    public void CaseOverviewViewModel_ExposesPropertiesUsedByOverviewBindings()
+    {
+        var properties = typeof(CaseOverviewViewModel)
+            .GetProperties()
+            .Select(prop => prop.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
+        string[] overviewBindings =
+        {
+            nameof(CaseOverviewViewModel.CaseId),
+            nameof(CaseOverviewViewModel.AdapterNameVersion),
+            nameof(CaseOverviewViewModel.SourceFileMasked),
+            nameof(CaseOverviewViewModel.FolderCount),
+            nameof(CaseOverviewViewModel.MessageCount),
+            nameof(CaseOverviewViewModel.AttachmentCount),
+            nameof(CaseOverviewViewModel.IssueCount),
+            nameof(CaseOverviewViewModel.TotalAttachmentSizeFormatted),
+            nameof(CaseOverviewViewModel.HealthStatus),
+            nameof(CaseOverviewViewModel.SourceSha256),
+            nameof(CaseOverviewViewModel.Warnings),
+            nameof(CaseOverviewViewModel.HasWarnings),
+            nameof(CaseOverviewViewModel.SuggestedAction),
+            nameof(CaseOverviewViewModel.ErrorMessage)
+        };
+
+        foreach (string binding in overviewBindings)
+        {
+            Assert.Contains(binding, properties);
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
@@ -547,6 +852,14 @@ public class DesktopViewModelsTests
         GC.Collect();
         // Brief sleep to let the OS release file locks on Windows
         System.Threading.Thread.Sleep(50);
+    }
+
+    /// <summary>Deletes a directory with retries on Windows file-lock exceptions.</summary>
+    private static string CreateTempDir()
+    {
+        string tempDir = Path.Combine(Path.GetTempPath(), $"mv-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        return tempDir;
     }
 
     /// <summary>Deletes a directory with retries on Windows file-lock exceptions.</summary>
@@ -571,31 +884,171 @@ public class DesktopViewModelsTests
             Directory.Delete(path, recursive: true);
     }
 
-    /// <summary>Creates a minimal valid SQLite database at the given path.</summary>
-    private static async Task CreateMinimalCaseDbAsync(string dbPath)
+    /// <summary>Creates a minimal valid SQLite database at the given path using the production schema.</summary>
+    private static async Task CreateMinimalCaseDbAsync(
+        string dbPath,
+        bool includeCaseInfo = true,
+        int folderCount = 1,
+        int messageCount = 0,
+        int attachmentCount = 0,
+        int issueCount = 0)
     {
         using var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={dbPath}");
         await conn.OpenAsync();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"
+        using var schemaCmd = conn.CreateCommand();
+        schemaCmd.CommandText = @"
             PRAGMA foreign_keys = ON;
-            PRAGMA user_version = 2;
-            CREATE TABLE IF NOT EXISTS case_info (
-                id INTEGER PRIMARY KEY,
-                case_id TEXT NOT NULL,
-                source_file TEXT NOT NULL,
-                source_sha256 TEXT NOT NULL,
+            CREATE TABLE schema_version (version INTEGER PRIMARY KEY);
+            INSERT INTO schema_version (version) VALUES (2);
+            CREATE TABLE case_info (
+                case_id TEXT PRIMARY KEY,
+                source_file TEXT,
+                source_size INTEGER,
+                source_sha256 TEXT,
+                operator_name TEXT,
+                started_at TEXT,
+                completed_at TEXT,
                 adapter_name TEXT,
-                adapter_version TEXT,
-                started_at TEXT
+                adapter_version TEXT
             );
-            CREATE TABLE IF NOT EXISTS folders (id TEXT PRIMARY KEY, display_name TEXT);
-            CREATE TABLE IF NOT EXISTS messages (id TEXT PRIMARY KEY, folder_id TEXT);
-            CREATE TABLE IF NOT EXISTS attachments (id TEXT PRIMARY KEY, message_id TEXT);
-            CREATE TABLE IF NOT EXISTS issues (id INTEGER PRIMARY KEY, object_id TEXT);
-            INSERT INTO case_info (case_id, source_file, source_sha256) VALUES ('TEST-001', 'test.ost', 'AABB');
+            CREATE TABLE folders (
+                folder_id TEXT PRIMARY KEY,
+                parent_id TEXT,
+                display_name TEXT,
+                full_path TEXT,
+                message_count INTEGER,
+                FOREIGN KEY(parent_id) REFERENCES folders(folder_id)
+            );
+            CREATE TABLE messages (
+                message_id TEXT PRIMARY KEY,
+                internet_message_id TEXT,
+                folder_id TEXT,
+                subject TEXT,
+                sender TEXT,
+                recipients_to TEXT,
+                recipients_cc TEXT,
+                recipients_bcc TEXT,
+                sent_at TEXT,
+                received_at TEXT,
+                has_text_body INTEGER,
+                has_html_body INTEGER,
+                body_preview TEXT,
+                attachment_count INTEGER,
+                mapi_properties_count INTEGER,
+                FOREIGN KEY(folder_id) REFERENCES folders(folder_id)
+            );
+            CREATE TABLE attachments (
+                attachment_id TEXT PRIMARY KEY,
+                message_id TEXT,
+                file_name TEXT,
+                content_type TEXT,
+                size_bytes INTEGER,
+                content_id TEXT,
+                is_inline INTEGER,
+                FOREIGN KEY(message_id) REFERENCES messages(message_id)
+            );
+            CREATE TABLE issues (
+                issue_code TEXT,
+                severity TEXT,
+                message TEXT,
+                object_id TEXT,
+                technical_details TEXT
+            );
+            CREATE TABLE index_runs (
+                run_id TEXT PRIMARY KEY,
+                case_id TEXT,
+                timestamp TEXT,
+                status TEXT,
+                duration_ms INTEGER,
+                folders_indexed INTEGER,
+                messages_indexed INTEGER,
+                attachments_indexed INTEGER,
+                issues_detected INTEGER,
+                FOREIGN KEY(case_id) REFERENCES case_info(case_id)
+            );
+            CREATE INDEX idx_messages_folder_id ON messages(folder_id);
+            CREATE INDEX idx_messages_subject ON messages(subject);
+            CREATE INDEX idx_messages_sender ON messages(sender);
+            CREATE INDEX idx_attachments_message_id ON attachments(message_id);
+            CREATE INDEX idx_issues_object_id ON issues(object_id);
         ";
-        await cmd.ExecuteNonQueryAsync();
+        await schemaCmd.ExecuteNonQueryAsync();
+
+        if (includeCaseInfo)
+        {
+            using var caseCmd = conn.CreateCommand();
+            caseCmd.CommandText = @"
+                INSERT INTO case_info (
+                    case_id, source_file, source_size, source_sha256, operator_name,
+                    started_at, completed_at, adapter_name, adapter_version)
+                VALUES (
+                    'SYNTH-CASE-001',
+                    'C:\Users\natha\Evidence\synthetic.ost',
+                    4096,
+                    '0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF',
+                    'Tester',
+                    '2026-05-26T12:00:00.0000000+00:00',
+                    NULL,
+                    'SyntheticAdapter',
+                    '9.1.0');";
+            await caseCmd.ExecuteNonQueryAsync();
+        }
+
+        int effectiveFolderCount = Math.Max(folderCount, messageCount > 0 ? 1 : 0);
+        for (int i = 1; i <= effectiveFolderCount; i++)
+        {
+            using var folderCmd = conn.CreateCommand();
+            folderCmd.CommandText = @"
+                INSERT INTO folders (folder_id, parent_id, display_name, full_path, message_count)
+                VALUES ($folderId, NULL, $displayName, $fullPath, $messageCount);";
+            folderCmd.Parameters.AddWithValue("$folderId", $"F{i}");
+            folderCmd.Parameters.AddWithValue("$displayName", $"Folder {i}");
+            folderCmd.Parameters.AddWithValue("$fullPath", $"\\Folder {i}");
+            folderCmd.Parameters.AddWithValue("$messageCount", i == 1 ? messageCount : 0);
+            await folderCmd.ExecuteNonQueryAsync();
+        }
+
+        for (int i = 1; i <= messageCount; i++)
+        {
+            using var messageCmd = conn.CreateCommand();
+            messageCmd.CommandText = @"
+                INSERT INTO messages (
+                    message_id, internet_message_id, folder_id, subject, sender,
+                    recipients_to, recipients_cc, recipients_bcc, sent_at, received_at,
+                    has_text_body, has_html_body, body_preview, attachment_count, mapi_properties_count)
+                VALUES (
+                    $messageId, $internetMessageId, 'F1', $subject, 'Sender <sender@example.com>',
+                    'Receiver <receiver@example.com>', '', '', '2026-05-26T12:00:00.0000000+00:00',
+                    '2026-05-26T12:01:00.0000000+00:00', 1, 0, 'Synthetic preview only',
+                    $attachmentCount, 0);";
+            messageCmd.Parameters.AddWithValue("$messageId", $"M{i}");
+            messageCmd.Parameters.AddWithValue("$internetMessageId", $"<m{i}@example.com>");
+            messageCmd.Parameters.AddWithValue("$subject", $"Synthetic message {i}");
+            messageCmd.Parameters.AddWithValue("$attachmentCount", i == 1 ? attachmentCount : 0);
+            await messageCmd.ExecuteNonQueryAsync();
+        }
+
+        for (int i = 1; i <= attachmentCount; i++)
+        {
+            using var attachmentCmd = conn.CreateCommand();
+            attachmentCmd.CommandText = @"
+                INSERT INTO attachments (attachment_id, message_id, file_name, content_type, size_bytes, content_id, is_inline)
+                VALUES ($attachmentId, 'M1', $fileName, 'application/octet-stream', $sizeBytes, NULL, 0);";
+            attachmentCmd.Parameters.AddWithValue("$attachmentId", $"A{i}");
+            attachmentCmd.Parameters.AddWithValue("$fileName", $"file-{i}.bin");
+            attachmentCmd.Parameters.AddWithValue("$sizeBytes", i * 1024);
+            await attachmentCmd.ExecuteNonQueryAsync();
+        }
+
+        for (int i = 1; i <= issueCount; i++)
+        {
+            using var issueCmd = conn.CreateCommand();
+            issueCmd.CommandText = @"
+                INSERT INTO issues (issue_code, severity, message, object_id, technical_details)
+                VALUES ($code, 'Warning', 'Synthetic issue', 'M1', 'Synthetic technical details');";
+            issueCmd.Parameters.AddWithValue("$code", $"ISSUE-{i}");
+            await issueCmd.ExecuteNonQueryAsync();
+        }
     }
 
     /// <summary>A reader that always throws to test error-state handling.</summary>
@@ -613,12 +1066,12 @@ public class DesktopViewModelsTests
             => Task.FromResult(new Dictionary<string, int>());
         public Task<(string fileName, long sizeBytes)> GetLargestAttachmentAsync(CancellationToken ct) 
             => Task.FromResult(("", 0L));
-        public async IAsyncEnumerable<MailItem> SearchMessagesAsync(string q, string? f, int l, int o, CancellationToken ct) 
-            { yield break; await Task.CompletedTask; }
-        public async IAsyncEnumerable<FolderNode> GetFolderHierarchyAsync(CancellationToken ct) 
-            { yield break; await Task.CompletedTask; }
-        public async IAsyncEnumerable<MailItem> GetMessagesInFolderAsync(FolderId folderId, int limit, int offset, CancellationToken ct) 
-            { yield break; await Task.CompletedTask; }
+        public async IAsyncEnumerable<MailItem> SearchMessagesAsync(string q, string? f, int l, int o, [EnumeratorCancellation] CancellationToken ct) 
+            { await Task.CompletedTask; yield break; }
+        public async IAsyncEnumerable<FolderNode> GetFolderHierarchyAsync([EnumeratorCancellation] CancellationToken ct) 
+            { await Task.CompletedTask; yield break; }
+        public async IAsyncEnumerable<MailItem> GetMessagesInFolderAsync(FolderId folderId, int limit, int offset, [EnumeratorCancellation] CancellationToken ct) 
+            { await Task.CompletedTask; yield break; }
         public Task<MailItem?> GetMessageByIdAsync(MessageId messageId, CancellationToken ct) 
             => Task.FromResult<MailItem?>(null);
         public void Dispose() { }

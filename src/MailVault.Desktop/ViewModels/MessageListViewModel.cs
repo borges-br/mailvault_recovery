@@ -10,7 +10,7 @@ using ReactiveUI;
 
 namespace MailVault.Desktop.ViewModels;
 
-public class MessageListViewModel : ViewModelBase
+public class MessageListViewModel : LoadableViewModelBase
 {
     private FolderId? _currentFolderId;
     private int _currentPage = 1;
@@ -51,8 +51,8 @@ public class MessageListViewModel : ViewModelBase
     public MessageListViewModel()
     {
         Messages = new ObservableCollection<MailItem>();
-        NextPageCommand = ReactiveCommand.Create(OnNextPage);
-        PrevPageCommand = ReactiveCommand.Create(OnPrevPage);
+        NextPageCommand = ReactiveCommand.CreateFromTask(OnNextPageAsync);
+        PrevPageCommand = ReactiveCommand.CreateFromTask(OnPrevPageAsync);
     }
 
     public async Task SetFolderAsync(FolderId folderId, ICaseIndexReader reader, CancellationToken ct)
@@ -67,39 +67,54 @@ public class MessageListViewModel : ViewModelBase
     {
         if (_currentFolderId == null) return;
 
-        Messages.Clear();
-        int offset = (CurrentPage - 1) * _pageSize;
-
-        var list = new List<MailItem>();
-        await foreach (var msg in reader.GetMessagesInFolderAsync(_currentFolderId, _pageSize, offset, ct))
+        await ExecuteLoadAsync(async linkedCt =>
         {
-            list.Add(msg);
-        }
+            Messages.Clear();
+            int offset = (CurrentPage - 1) * _pageSize;
 
-        foreach (var msg in list)
-        {
-            Messages.Add(msg);
-        }
+            var list = new List<MailItem>();
+            await foreach (var msg in reader.GetMessagesInFolderAsync(_currentFolderId, _pageSize, offset, linkedCt))
+            {
+                list.Add(msg);
+            }
 
-        _totalCount = Messages.Count == _pageSize ? offset + _pageSize + 1 : offset + Messages.Count;
-        this.RaisePropertyChanged(nameof(TotalPages));
+            foreach (var msg in list)
+            {
+                Messages.Add(msg);
+            }
+
+            _totalCount = Messages.Count == _pageSize ? offset + _pageSize + 1 : offset + Messages.Count;
+            this.RaisePropertyChanged(nameof(TotalPages));
+            State = Messages.Count == 0 ? LoadingState.Empty : LoadingState.Loaded;
+        }, "Carregando mensagens...");
     }
 
-    private void OnNextPage()
+    private async Task OnNextPageAsync()
     {
         if (CurrentPage < TotalPages && _reader != null)
         {
             CurrentPage++;
-            _ = LoadMessagesAsync(_reader, CancellationToken.None);
+            await LoadMessagesAsync(_reader, CancellationToken.None);
         }
     }
 
-    private void OnPrevPage()
+    private async Task OnPrevPageAsync()
     {
         if (CurrentPage > 1 && _reader != null)
         {
             CurrentPage--;
-            _ = LoadMessagesAsync(_reader, CancellationToken.None);
+            await LoadMessagesAsync(_reader, CancellationToken.None);
         }
+    }
+
+    public void ResetMessages()
+    {
+        _currentFolderId = null;
+        CurrentPage = 1;
+        _totalCount = 0;
+        SelectedMessage = null;
+        Messages.Clear();
+        this.RaisePropertyChanged(nameof(TotalPages));
+        Reset();
     }
 }

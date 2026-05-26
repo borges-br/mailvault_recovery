@@ -11,7 +11,7 @@ namespace MailVault.Desktop.ViewModels;
 
 public class HomeViewModel : LoadableViewModelBase
 {
-    private string _statusText = "Selecione uma pasta de caso existente ou arraste um arquivo .ost/.pst.";
+    private string _statusText = "Escolha um fluxo para iniciar.";
     private string? _selectedCasePath;
     private string? _warningBanner;
     private bool _hasWarningBanner;
@@ -36,7 +36,7 @@ public class HomeViewModel : LoadableViewModelBase
         set
         {
             this.RaiseAndSetIfChanged(ref _warningBanner, value);
-            HasWarningBanner = !string.IsNullOrEmpty(value);
+            HasWarningBanner = !string.IsNullOrWhiteSpace(value);
         }
     }
 
@@ -51,8 +51,12 @@ public class HomeViewModel : LoadableViewModelBase
     public ICommand OpenCaseCommand { get; }
     public ICommand CreateCaseCommand { get; }
     public ICommand OpenMboxCaseCommand { get; }
+    public ICommand OpenRecentCaseCommand { get; }
+    public ICommand RemoveRecentCaseCommand { get; }
+    public ICommand RetryCommand { get; }
 
     public event Action<string>? CaseSelected;
+    public event Action<string>? RecentCaseRemovalRequested;
 
     public HomeViewModel() : this(new CaseWorkspaceDiagnosticService()) { }
 
@@ -62,79 +66,117 @@ public class HomeViewModel : LoadableViewModelBase
         OpenCaseCommand = ReactiveCommand.CreateFromTask(OnOpenCaseAsync);
         CreateCaseCommand = ReactiveCommand.Create(OnCreateCase);
         OpenMboxCaseCommand = ReactiveCommand.Create(OnOpenMbox);
+        OpenRecentCaseCommand = ReactiveCommand.CreateFromTask<RecentCaseEntry>(OpenRecentCaseAsync);
+        RemoveRecentCaseCommand = ReactiveCommand.Create<RecentCaseEntry>(RemoveRecentCase);
+        RetryCommand = ReactiveCommand.CreateFromTask(OnOpenCaseAsync);
     }
 
     private async Task OnOpenCaseAsync()
     {
         if (string.IsNullOrWhiteSpace(SelectedCasePath))
         {
-            StatusText = "⚠ Por favor, especifique um caminho válido.";
+            ShowError("Informe uma pasta de caso existente.", "Selecione uma pasta que contenha case.db.");
             return;
         }
 
         await ExecuteLoadAsync(async (ct) =>
         {
-            StatusText = "Validando caso...";
+            StatusText = "Validando pasta do caso e schema do case.db...";
             WarningBanner = null;
 
             var diagnosis = await _diagnostics.DiagnoseAsync(SelectedCasePath, ct);
 
             if (!diagnosis.DirectoryExists)
             {
-                State = LoadingState.Error;
-                ErrorMessage = $"Diretório não encontrado: {SelectedCasePath}";
-                StatusText = ErrorMessage;
+                ShowError($"Diretório não encontrado: {SelectedCasePath}", diagnosis.SuggestedAction);
                 return;
             }
 
             if (!diagnosis.CaseDbExists)
             {
-                State = LoadingState.Error;
-                ErrorMessage = "case.db não encontrado neste diretório.";
-                StatusText = ErrorMessage;
-                if (diagnosis.SuggestedAction != null)
-                    StatusText += $"\n{diagnosis.SuggestedAction}";
+                ShowError("case.db não encontrado neste diretório.", diagnosis.SuggestedAction);
                 return;
             }
 
-            if (!diagnosis.CaseDbReadable)
+            if (!diagnosis.CaseDbReadable || !diagnosis.SchemaValid)
             {
-                State = LoadingState.Error;
-                ErrorMessage = diagnosis.ErrorMessage ?? "Não foi possível ler case.db.";
-                StatusText = ErrorMessage;
+                string message = diagnosis.ErrorMessage ?? "Não foi possível ler case.db.";
+                if (diagnosis.MissingSchemaObjects.Count > 0)
+                {
+                    message += $" Itens ausentes: {string.Join(", ", diagnosis.MissingSchemaObjects)}";
+                }
+
+                ShowError(message, diagnosis.SuggestedAction);
                 return;
             }
 
-            // Warnings (journal, missing manifest)
-            if (diagnosis.JournalFileExists)
-                WarningBanner = "⚠ Journal SQLite detectado. O banco será aberto com recuperação automática.";
-            else if (!diagnosis.ManifestExists)
-                WarningBanner = "⚠ manifest.json ausente. Caso aberto em modo limitado.";
+            if (diagnosis.HasWarnings)
+            {
+                WarningBanner = string.Join(Environment.NewLine, diagnosis.Warnings);
+            }
 
             State = LoadingState.Loaded;
+            StatusText = "case.db validado. Abrindo workspace...";
             CaseSelected?.Invoke(SelectedCasePath);
-        }, "Validando caso...");
+        }, "Validando case.db...");
+    }
+
+    public async Task OpenRecentCaseAsync(RecentCaseEntry entry)
+    {
+        SelectedCasePath = entry.CaseFolderPath;
+
+        if (!Directory.Exists(entry.CaseFolderPath))
+        {
+            ShowError(
+                $"Case recente não encontrado: {entry.CaseFolderPath}",
+                "Remova este item da lista de recentes ou restaure a pasta original.");
+            return;
+        }
+
+        StatusText = $"Abrindo case recente: {entry.CaseId}";
+        await Task.CompletedTask;
+        CaseSelected?.Invoke(entry.CaseFolderPath);
+    }
+
+    private void RemoveRecentCase(RecentCaseEntry entry)
+    {
+        RecentCaseRemovalRequested?.Invoke(entry.CaseFolderPath);
     }
 
     private void OnCreateCase()
     {
-        StatusText = "ℹ A criação de caso pela UI está em desenvolvimento. Use 'mailvault index' no terminal.";
+        State = LoadingState.Empty;
+        StatusText = "Criação de case a partir de OST/PST está em desenvolvimento na UI.";
+        WarningBanner = "Fluxo disponível pelo CLI: mailvault index <arquivo.ost|arquivo.pst>.";
     }
 
     private void OnOpenMbox()
     {
-        StatusText = "ℹ Suporte a MBOX: use 'mailvault index <arquivo.mbox>' no terminal. A UI mostrará o caso após indexação.";
+        State = LoadingState.Empty;
+        StatusText = "Validação/inspeção MBOX estrutural disponível pelo CLI neste momento.";
+        WarningBanner = "A UI abrirá o case relacional depois que o índice for criado.";
     }
 
     public void LoadRecentCases(System.Collections.Generic.IEnumerable<RecentCaseEntry> entries)
     {
         RecentCases.Clear();
         foreach (var e in entries)
+        {
             RecentCases.Add(e);
+        }
     }
 
     public void SelectRecentCase(RecentCaseEntry entry)
     {
         SelectedCasePath = entry.CaseFolderPath;
+    }
+
+    public void ShowError(string message, string? suggestedAction = null)
+    {
+        State = LoadingState.Error;
+        ErrorMessage = message;
+        StatusText = string.IsNullOrWhiteSpace(suggestedAction)
+            ? message
+            : $"{message}\nAção recomendada: {suggestedAction}";
     }
 }

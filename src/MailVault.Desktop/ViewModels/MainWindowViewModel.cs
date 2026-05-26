@@ -12,11 +12,15 @@ namespace MailVault.Desktop.ViewModels;
 
 public class MainWindowViewModel : ViewModelBase
 {
+    private static readonly TimeSpan CaseLoadTimeout = TimeSpan.FromSeconds(15);
+
     private string _windowTitle = "MailVault Recovery — Visual Inspection Hub";
     private bool _isCaseLoaded;
     private string? _caseFolderPath;
     private string? _warningBanner;
     private bool _hasWarningBanner;
+    private string _caseStatusText = "Nenhum case";
+    private string _statusBarText = "Nenhum case aberto.";
 
     private ViewModelBase? _currentView;
 
@@ -36,6 +40,7 @@ public class MainWindowViewModel : ViewModelBase
 
     private SqliteCaseIndexStore? _store;
     private ICaseIndexReader? _reader;
+    private CancellationTokenSource? _caseLoadCts;
 
     public string WindowTitle
     {
@@ -55,7 +60,7 @@ public class MainWindowViewModel : ViewModelBase
         set
         {
             this.RaiseAndSetIfChanged(ref _warningBanner, value);
-            HasWarningBanner = !string.IsNullOrEmpty(value);
+            HasWarningBanner = !string.IsNullOrWhiteSpace(value);
         }
     }
 
@@ -63,6 +68,18 @@ public class MainWindowViewModel : ViewModelBase
     {
         get => _hasWarningBanner;
         private set => this.RaiseAndSetIfChanged(ref _hasWarningBanner, value);
+    }
+
+    public string CaseStatusText
+    {
+        get => _caseStatusText;
+        set => this.RaiseAndSetIfChanged(ref _caseStatusText, value);
+    }
+
+    public string StatusBarText
+    {
+        get => _statusBarText;
+        set => this.RaiseAndSetIfChanged(ref _statusBarText, value);
     }
 
     public ViewModelBase? CurrentView
@@ -89,13 +106,22 @@ public class MainWindowViewModel : ViewModelBase
     public ICommand ShowValidationCommand { get; }
 
     public MainWindowViewModel()
+        : this(new CaseWorkspaceDiagnosticService())
     {
-        _diagnosticService = new CaseWorkspaceDiagnosticService();
-        _workspaceService = new CaseWorkspaceService(_diagnosticService);
-        _recentCasesService = new RecentCasesService();
+    }
+
+    public MainWindowViewModel(
+        CaseWorkspaceDiagnosticService diagnosticService,
+        CaseWorkspaceService? workspaceService = null,
+        RecentCasesService? recentCasesService = null)
+    {
+        _diagnosticService = diagnosticService;
+        _workspaceService = workspaceService ?? new CaseWorkspaceService(_diagnosticService);
+        _recentCasesService = recentCasesService ?? new RecentCasesService();
 
         _homeViewModel = new HomeViewModel(_diagnosticService);
-        _homeViewModel.CaseSelected += async (path) => await LoadCaseAsync(path);
+        _homeViewModel.CaseSelected += async path => await LoadCaseAsync(path);
+        _homeViewModel.RecentCaseRemovalRequested += RemoveRecentCase;
 
         _caseOverviewViewModel = new CaseOverviewViewModel();
         _folderTreeViewModel = new FolderTreeViewModel();
@@ -106,7 +132,7 @@ public class MainWindowViewModel : ViewModelBase
         _validationPanelViewModel = new ValidationPanelViewModel();
         _messageBrowserViewModel = new MessageBrowserViewModel(_folderTreeViewModel, _messageListViewModel, _messagePreviewViewModel);
 
-        _folderTreeViewModel.FolderSelected += async (fId) =>
+        _folderTreeViewModel.FolderSelected += async fId =>
         {
             if (_reader != null)
             {
@@ -114,12 +140,12 @@ public class MainWindowViewModel : ViewModelBase
             }
         };
 
-        _messageListViewModel.MessageSelected += (msg) =>
+        _messageListViewModel.MessageSelected += msg =>
         {
             _messagePreviewViewModel.SetMessage(msg);
         };
 
-        _searchViewModel.MessageSelected += (msg) =>
+        _searchViewModel.MessageSelected += msg =>
         {
             _messagePreviewViewModel.SetMessage(msg);
         };
@@ -131,24 +157,29 @@ public class MainWindowViewModel : ViewModelBase
         ShowExportCommand = ReactiveCommand.Create(() => CurrentView = _exportPanelViewModel);
         ShowValidationCommand = ReactiveCommand.Create(() => CurrentView = _validationPanelViewModel);
 
-        // Load recent cases history
-        var recent = _recentCasesService.Load();
-        _homeViewModel.LoadRecentCases(recent);
-
+        RefreshRecentCases();
         CurrentView = _homeViewModel;
     }
 
     public async Task LoadCaseAsync(string casePath)
     {
+        CancelCurrentCaseLoad();
+        _caseLoadCts = new CancellationTokenSource();
+
         try
         {
-            CloseCase();
+            ClearActiveCaseResources();
             _caseFolderPath = casePath;
+            StatusBarText = "Abrindo case e lendo case.db...";
+            _homeViewModel.StatusText = "Abrindo workspace do case...";
 
-            var result = await _workspaceService.OpenExistingCaseAsync(casePath, CancellationToken.None);
+            using var timeoutCts = new CancellationTokenSource(CaseLoadTimeout);
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_caseLoadCts.Token, timeoutCts.Token);
+
+            var result = await _workspaceService.OpenExistingCaseAsync(casePath, linkedCts.Token);
             if (result == null)
             {
-                _homeViewModel.StatusText = "Não foi possível abrir o caso.";
+                _homeViewModel.ShowError("Não foi possível abrir o caso.", "Confira se a pasta contém um case.db válido.");
                 CurrentView = _homeViewModel;
                 return;
             }
@@ -156,40 +187,63 @@ public class MainWindowViewModel : ViewModelBase
             _store = result.Store;
             _reader = _store.CreateReader();
 
-            // Show warning banner if limited mode
             WarningBanner = result.WarningMessage;
 
-            await _caseOverviewViewModel.LoadFromReaderAsync(_reader, CancellationToken.None);
-            await _folderTreeViewModel.LoadFoldersAsync(_reader, CancellationToken.None);
+            await _caseOverviewViewModel.LoadFromWorkspaceAsync(result, linkedCts.Token);
+            await _folderTreeViewModel.LoadFoldersAsync(_reader, linkedCts.Token);
             _searchViewModel.SetReader(_reader);
 
             IsCaseLoaded = true;
+            CaseStatusText = _caseOverviewViewModel.HealthStatus;
+            StatusBarText = $"Case {_caseOverviewViewModel.CaseId}: {_caseOverviewViewModel.HealthStatus}";
             WindowTitle = $"MailVault Recovery — Caso: {Path.GetFileName(casePath)}";
             CurrentView = _caseOverviewViewModel;
 
-            // Get case ID for recent cases record
-            string caseId = _caseOverviewViewModel.CaseId;
-            if (string.IsNullOrEmpty(caseId))
-                caseId = Path.GetFileName(casePath);
-
-            // Record in recent cases (de-identified)
             _recentCasesService.AddOrUpdate(new RecentCaseEntry
             {
-                CaseId = caseId,
+                CaseId = string.IsNullOrWhiteSpace(_caseOverviewViewModel.CaseId)
+                    ? Path.GetFileName(casePath)
+                    : _caseOverviewViewModel.CaseId,
                 CaseFolderPath = casePath,
                 OpenMode = result.OpenMode.ToString(),
                 LastOpenedAt = DateTimeOffset.UtcNow,
-                SchemaVersion = 0
+                SchemaVersion = result.Diagnostic.SchemaVersion
             });
+            RefreshRecentCases();
+        }
+        catch (OperationCanceledException)
+        {
+            ClearActiveCaseResources();
+            _homeViewModel.ShowError("A abertura do case excedeu o tempo limite de 15 segundos.", "Tente abrir novamente ou verifique se o case.db está bloqueado.");
+            StatusBarText = "Erro ao abrir case: timeout.";
+            CurrentView = _homeViewModel;
         }
         catch (Exception ex)
         {
-            _homeViewModel.StatusText = $"Erro ao carregar caso: {ex.Message}";
+            ClearActiveCaseResources();
+            _homeViewModel.ShowError($"Erro ao carregar caso: {ex.Message}", "Confira o schema do case.db e o audit.log do case.");
+            StatusBarText = "Erro ao abrir case.";
             CurrentView = _homeViewModel;
+        }
+        finally
+        {
+            CancelCurrentCaseLoad();
         }
     }
 
     public void CloseCase()
+    {
+        CancelCurrentCaseLoad();
+        ClearActiveCaseResources();
+        _caseFolderPath = null;
+        WindowTitle = "MailVault Recovery — Visual Inspection Hub";
+        StatusBarText = "Nenhum case aberto.";
+        CaseStatusText = "Nenhum case";
+        RefreshRecentCases();
+        CurrentView = _homeViewModel;
+    }
+
+    private void ClearActiveCaseResources()
     {
         _reader?.Dispose();
         _reader = null;
@@ -199,17 +253,34 @@ public class MainWindowViewModel : ViewModelBase
 
         IsCaseLoaded = false;
         WarningBanner = null;
-        _caseFolderPath = null;
-        WindowTitle = "MailVault Recovery — Visual Inspection Hub";
 
         _messagePreviewViewModel.SetMessage(null);
-        _messageListViewModel.Messages.Clear();
-        _folderTreeViewModel.RootFolders.Clear();
+        _messageListViewModel.ResetMessages();
+        _folderTreeViewModel.ResetFolders();
+        _searchViewModel.ClearReader();
+    }
 
-        // Refresh recent cases
+    private void CancelCurrentCaseLoad()
+    {
+        if (_caseLoadCts != null && !_caseLoadCts.IsCancellationRequested)
+        {
+            _caseLoadCts.Cancel();
+        }
+
+        _caseLoadCts?.Dispose();
+        _caseLoadCts = null;
+    }
+
+    private void RefreshRecentCases()
+    {
         var recent = _recentCasesService.Load();
         _homeViewModel.LoadRecentCases(recent);
+    }
 
-        CurrentView = _homeViewModel;
+    private void RemoveRecentCase(string caseFolderPath)
+    {
+        _recentCasesService.Remove(caseFolderPath);
+        RefreshRecentCases();
+        _homeViewModel.StatusText = "Case recente removido.";
     }
 }

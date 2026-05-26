@@ -44,7 +44,7 @@ public class FolderTreeItemViewModel : ViewModelBase
     }
 }
 
-public class FolderTreeViewModel : ViewModelBase
+public class FolderTreeViewModel : LoadableViewModelBase
 {
     private FolderTreeItemViewModel? _selectedItem;
 
@@ -72,17 +72,29 @@ public class FolderTreeViewModel : ViewModelBase
 
     public async Task LoadFoldersAsync(ICaseIndexReader reader, CancellationToken ct)
     {
-        RootFolders.Clear();
-        
-        var rootList = new List<FolderNode>();
-        await foreach (var node in reader.GetFolderHierarchyAsync(ct))
+        await ExecuteLoadAsync(async linkedCt =>
         {
-            rootList.Add(node);
-        }
+            RootFolders.Clear();
 
-        foreach (var rootNode in rootList)
-        {
-            RootFolders.Add(new FolderTreeItemViewModel(rootNode));
-        }
+            var rootList = new List<FolderNode>();
+            await foreach (var node in reader.GetFolderHierarchyAsync(linkedCt))
+            {
+                rootList.Add(node);
+            }
+
+            foreach (var rootNode in rootList)
+            {
+                RootFolders.Add(new FolderTreeItemViewModel(rootNode));
+            }
+
+            State = RootFolders.Count == 0 ? LoadingState.Empty : LoadingState.Loaded;
+        }, "Carregando pastas...");
+    }
+
+    public void ResetFolders()
+    {
+        SelectedItem = null;
+        RootFolders.Clear();
+        Reset();
     }
 }
