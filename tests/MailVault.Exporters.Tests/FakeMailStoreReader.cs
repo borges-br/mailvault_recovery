@@ -7,11 +7,11 @@ using System.Threading.Tasks;
 using MailVault.Core;
 using MailVault.Domain;
 
-namespace MailVault.Adapters.Tests;
+namespace MailVault.Exporters.Tests;
 
 public class FakeMailStoreReader : IMailStoreReader
 {
-    public string ReaderName => "Fake Testing Mail Store Reader";
+    public string ReaderName => "Fake Exporters Test Mail Store Reader";
 
     private readonly List<FolderNode> _folders;
     private readonly Dictionary<string, List<MailItem>> _messagesByFolder;
@@ -19,7 +19,6 @@ public class FakeMailStoreReader : IMailStoreReader
 
     public FakeMailStoreReader()
     {
-        // Build a mock hierarchy
         var subFolder = new FolderNode(
             Id: new FolderId("Inbox/Subfolder"),
             ParentId: new FolderId("Inbox"),
@@ -34,7 +33,7 @@ public class FakeMailStoreReader : IMailStoreReader
             ParentId: null,
             DisplayName: "Inbox",
             FullPath: "Inbox",
-            MessageCount: 5,
+            MessageCount: 3,
             Children: new List<FolderNode> { subFolder }
         );
 
@@ -49,29 +48,15 @@ public class FakeMailStoreReader : IMailStoreReader
 
         _folders = new List<FolderNode> { inbox, sentItems };
 
-        // Generate messages for Inbox
         var inboxMsgs = new List<MailItem>();
-        for (int i = 1; i <= 5; i++)
+        for (int i = 1; i <= 3; i++)
         {
-            var issues = new List<ExtractionIssue>();
-            if (i == 3)
-            {
-                issues.Add(new ExtractionIssue(
-                    Code: "MV-WARN-TEST",
-                    Severity: "Warning",
-                    Message: "Mensagem possui propriedades corrompidas de cabeçalho.",
-                    ObjectId: $"msg-inbox-{i}",
-                    TechnicalDetails: "Simulated warning"
-                ));
-            }
-
-            // Create a long body to test truncation
             var bodyLines = new List<string> {
                 $"Este é o corpo da mensagem {i}.",
                 "Linha 2 do corpo.",
                 "Linha 3 do corpo."
             };
-            for (int l = 4; l <= 60; l++)
+            for (int l = 4; l <= 10; l++)
             {
                 bodyLines.Add($"Linha extra {l} do e-mail simulado.");
             }
@@ -87,7 +72,7 @@ public class FakeMailStoreReader : IMailStoreReader
                 SentAt: DateTimeOffset.Parse("2026-05-26T10:00:00-03:00"),
                 ReceivedAt: DateTimeOffset.Parse("2026-05-26T10:05:00-03:00"),
                 PlainTextBody: string.Join("\n", bodyLines),
-                HtmlBody: null,
+                HtmlBody: "<html><body>Este e o corpo em HTML.</body></html>",
                 Attachments: new List<AttachmentRef> {
                     new AttachmentRef(
                         InternalId: $"att-inbox-{i}-1",
@@ -99,11 +84,10 @@ public class FakeMailStoreReader : IMailStoreReader
                     )
                 },
                 RawProperties: new Dictionary<string, string> { { "0x0037", "Subject Property" } },
-                Issues: issues
+                Issues: new List<ExtractionIssue>()
             ));
         }
 
-        // Generate messages for Subfolder
         var subMsgs = new List<MailItem>();
         for (int i = 1; i <= 2; i++)
         {
@@ -125,7 +109,6 @@ public class FakeMailStoreReader : IMailStoreReader
             ));
         }
 
-        // Generate messages for Sent Items
         var sentMsgs = new List<MailItem>
         {
             new MailItem(
@@ -161,7 +144,7 @@ public class FakeMailStoreReader : IMailStoreReader
         return Task.FromResult(new StoreMetadata(
             SourcePath: filePath,
             SizeBytes: 987654,
-            Sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", // empty file sha
+            Sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             DetectedFormat: "Fake Store",
             ReaderName: ReaderName,
             Issues: new List<ExtractionIssue>()

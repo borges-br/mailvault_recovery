@@ -48,11 +48,11 @@ public sealed class SqliteCaseIndexWriter : ICaseIndexWriter
         }
     }
 
-    public async Task SaveCaseInfoAsync(string caseId, string sourceFile, long sourceSize, string sourceSha256, string operatorName, DateTimeOffset startedAt, CancellationToken ct)
+    public async Task SaveCaseInfoAsync(string caseId, string sourceFile, long sourceSize, string sourceSha256, string operatorName, DateTimeOffset startedAt, string adapterName, string adapterVersion, CancellationToken ct)
     {
         const string query = @"
-            INSERT OR REPLACE INTO case_info (case_id, source_file, source_size, source_sha256, operator_name, started_at, completed_at)
-            VALUES ($caseId, $sourceFile, $sourceSize, $sourceSha256, $operatorName, $startedAt, $completedAt);";
+            INSERT OR REPLACE INTO case_info (case_id, source_file, source_size, source_sha256, operator_name, started_at, completed_at, adapter_name, adapter_version)
+            VALUES ($caseId, $sourceFile, $sourceSize, $sourceSha256, $operatorName, $startedAt, $completedAt, $adapterName, $adapterVersion);";
 
         using var cmd = new SqliteCommand(query, _connection, _transaction);
         cmd.Parameters.AddWithValue("$caseId", caseId);
@@ -61,7 +61,9 @@ public sealed class SqliteCaseIndexWriter : ICaseIndexWriter
         cmd.Parameters.AddWithValue("$sourceSha256", sourceSha256);
         cmd.Parameters.AddWithValue("$operatorName", operatorName);
         cmd.Parameters.AddWithValue("$startedAt", startedAt.ToString("o"));
-        cmd.Parameters.AddWithValue("$completedAt", string.Empty);
+        cmd.Parameters.AddWithValue("$completedAt", DBNull.Value);
+        cmd.Parameters.AddWithValue("$adapterName", adapterName);
+        cmd.Parameters.AddWithValue("$adapterVersion", adapterVersion);
 
         await cmd.ExecuteNonQueryAsync(ct);
     }

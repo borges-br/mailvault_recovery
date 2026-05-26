@@ -19,4 +19,5 @@ public interface ICaseIndexReader : System.IDisposable
     IAsyncEnumerable<FolderNode> GetFolderHierarchyAsync(CancellationToken ct);
     IAsyncEnumerable<MailItem> GetMessagesInFolderAsync(FolderId folderId, int limit, int offset, CancellationToken ct);
     Task<MailItem?> GetMessageByIdAsync(MessageId messageId, CancellationToken ct);
+    Task<CaseInfoRef?> GetCaseInfoAsync(CancellationToken ct);
 }

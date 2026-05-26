@@ -13,5 +13,6 @@ public interface IMailStoreReader
     IAsyncEnumerable<FolderNode> EnumerateFoldersAsync(CancellationToken ct);
     IAsyncEnumerable<MailItem> EnumerateMessagesAsync(FolderId folderId, CancellationToken ct);
     Task<Stream> OpenAttachmentAsync(AttachmentRef attachment, CancellationToken ct);
+    Task<Stream> OpenAttachmentStreamAsync(MessageId messageId, AttachmentId attachmentId, CancellationToken ct);
     Task<OperationResult<MailItem>> GetMessageAsync(MessageId messageId, CancellationToken ct);
 }

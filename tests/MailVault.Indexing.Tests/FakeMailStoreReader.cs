@@ -196,6 +196,12 @@ public class FakeMailStoreReader : IMailStoreReader
         return Task.FromResult<Stream>(ms);
     }
 
+    public Task<Stream> OpenAttachmentStreamAsync(MessageId messageId, AttachmentId attachmentId, CancellationToken ct)
+    {
+        var ms = new MemoryStream(System.Text.Encoding.UTF8.GetBytes($"Fake attachment content for message {messageId.Value} and attachment {attachmentId.Value}"));
+        return Task.FromResult<Stream>(ms);
+    }
+
     public Task<OperationResult<MailItem>> GetMessageAsync(MessageId messageId, CancellationToken ct)
     {
         if (_messagesById.TryGetValue(messageId.Value, out var msg))

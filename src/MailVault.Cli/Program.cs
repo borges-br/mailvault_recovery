@@ -139,6 +139,48 @@ public static class Program
             await HandleSearchAsync(caseFolder, query, folder, limit, offset, includePreview);
         }, caseFolderArgSearch, queryOpt, folderOptSearch, limitOptSearch, offsetOptSearch, includePreviewOpt);
 
+        // NEW Command: export
+        var exportCommand = new Command("export", "Exporta mensagens do caso para os formatos EML ou MBOX com suporte forense.");
+        var caseFolderArgExport = new Argument<DirectoryInfo>("case-folder", "A pasta de caso contendo o arquivo case.db.") { Arity = ArgumentArity.ExactlyOne };
+        var formatOpt = new Option<string>("--format", "Formato de exportação: eml ou mbox.") { IsRequired = true };
+        formatOpt.FromAmong("eml", "mbox");
+        var outOptExport = new Option<DirectoryInfo>("--out", "Diretório de saída para salvar os e-mails exportados.");
+        var folderOptExport = new Option<string?>("--folder", "Caminho ou ID da pasta interna a ser exportada.");
+        var limitOptExport = new Option<int?>("--limit", "Limite máximo de e-mails a exportar por pasta.");
+        var offsetOptExport = new Option<int?>("--offset", "Ignorar os primeiros N e-mails na exportação.");
+        var includeAttachmentsOpt = new Option<bool>("--include-attachments", () => true, "Se ativado, incorpora anexos na estrutura MIME.");
+        var extractAttachmentsOpt = new Option<bool>("--extract-attachments", () => false, "Se ativado, extrai fisicamente os anexos para arquivos avulsos.");
+        var overwriteOpt = new Option<bool>("--overwrite", () => false, "Se marcado, sobrescreve exportações anteriores na pasta de saída.");
+        var dryRunOpt = new Option<bool>("--dry-run", () => false, "Se marcado, apenas valida a exportação e calcula estimativas sem gravar em disco.");
+
+        exportCommand.AddArgument(caseFolderArgExport);
+        exportCommand.AddOption(formatOpt);
+        exportCommand.AddOption(outOptExport);
+        exportCommand.AddOption(folderOptExport);
+        exportCommand.AddOption(limitOptExport);
+        exportCommand.AddOption(offsetOptExport);
+        exportCommand.AddOption(includeAttachmentsOpt);
+        exportCommand.AddOption(extractAttachmentsOpt);
+        exportCommand.AddOption(overwriteOpt);
+        exportCommand.AddOption(dryRunOpt);
+
+        exportCommand.SetHandler(async (context) =>
+        {
+            var caseFolder = context.ParseResult.GetValueForArgument(caseFolderArgExport);
+            var format = context.ParseResult.GetValueForOption(formatOpt)!;
+            var outDir = context.ParseResult.GetValueForOption(outOptExport);
+            var folder = context.ParseResult.GetValueForOption(folderOptExport);
+            var limit = context.ParseResult.GetValueForOption(limitOptExport);
+            var offset = context.ParseResult.GetValueForOption(offsetOptExport);
+            var includeAttachments = context.ParseResult.GetValueForOption(includeAttachmentsOpt);
+            var extractAttachments = context.ParseResult.GetValueForOption(extractAttachmentsOpt);
+            var overwrite = context.ParseResult.GetValueForOption(overwriteOpt);
+            var dryRun = context.ParseResult.GetValueForOption(dryRunOpt);
+
+            var exitCode = await HandleExportAsync(caseFolder, format, outDir, folder, limit, offset, includeAttachments, extractAttachments, overwrite, dryRun);
+            context.ExitCode = exitCode;
+        });
+
         rootCommand.AddCommand(inspectCommand);
         rootCommand.AddCommand(treeCommand);
         rootCommand.AddCommand(listCommand);
@@ -146,6 +188,7 @@ public static class Program
         rootCommand.AddCommand(indexCommand);
         rootCommand.AddCommand(statsCommand);
         rootCommand.AddCommand(searchCommand);
+        rootCommand.AddCommand(exportCommand);
 
         int result = await rootCommand.InvokeAsync(args);
         return ExitCode != 0 ? ExitCode : result;
@@ -983,6 +1026,171 @@ public static class Program
             Console.ResetColor();
             ExitCode = 12;
             return 12;
+        }
+    }
+
+    private static async Task<int> HandleExportAsync(
+        DirectoryInfo caseFolder,
+        string format,
+        DirectoryInfo? outDir,
+        string? folder,
+        int? limit,
+        int? offset,
+        bool includeAttachments,
+        bool extractAttachments,
+        bool overwrite,
+        bool dryRun)
+    {
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine("================================================================================");
+        Console.WriteLine("                  MailVault Recovery — Motor de Exportação                      ");
+        Console.WriteLine("================================================================================");
+        Console.ResetColor();
+
+        string dbPath = Path.Combine(caseFolder.FullName, "case.db");
+        if (!File.Exists(dbPath))
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"[ERRO] O banco de dados do caso 'case.db' não foi encontrado em: '{caseFolder.FullName}'");
+            Console.ResetColor();
+            ExitCode = 11;
+            return 11;
+        }
+
+        string auditLogFilePath = Path.Combine(caseFolder.FullName, "audit.log");
+        var auditWriter = new FileAuditTrailWriter(auditLogFilePath);
+
+        await auditWriter.WriteEventAsync(new AuditEvent(
+            EventId: Guid.NewGuid().ToString(),
+            Timestamp: DateTimeOffset.Now,
+            Action: "ExportCommandStarted",
+            OperatorName: Environment.UserName,
+            Details: $"Exportação iniciada para formato {format.ToUpperInvariant()}."
+        ), CancellationToken.None);
+
+        try
+        {
+            string finalOutputDir = outDir?.FullName ?? Path.Combine(caseFolder.FullName, "exports");
+
+            using var store = new SqliteCaseIndexStore();
+            await store.InitializeAsync(caseFolder.FullName, CancellationToken.None);
+            await auditWriter.WriteEventAsync(new AuditEvent(Guid.NewGuid().ToString(), DateTimeOffset.Now, "CaseIndexOpened", Environment.UserName, "Conexão aberta com o banco case.db do caso."), CancellationToken.None);
+
+            using var caseReader = store.CreateReader();
+            var caseInfo = await caseReader.GetCaseInfoAsync(CancellationToken.None);
+            if (caseInfo == null)
+            {
+                throw new InvalidOperationException("Metadados do caso estão ausentes da persistência.");
+            }
+
+            await auditWriter.WriteEventAsync(new AuditEvent(Guid.NewGuid().ToString(), DateTimeOffset.Now, "SourceFileVerified", Environment.UserName, $"Evidência original verificada em: {caseInfo.SourceFile}"), CancellationToken.None);
+
+            var adapterResolver = new ReflectionAdapterResolver();
+            await auditWriter.WriteEventAsync(new AuditEvent(Guid.NewGuid().ToString(), DateTimeOffset.Now, "AdapterResolved", Environment.UserName, "Resolvedor dinâmico de assemblies de adaptadores inicializado."), CancellationToken.None);
+
+            IMessageExporter innerExporter;
+            if (format.Equals("eml", StringComparison.OrdinalIgnoreCase))
+            {
+                innerExporter = new MailVault.Exporters.Eml.EmlExporter();
+            }
+            else
+            {
+                var emlExporter = new MailVault.Exporters.Eml.EmlExporter();
+                innerExporter = new MailVault.Exporters.Mbox.MboxExporter(emlExporter);
+            }
+
+            var exportRunner = new ExportJobRunner();
+            var options = new ExportJobOptions(
+                CaseFolder: caseFolder.FullName,
+                Format: format,
+                OutputDir: finalOutputDir,
+                FolderIdOrPath: folder,
+                Limit: limit,
+                Offset: offset,
+                IncludeAttachments: includeAttachments,
+                ExtractAttachments: extractAttachments,
+                Overwrite: overwrite,
+                DryRun: dryRun
+            );
+
+            await auditWriter.WriteEventAsync(new AuditEvent(Guid.NewGuid().ToString(), DateTimeOffset.Now, "StoreOpenedReadOnly", Environment.UserName, "Sessão física da evidência original aberta em modo Read-Only sob custódia forense."), CancellationToken.None);
+            await auditWriter.WriteEventAsync(new AuditEvent(Guid.NewGuid().ToString(), DateTimeOffset.Now, "ExportStarted", Environment.UserName, $"Iniciando execução do motor de exportação ({format.ToUpperInvariant()}). DryRun={dryRun}."), CancellationToken.None);
+
+            Console.WriteLine($"[*] Pasta do Caso     : {caseFolder.FullName}");
+            Console.WriteLine($"[*] Formato de Saída  : {format.ToUpperInvariant()}");
+            Console.WriteLine($"[*] Diretorio Alvo    : {finalOutputDir}");
+            Console.WriteLine($"[*] Dry Run (Simular) : {dryRun}");
+            Console.WriteLine();
+
+            var progress = new ConsoleProgressReporter();
+            var result = await exportRunner.RunExportJobAsync(options, caseReader, adapterResolver, innerExporter, progress, CancellationToken.None);
+
+            if (dryRun)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("================================================================================");
+                Console.WriteLine("                  RELATÓRIO DE SIMULAÇÃO (DRY RUN)                             ");
+                Console.WriteLine("================================================================================");
+                Console.ResetColor();
+                Console.WriteLine($"Pastas Selecionadas   : {result.FoldersSelected}");
+                Console.WriteLine($"Mensagens no Escopo   : {result.MessagesSelected}");
+                Console.WriteLine($"Nenhum arquivo físico foi gravado na simulação.");
+                Console.WriteLine("================================================================================");
+                
+                await auditWriter.WriteEventAsync(new AuditEvent(Guid.NewGuid().ToString(), DateTimeOffset.Now, "ExportCompleted", Environment.UserName, "Simulação de exportação finalizada com sucesso (Dry Run)."), CancellationToken.None);
+                return 0;
+            }
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("================================================================================");
+            Console.WriteLine("                         RELATÓRIO DE EXPORTAÇÃO                                ");
+            Console.WriteLine("================================================================================");
+            Console.ResetColor();
+            Console.WriteLine($"Caminho de Saída      : {finalOutputDir}");
+            Console.WriteLine($"Pastas Selecionadas   : {result.FoldersSelected}");
+            Console.WriteLine($"Mensagens Exportadas  : {result.MessagesExported}");
+            Console.WriteLine($"Mensagens com Falha   : {result.MessagesFailed}");
+            Console.WriteLine($"Anexos Exportados     : {result.AttachmentsExported}");
+            Console.WriteLine($"Anexos com Falha      : {result.AttachmentsFailed}");
+            Console.WriteLine($"Duração total         : {result.DurationMs} ms");
+            Console.WriteLine($"Manifesto export-manifest.json gerado perfeitamente.");
+            Console.WriteLine("================================================================================");
+
+            foreach (var issue in result.Issues)
+            {
+                string shortMsg = issue.Message.Length > 80 ? issue.Message.Substring(0, 77) + "..." : issue.Message;
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine($"[!] ALERTA ({issue.Code}): {shortMsg} (ID: {issue.ObjectId})");
+                Console.ResetColor();
+            }
+
+            if (result.MessagesFailed > 0)
+            {
+                await auditWriter.WriteEventAsync(new AuditEvent(Guid.NewGuid().ToString(), DateTimeOffset.Now, "MessageExportFailed", Environment.UserName, $"Exportação finalizada com {result.MessagesFailed} falhas de mensagens."), CancellationToken.None);
+            }
+            else
+            {
+                await auditWriter.WriteEventAsync(new AuditEvent(Guid.NewGuid().ToString(), DateTimeOffset.Now, "ExportCompleted", Environment.UserName, $"Exportação forense finalizada perfeitamente. Exportadas {result.MessagesExported} mensagens."), CancellationToken.None);
+            }
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"[CRITICAL ERRO] Falha técnica no motor de exportação: {ex.Message}");
+            Console.ResetColor();
+            
+            await auditWriter.WriteEventAsync(new AuditEvent(
+                EventId: Guid.NewGuid().ToString(),
+                Timestamp: DateTimeOffset.Now,
+                Action: "ExportFailed",
+                OperatorName: Environment.UserName,
+                Details: $"FALHA DO COMANDO export: {ex.Message}"
+            ), CancellationToken.None);
+
+            ExitCode = 13;
+            return 13;
         }
     }
 

@@ -47,8 +47,10 @@ public sealed class IndexingService : IIndexingService
 
             try
             {
-                // A. Save Case and Media Info
-                await writer.SaveCaseInfoAsync(caseId, filePath, size, sha256, operatorName, DateTimeOffset.Now, ct);
+                // A. Save Case and Media Info with adapter metadata
+                string adapterName = reader.ReaderName;
+                string adapterVersion = reader.GetType().Assembly.GetName().Version?.ToString() ?? "1.0.0.0";
+                await writer.SaveCaseInfoAsync(caseId, filePath, size, sha256, operatorName, DateTimeOffset.Now, adapterName, adapterVersion, ct);
 
                 // Save store-level issues if any
                 if (metadata.Issues != null)

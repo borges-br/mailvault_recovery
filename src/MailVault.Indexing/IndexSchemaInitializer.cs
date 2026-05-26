@@ -33,21 +33,21 @@ public static class IndexSchemaInitializer
 
         if (currentVersion == 0)
         {
-            // Apply Schema v1
-            ApplySchemaV1(connection);
+            // Apply Schema v2
+            ApplySchemaV2(connection);
 
-            using (var insertVerCmd = new SqliteCommand("INSERT INTO schema_version (version) VALUES (1);", connection))
+            using (var insertVerCmd = new SqliteCommand("INSERT INTO schema_version (version) VALUES (2);", connection))
             {
                 insertVerCmd.ExecuteNonQuery();
             }
         }
-        else if (currentVersion != 1)
+        else if (currentVersion != 2)
         {
-            throw new InvalidOperationException($"Incompatibilidade de schema detectada. Versão atual do case.db é {currentVersion}, mas a aplicação suporta apenas a versão 1.");
+            throw new InvalidOperationException($"Incompatibilidade de schema detectada. Versão atual do case.db é {currentVersion}, mas a aplicação suporta apenas a versão 2. Por favor, utilize a opção --force para recriar o banco do caso.");
         }
     }
 
-    private static void ApplySchemaV1(SqliteConnection connection)
+    private static void ApplySchemaV2(SqliteConnection connection)
     {
         // Table: case_info
         ExecuteDDL(@"
@@ -58,7 +58,9 @@ public static class IndexSchemaInitializer
                 source_sha256 TEXT,
                 operator_name TEXT,
                 started_at TEXT,
-                completed_at TEXT
+                completed_at TEXT,
+                adapter_name TEXT,
+                adapter_version TEXT
             );", connection);
 
         // Table: folders

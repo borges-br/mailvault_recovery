@@ -8,5 +8,5 @@ namespace MailVault.Core;
 public interface IMessageExporter
 {
     string FormatName { get; } // e.g. "EML" or "MBOX"
-    Task ExportMessageAsync(MailItem message, Stream outputStream, CancellationToken ct);
+    Task ExportMessageAsync(MailItem message, IAttachmentContentProvider attachmentProvider, Stream outputStream, CancellationToken ct);
 }

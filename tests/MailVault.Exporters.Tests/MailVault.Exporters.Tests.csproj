@@ -23,6 +23,7 @@
     <ProjectReference Include="..\..\src\MailVault.Core\MailVault.Core.csproj" />
     <ProjectReference Include="..\..\src\MailVault.Exporters.Eml\MailVault.Exporters.Eml.csproj" />
     <ProjectReference Include="..\..\src\MailVault.Exporters.Mbox\MailVault.Exporters.Mbox.csproj" />
+    <ProjectReference Include="..\..\src\MailVault.Indexing\MailVault.Indexing.csproj" />
   </ItemGroup>
 
 </Project>

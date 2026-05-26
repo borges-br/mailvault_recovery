@@ -5,6 +5,8 @@
     <ProjectReference Include="..\MailVault.Core\MailVault.Core.csproj" />
     <ProjectReference Include="..\MailVault.Audit\MailVault.Audit.csproj" />
     <ProjectReference Include="..\MailVault.Indexing\MailVault.Indexing.csproj" />
+    <ProjectReference Include="..\MailVault.Exporters.Eml\MailVault.Exporters.Eml.csproj" />
+    <ProjectReference Include="..\MailVault.Exporters.Mbox\MailVault.Exporters.Mbox.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -162,3 +162,68 @@ Qualquer dúvida, estou à disposição.
 [... TEXTO TRUNCADO SEGURAMENTE PARA COMPLIANCE FORENSE - 4 LINHAS OCULTAS ...]
 --------------------------------------------------------------------------------
 ```
+
+---
+
+## 4. `mailvault export`
+
+Exporta mensagens de e-mail e anexos do caso de recuperação para formatos padrão de preservação de correio eletrônico (EML ou MBOX), mantendo a custódia, hashes originais e segurança ativa.
+
+### Sintaxe
+```bash
+mailvault export <case-folder> --format <eml|mbox> --out <directory> [options]
+```
+
+### Argumentos
+- `case-folder` (Obrigatório): O caminho da pasta do caso contendo o arquivo `case.db`.
+
+### Opções
+- `--format <eml|mbox>` (Obrigatório): Formato de exportação forense homologado (`eml` ou `mbox`).
+- `--out <directory>` (Obrigatório): Diretório de destino físico para gravação dos arquivos exportados.
+- `--folder <path>`: Filtra a exportação para incluir apenas mensagens de um ID ou caminho de pasta específico (ex: `Inbox/Financeiro`).
+- `--limit <number>`: Quantidade máxima total de e-mails a exportar.
+- `--offset <number>`: Quantidade total de e-mails a pular (paginação global).
+- `--include-attachments <true|false>`: Define se anexa arquivos nas mensagens (padrão `true`).
+- `--extract-attachments`: Extrai e salva arquivos anexos individualmente como arquivos físicos avulsos adicionais (padrão `false`).
+- `--overwrite`: Permite sobrescrever arquivos que já existam no diretório de destino (padrão `false`).
+- `--dry-run`: Executa uma simulação técnica completa e validação de hash sem gravar arquivos físicos no disco.
+
+### Exemplo
+```bash
+mailvault export "./mailvault-cases/CASE-2026-05-26-093012" --format eml --out "./exports-case1" --extract-attachments --overwrite
+```
+
+### Saída Típica
+```text
+================================================================================
+                  MailVault Recovery — Exportação Forense                       
+================================================================================
+[*] Pasta do Caso: ./mailvault-cases/CASE-2026-05-26-093012
+[*] Formato       : eml
+[*] Destino       : ./exports-case1
+[*] Inicializando motor de exportação forense...
+[*] Verificando integridade forense do arquivo de origem...
+[*] Recalculando hash SHA-256 da mídia original: C:\Evidencias\backup.pst
+[*] Hash validado com sucesso: 4e9c71a39f60d4b8f... (Cadeia de custódia íntegra)
+[*] Carregando escopo de exportação do índice relacional...
+[*] Pastas Selecionadas: 5
+[*] Mensagens Selecionadas: 2294
+[*] Iniciando gravação técnica física (EML)...
+[50%] Exportado e-mail 1147 de 2294...
+[100%] Exportação concluída.
+[*] Gerando manifesto forense da exportação...
+
+RELATÓRIO DE EXPORTAÇÃO:
+--------------------------------------------------------------------------------
+ID do Job             : EXP-A5B2F90C12D4
+Format                : eml
+Pastas Processadas    : 5
+Mensagens Exportadas  : 2294 (Falhas: 0)
+Anexos Extraídos      : 421 (Falhas: 0)
+Manifesto Forense     : ./exports-case1/export-manifest.json
+Tempo Decorrido       : 12.45s
+--------------------------------------------------------------------------------
+[x] Operação de exportação concluída e assinada forensicamente.
+================================================================================
+```
+

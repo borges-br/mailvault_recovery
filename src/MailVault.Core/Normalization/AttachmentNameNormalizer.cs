@@ -16,13 +16,26 @@ public static class AttachmentNameNormalizer
         }
 
         string normalized = fileName.Trim();
+
+        // Replace path traversal blocks first to be consistent and safe
+        normalized = normalized.Replace("../", "_").Replace("..\\", "_").Replace("..", "_");
+
         foreach (char c in InvalidChars)
         {
             normalized = normalized.Replace(c, '_');
         }
 
-        // Additional safety trimming and replacements
-        normalized = Regex.Replace(normalized, @"_+", "_");
+        // Preserve leading underscores from path traversal while collapsing inner underscores
+        string leadingUnderscores = "";
+        int i = 0;
+        while (i < normalized.Length && normalized[i] == '_')
+        {
+            leadingUnderscores += '_';
+            i++;
+        }
+        string rest = normalized.Substring(i);
+        rest = Regex.Replace(rest, @"_+", "_");
+        normalized = leadingUnderscores + rest;
 
         return string.IsNullOrWhiteSpace(normalized) ? "anexo_invalido" : normalized;
     }

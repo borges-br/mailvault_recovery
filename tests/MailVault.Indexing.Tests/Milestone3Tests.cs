@@ -95,7 +95,7 @@ public class Milestone3Tests : IDisposable
 
     // 2. Schema and Persistence Tests
     [Fact]
-    public void IndexSchemaInitializer_CreatesSchemaV1()
+    public void IndexSchemaInitializer_CreatesSchemaV2_WithAdapterMetadata()
     {
         // Arrange
         using var connection = new SqliteConnection("Data Source=:memory:");
@@ -108,7 +108,18 @@ public class Milestone3Tests : IDisposable
         // Verify tables and version are successfully set
         using var cmd = new SqliteCommand("SELECT version FROM schema_version LIMIT 1;", connection);
         var version = Convert.ToInt64(cmd.ExecuteScalar());
-        Assert.Equal(1, version);
+        Assert.Equal(2, version);
+
+        // Verify case_info columns for adapter metadata
+        using var colCmd = new SqliteCommand("PRAGMA table_info(case_info);", connection);
+        using var reader = colCmd.ExecuteReader();
+        var columns = new List<string>();
+        while (reader.Read())
+        {
+            columns.Add(reader.GetString(1)); // Column name is at index 1
+        }
+        Assert.Contains("adapter_name", columns);
+        Assert.Contains("adapter_version", columns);
 
         // Verify some indexes exist
         using var indexCmd = new SqliteCommand("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_messages_folder_id';", connection);

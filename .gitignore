@@ -37,3 +37,7 @@ bld/
 *.suo
 *.user
 *.sln.docstates
+
+# Validation and test files
+.local_corpus/
+/.local_corpus/

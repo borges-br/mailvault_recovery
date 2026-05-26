@@ -256,6 +256,41 @@ public sealed class SqliteCaseIndexReader : ICaseIndexReader
         return null;
     }
 
+    public async Task<CaseInfoRef?> GetCaseInfoAsync(CancellationToken ct)
+    {
+        await EnsureForeignKeysAsync(ct);
+        const string query = @"
+            SELECT case_id, source_file, source_size, source_sha256, operator_name, started_at, adapter_name, adapter_version
+            FROM case_info LIMIT 1;";
+
+        using var cmd = new SqliteCommand(query, _connection);
+        using var reader = await cmd.ExecuteReaderAsync(ct);
+        if (await reader.ReadAsync(ct))
+        {
+            string caseId = reader.GetString(0);
+            string sourceFile = reader.GetString(1);
+            long sourceSize = reader.GetInt64(2);
+            string sourceSha256 = reader.GetString(3);
+            string operatorName = reader.GetString(4);
+            string startedAtStr = reader.GetString(5);
+            string adapterName = reader.IsDBNull(6) ? "Unknown" : reader.GetString(6);
+            string adapterVersion = reader.IsDBNull(7) ? "1.0.0.0" : reader.GetString(7);
+
+            return new CaseInfoRef(
+                CaseId: caseId,
+                SourceFile: sourceFile,
+                SourceSizeBytes: sourceSize,
+                SourceSha256: sourceSha256,
+                OperatorName: operatorName,
+                StartedAt: DateTimeOffset.Parse(startedAtStr),
+                AdapterName: adapterName,
+                AdapterVersion: adapterVersion
+            );
+        }
+
+        return null;
+    }
+
     private async Task<MailItem> MapReaderToMailItemAsync(SqliteDataReader reader, CancellationToken ct)
     {
         string id = reader.GetString(0);

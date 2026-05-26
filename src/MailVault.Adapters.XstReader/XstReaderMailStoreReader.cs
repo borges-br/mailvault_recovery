@@ -133,6 +133,26 @@ public sealed class XstReaderMailStoreReader : IMailStoreReader
         return Task.FromResult<Stream>(memoryStream);
     }
 
+    public Task<Stream> OpenAttachmentStreamAsync(MessageId messageId, AttachmentId attachmentId, CancellationToken ct)
+    {
+        if (string.IsNullOrEmpty(_filePath))
+        {
+            throw new InvalidOperationException("Reader não inicializado. Chame InspectAsync primeiro.");
+        }
+
+        using var xstFile = new XstFile(_filePath);
+        var xstAttach = FindAttachmentByPath(xstFile.RootFolder, attachmentId.Value);
+        if (xstAttach == null)
+        {
+            throw new FileNotFoundException($"Anexo com ID {attachmentId.Value} não foi encontrado.");
+        }
+
+        var memoryStream = new MemoryStream();
+        xstAttach.SaveToStream(memoryStream);
+        memoryStream.Position = 0;
+        return Task.FromResult<Stream>(memoryStream);
+    }
+
     public Task<OperationResult<MailItem>> GetMessageAsync(MessageId messageId, CancellationToken ct)
     {
         if (string.IsNullOrEmpty(_filePath))

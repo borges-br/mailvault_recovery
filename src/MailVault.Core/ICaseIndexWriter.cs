@@ -11,7 +11,7 @@ public interface ICaseIndexWriter : System.IDisposable
     Task CommitTransactionAsync(CancellationToken ct);
     Task RollbackTransactionAsync(CancellationToken ct);
     
-    Task SaveCaseInfoAsync(string caseId, string sourceFile, long sourceSize, string sourceSha256, string operatorName, DateTimeOffset startedAt, CancellationToken ct);
+    Task SaveCaseInfoAsync(string caseId, string sourceFile, long sourceSize, string sourceSha256, string operatorName, DateTimeOffset startedAt, string adapterName, string adapterVersion, CancellationToken ct);
     Task SaveFolderAsync(FolderNode folder, CancellationToken ct);
     Task SaveMessageAsync(MailItem message, FolderId folderId, CancellationToken ct);
     Task SaveIssueAsync(ExtractionIssue issue, CancellationToken ct);
