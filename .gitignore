@@ -1,0 +1,36 @@
+# Keep context directory
+/context/
+
+# MailVault Recovery strict blocking rules
+*.ost
+*.pst
+*.msg
+*.eml
+*.mbox
+*.dump
+*.log
+manifest.json
+mailvault-cases/
+
+# .NET core rules
+bin/
+obj/
+*.user
+*.userosscache
+*.sln.docstates
+
+# Visual Studio files
+.vs/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+build/
+bld/
+
+# JetBrains Rider / VS Code
+.idea/
+.vscode/
+*.suo
+*.user
+*.sln.docstates
