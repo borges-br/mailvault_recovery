@@ -23,6 +23,7 @@
     <ProjectReference Include="..\..\src\MailVault.Domain\MailVault.Domain.csproj" />
     <ProjectReference Include="..\..\src\MailVault.Core\MailVault.Core.csproj" />
     <ProjectReference Include="..\..\src\MailVault.Cli\MailVault.Cli.csproj" />
+    <ProjectReference Include="..\..\src\MailVault.Adapters.XstReader\MailVault.Adapters.XstReader.csproj" />
   </ItemGroup>
 
 </Project>

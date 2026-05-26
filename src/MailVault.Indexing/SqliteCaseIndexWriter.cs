@@ -90,7 +90,6 @@ public sealed class SqliteCaseIndexWriter : ICaseIndexWriter
         cmd.Parameters.AddWithValue("$fullPath", folder.FullPath);
         cmd.Parameters.AddWithValue("$messageCount", (object?)folder.MessageCount ?? DBNull.Value);
 
-        Console.WriteLine($"[DEBUG_DB] SaveFolder: Id={folder.Id.Value}, Parent={folder.ParentId?.Value}, Name={folder.DisplayName}");
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
@@ -125,7 +124,6 @@ public sealed class SqliteCaseIndexWriter : ICaseIndexWriter
         cmd.Parameters.AddWithValue("$attachCount", message.Attachments.Count);
         cmd.Parameters.AddWithValue("$mapiCount", message.RawProperties.Count);
 
-        Console.WriteLine($"[DEBUG_DB] SaveMessage: Id={message.InternalId}, Folder={folderId.Value}, Subject={message.Subject}");
         await cmd.ExecuteNonQueryAsync(ct);
 
         // Save attachments associated
@@ -156,7 +154,6 @@ public sealed class SqliteCaseIndexWriter : ICaseIndexWriter
         cmd.Parameters.AddWithValue("$contentId", (object?)att.ContentId ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$isInline", att.IsInline ? 1 : 0);
 
-        Console.WriteLine($"[DEBUG_DB] SaveAttachment: Id={att.InternalId}, Message={messageId}, Name={att.FileName}");
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
@@ -225,16 +222,15 @@ public sealed class SqliteCaseIndexWriter : ICaseIndexWriter
 
     public async Task SaveIndexRunAsync(string runId, string caseId, DateTime timestamp, string status, long durationMs, int foldersCount, int messagesCount, int attachmentsCount, int issuesCount, CancellationToken ct)
     {
-        // 1. Update case completed time
-        const string updateCaseQuery = "UPDATE case_info SET completed_at = $completedAt WHERE case_id = $caseId;";
-        using (var updateCaseCmd = new SqliteCommand(updateCaseQuery, _connection, _transaction))
+        if (!status.Equals("Running", StringComparison.OrdinalIgnoreCase))
         {
+            const string updateCaseQuery = "UPDATE case_info SET completed_at = $completedAt WHERE case_id = $caseId;";
+            using var updateCaseCmd = new SqliteCommand(updateCaseQuery, _connection, _transaction);
             updateCaseCmd.Parameters.AddWithValue("$completedAt", DateTimeOffset.Now.ToString("o"));
             updateCaseCmd.Parameters.AddWithValue("$caseId", caseId);
             await updateCaseCmd.ExecuteNonQueryAsync(ct);
         }
 
-        // 2. Insert index run
         const string query = @"
             INSERT INTO index_runs (run_id, case_id, timestamp, status, duration_ms, folders_indexed, messages_indexed, attachments_indexed, issues_detected)
             VALUES ($runId, $caseId, $timestamp, $status, $durationMs, $foldersCount, $messagesCount, $attachmentsCount, $issuesCount);";

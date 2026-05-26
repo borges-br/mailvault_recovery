@@ -9,6 +9,9 @@ using MailVault.Core;
 using MailVault.Domain;
 using MailVault.Desktop.Services;
 using MailVault.Desktop.ViewModels;
+using MailVault.Validation;
+using ReactiveUI;
+using System.Reactive.Threading.Tasks;
 using Xunit;
 
 namespace MailVault.Desktop.Tests;
@@ -268,13 +271,15 @@ public class DesktopViewModelsTests
     }
 
     [Fact]
-    public void ValidationPanelViewModel_MapsReportStatus()
+    public async Task ValidationPanelViewModel_MapsReportStatus()
     {
         // Arrange
-        var vm = new ValidationPanelViewModel();
+        var mockService = new MockDesktopValidationService { ExpectedStatus = "PassedWithWarnings" };
+        var vm = new ValidationPanelViewModel(mockService);
+        vm.SetCaseFolder("C:\\DummyCase");
 
         // Action
-        vm.RunValidationCommand.Execute(null);
+        await (vm.RunValidationCommand as ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit>)!.Execute().ToTask();
 
         // Assert
         Assert.Equal("PassedWithWarnings", vm.ReportStatus);
@@ -1075,5 +1080,410 @@ public class DesktopViewModelsTests
         public Task<MailItem?> GetMessageByIdAsync(MessageId messageId, CancellationToken ct) 
             => Task.FromResult<MailItem?>(null);
         public void Dispose() { }
+    }
+
+    // -------------------------------------------------------------------------
+    // Milestone 6.2 — Operational UI & Test Lab Tests
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void HomeViewModel_ShowsPrimaryActions()
+    {
+        var vm = new HomeViewModel();
+        Assert.NotNull(vm.OpenCaseCommand);
+        Assert.NotNull(vm.CreateCaseCommand);
+        Assert.NotNull(vm.OpenMboxCaseCommand);
+        Assert.NotNull(vm.RecentCases);
+    }
+
+    [Fact]
+    public void NewCaseWizard_ValidatesOstPstInput()
+    {
+        var tempFile = Path.Combine(Path.GetTempPath(), $"test-evidence-{Guid.NewGuid():N}.ost");
+        try
+        {
+            File.WriteAllText(tempFile, "dummy");
+            var vm = new NewCaseWizardViewModel();
+            vm.SourcePath = tempFile;
+            Assert.True(vm.CanProceedStep1);
+        }
+        finally
+        {
+            if (File.Exists(tempFile)) File.Delete(tempFile);
+        }
+    }
+
+    [Fact]
+    public void NewCaseWizard_RejectsUnsupportedInput()
+    {
+        var tempFile = Path.Combine(Path.GetTempPath(), $"test-evidence-{Guid.NewGuid():N}.txt");
+        try
+        {
+            File.WriteAllText(tempFile, "dummy");
+            var vm = new NewCaseWizardViewModel();
+            vm.SourcePath = tempFile;
+            Assert.False(vm.CanProceedStep1);
+        }
+        finally
+        {
+            if (File.Exists(tempFile)) File.Delete(tempFile);
+        }
+    }
+
+    [Fact]
+    public void NewCaseWizard_ReportsProgressFromFakeIndexer()
+    {
+        var vm = new NewCaseWizardViewModel();
+        var reporterType = typeof(NewCaseWizardViewModel).GetNestedType("ProgressReporter", System.Reflection.BindingFlags.NonPublic);
+        Assert.NotNull(reporterType);
+        
+        var reporterInstance = Activator.CreateInstance(reporterType, vm);
+        Assert.NotNull(reporterInstance);
+        
+        var reportMethod = reporterType.GetMethod("Report");
+        Assert.NotNull(reportMethod);
+        
+        var progress = new DesktopIndexingProgress("Processando emails...", 75.0, 5, 25, 12, 2);
+        reportMethod.Invoke(reporterInstance, new object[] { progress });
+        
+        Assert.Equal(75.0, vm.ProgressPercentage);
+        Assert.Equal("Processando emails...", vm.ProgressText);
+        Assert.Equal(5, vm.FoldersIndexed);
+        Assert.Equal(25, vm.MessagesIndexed);
+        Assert.Equal(12, vm.AttachmentsIndexed);
+        Assert.Equal(2, vm.IssuesDetected);
+        Assert.Contains("Processando emails...", vm.LogsText);
+    }
+
+    [Fact]
+    public void NewCaseWizard_CancelMovesToCancelledState()
+    {
+        var vm = new NewCaseWizardViewModel();
+        var tempFile = Path.Combine(Path.GetTempPath(), $"nonexistent-{Guid.NewGuid():N}.ost");
+        vm.SourcePath = tempFile;
+        
+        var cts = new CancellationTokenSource();
+        typeof(NewCaseWizardViewModel)
+            .GetField("_indexingCts", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+            .SetValue(vm, cts);
+            
+        vm.CancelIndexingCommand.Execute(null);
+        Assert.Contains("Solicitando cancelamento", vm.LogsText);
+        Assert.True(cts.IsCancellationRequested);
+    }
+
+    [Fact]
+    public async Task OverviewViewModel_MapsWorkspaceHealth()
+    {
+        var tempDir = CreateTempDir();
+        try
+        {
+            await CreateMinimalCaseDbAsync(Path.Combine(tempDir, "case.db"), messageCount: 5);
+            File.WriteAllText(Path.Combine(tempDir, "manifest.json"), "{}");
+
+            using var service = new CaseWorkspaceService(new CaseWorkspaceDiagnosticService());
+            var workspace = await service.OpenExistingCaseAsync(tempDir, CancellationToken.None);
+            var vm = new CaseOverviewViewModel();
+
+            await vm.LoadFromWorkspaceAsync(workspace!, CancellationToken.None);
+
+            Assert.Equal("Íntegro", vm.HealthStatus);
+            Assert.Equal(LoadingState.Loaded, vm.State);
+        }
+        finally
+        {
+            DeleteDirectoryWithRetry(tempDir);
+        }
+    }
+
+    [Fact]
+    public async Task MailNavigator_LoadsFoldersAndMessages()
+    {
+        var reader = new MockCaseIndexReader();
+        reader.Folders.Add(new FolderNode(
+            Id: new FolderId("F-TEST"),
+            ParentId: null,
+            DisplayName: "Inbox",
+            FullPath: "\\Inbox",
+            MessageCount: 10,
+            Children: new List<FolderNode>()
+        ));
+        reader.Messages.Add(new MailItem(
+            InternalId: "M-TEST",
+            InternetMessageId: "<test@domain.com>",
+            Subject: "Test Subject",
+            From: new MailAddressRef("Sender", "sender@domain.com"),
+            To: new List<MailAddressRef>(),
+            Cc: new List<MailAddressRef>(),
+            Bcc: new List<MailAddressRef>(),
+            SentAt: DateTimeOffset.UtcNow,
+            ReceivedAt: DateTimeOffset.UtcNow,
+            PlainTextBody: "Body content",
+            HtmlBody: null,
+            Attachments: new List<AttachmentRef>(),
+            RawProperties: new Dictionary<string, string>(),
+            Issues: new List<ExtractionIssue>()
+        ));
+
+        var folderTreeVm = new FolderTreeViewModel();
+        var messageListVm = new MessageListViewModel();
+
+        await folderTreeVm.LoadFoldersAsync(reader, CancellationToken.None);
+        await messageListVm.SetFolderAsync(new FolderId("F-TEST"), reader, CancellationToken.None);
+
+        Assert.Single(folderTreeVm.RootFolders);
+        Assert.Equal("Inbox (10)", folderTreeVm.RootFolders[0].DisplayName);
+        Assert.Single(messageListVm.Messages);
+        Assert.Equal("Test Subject", messageListVm.Messages[0].Subject);
+    }
+
+    [Fact]
+    public async Task SearchViewModel_ExecutesIndexedSearch()
+    {
+        var reader = new MockCaseIndexReader();
+        reader.SearchResults.Add(new MailItem(
+            InternalId: "M-MATCH",
+            InternetMessageId: "<match@domain.com>",
+            Subject: "Keyword matched",
+            From: new MailAddressRef("Sender", "sender@domain.com"),
+            To: new List<MailAddressRef>(),
+            Cc: new List<MailAddressRef>(),
+            Bcc: new List<MailAddressRef>(),
+            SentAt: DateTimeOffset.UtcNow,
+            ReceivedAt: DateTimeOffset.UtcNow,
+            PlainTextBody: "Body matched",
+            HtmlBody: null,
+            Attachments: new List<AttachmentRef>(),
+            RawProperties: new Dictionary<string, string>(),
+            Issues: new List<ExtractionIssue>()
+        ));
+
+        var vm = new SearchViewModel();
+        vm.SetReader(reader);
+        vm.SearchQuery = "Keyword";
+
+        await vm.OnSearchAsync();
+
+        Assert.Single(vm.Results);
+        Assert.Equal("Keyword matched", vm.Results[0].Subject);
+    }
+
+    [Fact]
+    public async Task ExportPanel_DryRunShowsCounts()
+    {
+        var mockService = new MockDesktopExportService();
+        var vm = new ExportPanelViewModel(mockService);
+        vm.SetCaseFolder("C:\\DummyCase");
+        vm.DryRun = true;
+        
+        await (vm.RunExportCommand as ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit>)!.Execute().ToTask();
+        
+        Assert.Equal(3, vm.MessagesSelected);
+        Assert.Equal(0, vm.MessagesExported);
+        Assert.Contains("DRY RUN", vm.ExportStatus);
+    }
+
+    [Fact]
+    public async Task ValidationPanel_MapsValidationReport()
+    {
+        var mockService = new MockDesktopValidationService { ExpectedStatus = "Passed" };
+        var vm = new ValidationPanelViewModel(mockService);
+        vm.SetCaseFolder("C:\\DummyCase");
+        
+        await (vm.RunValidationCommand as ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit>)!.Execute().ToTask();
+        
+        Assert.Contains("Validação concluída", vm.ValidationStatus);
+        Assert.Equal("Passed", vm.ReportStatus);
+        Assert.Contains("Mensagens no cofre", vm.ReportMetrics);
+    }
+
+    [Fact]
+    public async Task TestLab_ScansCorpusWithoutReadingBodies()
+    {
+        string tempCorpusDir = Path.Combine(Path.GetTempPath(), $"mv-corpus-{Guid.NewGuid():N}");
+        var service = new DesktopTestLabService(new DesktopCaseCreationService(), new DesktopExportService(), new DesktopValidationService());
+        try
+        {
+            service.CreateDefaultStructure(tempCorpusDir);
+            
+            string ostFile = Path.Combine(tempCorpusDir, "evidences", "test.ost");
+            File.WriteAllText(ostFile, "dummy ost content");
+
+            var files = await service.ScanCorpusAsync(tempCorpusDir, CancellationToken.None);
+            
+            Assert.NotEmpty(files);
+            var fileRecord = files.FirstOrDefault(f => f.FileName == "test.ost");
+            Assert.NotNull(fileRecord);
+            Assert.Equal("OST Microsoft Outlook", fileRecord.Category);
+        }
+        finally
+        {
+            if (Directory.Exists(tempCorpusDir)) Directory.Delete(tempCorpusDir, true);
+        }
+    }
+
+    [Fact]
+    public async Task TestLab_RunPipelineCreatesSummary()
+    {
+        string tempCorpusDir = Path.Combine(Path.GetTempPath(), $"mv-corpus-{Guid.NewGuid():N}");
+        var service = new DesktopTestLabService(new DesktopCaseCreationService(), new DesktopExportService(), new DesktopValidationService());
+        try
+        {
+            service.CreateDefaultStructure(tempCorpusDir);
+            
+            string ostFile = Path.Combine(tempCorpusDir, "evidences", "test.ost");
+            File.WriteAllText(ostFile, "dummy ost content");
+
+            var files = await service.ScanCorpusAsync(tempCorpusDir, CancellationToken.None);
+            Assert.NotEmpty(files);
+            var fileRecord = files.First(f => f.FileName == "test.ost");
+
+            var summary = await service.RunPipelineAsync(
+                tempCorpusDir,
+                fileRecord,
+                (msg, percent) => { },
+                CancellationToken.None
+            );
+
+            Assert.NotNull(summary);
+            Assert.Equal("Failed", summary.Status);
+            Assert.Equal("Failed", summary.ValidationStatus);
+            Assert.Equal(fileRecord.Sha256, summary.Sha256);
+            Assert.NotEmpty(summary.Steps);
+        }
+        finally
+        {
+            if (Directory.Exists(tempCorpusDir)) Directory.Delete(tempCorpusDir, true);
+        }
+    }
+
+    [Fact]
+    public void RecentCases_OpenRemoveClear()
+    {
+        string tempFile = Path.Combine(Path.GetTempPath(), $"mv-recent-{Guid.NewGuid():N}.json");
+        try
+        {
+            var svc = new RecentCasesService(tempFile);
+            var entry = new RecentCaseEntry
+            {
+                CaseId = "CASE-1",
+                CaseFolderPath = "C:\\Cases\\CASE-1",
+                OpenMode = "Full",
+                LastOpenedAt = DateTimeOffset.UtcNow,
+                SchemaVersion = 2
+            };
+
+            svc.AddOrUpdate(entry);
+            var list = svc.Load();
+            Assert.Single(list);
+
+            svc.Remove("C:\\Cases\\CASE-1");
+            list = svc.Load();
+            Assert.Empty(list);
+        }
+        finally
+        {
+            if (File.Exists(tempFile)) File.Delete(tempFile);
+        }
+    }
+
+    [Fact]
+    public void SettingsService_SavesLocalPreferences()
+    {
+        string tempFile = Path.Combine(Path.GetTempPath(), $"mv-settings-{Guid.NewGuid():N}.json");
+        try
+        {
+            var svc = new LocalSettingsService(tempFile);
+            var settings = svc.Load();
+            Assert.True(settings.DarkTheme);
+
+            settings.DarkTheme = false;
+            settings.MaxPreviewLength = 650;
+            svc.Save(settings);
+
+            var loaded = svc.Load();
+            Assert.False(loaded.DarkTheme);
+            Assert.Equal(650, loaded.MaxPreviewLength);
+        }
+        finally
+        {
+            if (File.Exists(tempFile)) File.Delete(tempFile);
+        }
+    }
+
+    [Fact]
+    public void ErrorState_DoesNotExposeSensitiveBody()
+    {
+        var sensitiveEx = new InvalidOperationException(@"Failed to read e-mail body: C:\Users\natha\Evidences\secret\body.txt contains password '123456'");
+        var report = SafeDiagnosticsFormatter.Format(sensitiveEx, "Indexador");
+        
+        Assert.NotNull(report);
+        Assert.Contains("<USER>", report.SanitizedDetails);
+        Assert.DoesNotContain(@"natha", report.SanitizedDetails);
+    }
+
+    private class MockDesktopValidationService : DesktopValidationService
+    {
+        public string ExpectedStatus { get; set; } = "PassedWithWarnings";
+        public override Task<ValidationReport> ValidateExportAsync(
+            string caseFolderPath, string? exportFolderPath, string format, bool strict,
+            bool checkEml, bool checkMbox, bool checkAtt, int? sampleSize, string? outDir, CancellationToken ct)
+        {
+            return Task.FromResult(new ValidationReport(
+                ValidationId: "VAL-001",
+                CaseId: "CASE-001",
+                SourceFileMasked: "Masked",
+                SourceSha256: "SHA256",
+                AdapterName: "Adapter",
+                AdapterVersion: "1.0",
+                ExportId: "EXP-001",
+                ExportFormat: format,
+                StartedAt: DateTimeOffset.UtcNow,
+                CompletedAt: DateTimeOffset.UtcNow,
+                DurationMs: 120L,
+                IndexedMessages: 100,
+                SelectedMessages: 100,
+                ExportedMessages: 100,
+                FailedMessages: 0,
+                IndexedAttachments: 10,
+                ExportedAttachments: 10,
+                FailedAttachments: 0,
+                EmptyExportedFiles: 0,
+                DuplicateOutputNames: 0,
+                MissingExpectedFiles: 0,
+                PathSafetyIssues: 0,
+                FoldersChecked: new List<string>(),
+                FolderResults: new List<FolderValidationResult>(),
+                WarningCount: 1,
+                ErrorCount: 0,
+                Status: ExpectedStatus,
+                Issues: new List<ValidationIssue>
+                {
+                    new ValidationIssue("MV-WARN-MBOX-ESCAPE", "Warning", "Linha 'From ' interna de conteúdo sem escape detectada em arquivo MBOX.", "obj1")
+                }
+            ));
+        }
+    }
+
+    private class MockDesktopExportService : DesktopExportService
+    {
+        public override Task<ExportJobResult> RunExportAsync(
+            string caseFolderPath, string format, string? outDir, string? folder, int? limit, int? offset,
+            bool includeAttachments, bool extractAttachments, bool overwrite, bool dryRun, IProgressReporter progressReporter, CancellationToken ct)
+        {
+            return Task.FromResult(new ExportJobResult(
+                ExportId: "EXP-001",
+                Format: format,
+                FoldersSelected: 1,
+                MessagesSelected: 3,
+                MessagesExported: dryRun ? 0 : 3,
+                MessagesFailed: 0,
+                AttachmentsExported: 0,
+                AttachmentsFailed: 0,
+                Issues: new List<ExtractionIssue>(),
+                ExportedFiles: new List<string>(),
+                DurationMs: 45L
+            ));
+        }
     }
 }

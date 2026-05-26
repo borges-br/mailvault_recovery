@@ -886,6 +886,40 @@ public static class Program
             await auditWriter.WriteEventAsync(new AuditEvent(Guid.NewGuid().ToString(), DateTimeOffset.Now, "FoldersIndexed", Environment.UserName, $"Indexadas {result.FoldersIndexed} pastas."), CancellationToken.None);
             await auditWriter.WriteEventAsync(new AuditEvent(Guid.NewGuid().ToString(), DateTimeOffset.Now, "MessagesIndexed", Environment.UserName, $"Indexadas {result.MessagesIndexed} mensagens."), CancellationToken.None);
 
+            if (!result.Status.Equals("Success", StringComparison.OrdinalIgnoreCase))
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("================================================================================");
+                Console.WriteLine("                  INDEXAÇÃO FINALIZADA COM FALHA CONTROLADA                     ");
+                Console.WriteLine("================================================================================");
+                Console.ResetColor();
+                Console.WriteLine($"Arquivo              : {MaskPathForConsole(file.FullName)}");
+                Console.WriteLine("Etapa                : indexação recursiva");
+                Console.WriteLine($"Status               : {result.Status}");
+                Console.WriteLine($"Caminho do Caso      : {caseDetails.caseFolderPath}");
+                Console.WriteLine($"Caminho do Banco     : {result.DbPath}");
+                Console.WriteLine($"Pastas Persistidas   : {result.FoldersIndexed}");
+                Console.WriteLine($"Mensagens Persistidas: {result.MessagesIndexed}");
+                Console.WriteLine($"Anexos Persistidos   : {result.AttachmentsIndexed}");
+                Console.WriteLine($"Issues Registradas   : {result.IssuesDetected}");
+                Console.WriteLine($"Mensagem             : {SanitizeForConsole(result.ErrorMessage ?? "A indexação terminou sem sucesso completo.")}");
+                Console.WriteLine("Possível causa       : falha estrutural do arquivo, pasta/mensagem corrompida ou limitação do XstReader.");
+                Console.WriteLine($"Ação recomendada     : use mailvault stats \"{caseDetails.caseFolderPath}\" para verificar progresso parcial.");
+                Console.WriteLine($"Auditoria            : consulte {caseDetails.auditLogFilePath}");
+                Console.WriteLine("================================================================================");
+
+                await auditWriter.WriteEventAsync(new AuditEvent(
+                    Guid.NewGuid().ToString(),
+                    DateTimeOffset.Now,
+                    "IndexFailedControlled",
+                    Environment.UserName,
+                    $"Indexação finalizada com status {result.Status}. Case={caseDetails.caseId}; Pastas={result.FoldersIndexed}; Mensagens={result.MessagesIndexed}; Issues={result.IssuesDetected}; Motivo={SanitizeForConsole(result.ErrorMessage ?? "sem mensagem adicional")}"),
+                    CancellationToken.None);
+
+                ExitCode = 8;
+                return 8;
+            }
+
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("================================================================================");
             Console.WriteLine("                         RELATÓRIO DE INDEXAÇÃO                                 ");
@@ -913,9 +947,22 @@ public static class Program
         catch (Exception ex)
         {
             Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"[CRITICAL ERRO] Falha na indexação técnica: {ex.Message}");
+            Console.WriteLine("[ERRO CONTROLADO] Falha na indexação técnica.");
             Console.ResetColor();
-            await auditWriter.WriteEventAsync(new AuditEvent(Guid.NewGuid().ToString(), DateTimeOffset.Now, "CommandFailed", Environment.UserName, $"FALHA DO COMANDO index: {ex}"), CancellationToken.None);
+            Console.WriteLine($"Arquivo              : {MaskPathForConsole(file.FullName)}");
+            Console.WriteLine("Etapa                : preparação/indexação");
+            Console.WriteLine($"Mensagem             : {SanitizeForConsole(ex.Message)}");
+            Console.WriteLine("Possível causa       : falha estrutural do arquivo, adapter indisponível ou erro de persistência.");
+            Console.WriteLine($"Caminho do Caso      : {caseDetails.caseFolderPath}");
+            Console.WriteLine($"Ação recomendada     : consulte audit.log em {caseDetails.auditLogFilePath}");
+
+            await auditWriter.WriteEventAsync(new AuditEvent(
+                Guid.NewGuid().ToString(),
+                DateTimeOffset.Now,
+                "CommandFailed",
+                Environment.UserName,
+                $"FALHA CONTROLADA DO COMANDO index: {ex.GetType().Name}: {SanitizeForConsole(ex.Message)}"),
+                CancellationToken.None);
             ExitCode = 8;
             return 8;
         }
@@ -1253,6 +1300,41 @@ public static class Program
             ExitCode = 13;
             return 13;
         }
+    }
+
+    private static string MaskPathForConsole(string path)
+    {
+        try
+        {
+            return System.Text.RegularExpressions.Regex.Replace(
+                path,
+                @"(?i)([a-z]:\\users\\)[^\\]+",
+                "$1<USER>");
+        }
+        catch
+        {
+            return Path.GetFileName(path);
+        }
+    }
+
+    private static string SanitizeForConsole(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return "sem detalhes";
+        }
+
+        string sanitized = message.Replace('\r', ' ').Replace('\n', ' ');
+        sanitized = System.Text.RegularExpressions.Regex.Replace(
+            sanitized,
+            @"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}",
+            "<email_masked>");
+        sanitized = System.Text.RegularExpressions.Regex.Replace(
+            sanitized,
+            @"(?i)([a-z]:\\users\\)[^\\]+",
+            "$1<USER>");
+
+        return sanitized.Length > 500 ? sanitized[..497] + "..." : sanitized;
     }
 
     private static string FormatAddress(MailAddressRef? addr)

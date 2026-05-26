@@ -16,5 +16,7 @@ public record IndexResult(
     int AttachmentsIndexed,
     int IssuesDetected,
     long DurationMs,
-    string Sha256
+    string Sha256,
+    string Status = "Success",
+    string? ErrorMessage = null
 );

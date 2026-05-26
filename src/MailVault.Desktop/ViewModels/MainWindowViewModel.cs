@@ -22,6 +22,18 @@ public class MainWindowViewModel : ViewModelBase
     private string _caseStatusText = "Nenhum case";
     private string _statusBarText = "Nenhum case aberto.";
 
+    // Sidebar Workspace Card
+    private string _caseId = "";
+    private string _healthStatus = "Sem Caso";
+    private int _warningsCount;
+
+    // App footer indicators
+    private string _sqliteStatus = "Desconectado";
+    private string _manifestStatus = "Ausente";
+    private string _auditStatus = "Ausente";
+    private string _schemaVersion = "N/A";
+    private string _lastActionTime = "N/A";
+
     private ViewModelBase? _currentView;
 
     private readonly HomeViewModel _homeViewModel;
@@ -34,9 +46,16 @@ public class MainWindowViewModel : ViewModelBase
     private readonly ValidationPanelViewModel _validationPanelViewModel;
     private readonly MessageBrowserViewModel _messageBrowserViewModel;
 
+    // Milestone 6.2 ViewModels
+    private readonly NewCaseWizardViewModel _newCaseWizardViewModel;
+    private readonly SettingsViewModel _settingsViewModel;
+    private readonly AuditManifestViewModel _auditManifestViewModel;
+    private readonly TestLabViewModel _testLabViewModel;
+
     private readonly CaseWorkspaceDiagnosticService _diagnosticService;
     private readonly CaseWorkspaceService _workspaceService;
     private readonly RecentCasesService _recentCasesService;
+    private readonly LocalSettingsService _settingsService;
 
     private SqliteCaseIndexStore? _store;
     private ICaseIndexReader? _reader;
@@ -82,10 +101,90 @@ public class MainWindowViewModel : ViewModelBase
         set => this.RaiseAndSetIfChanged(ref _statusBarText, value);
     }
 
+    // Sidebar Workspace Card
+    public string CaseId
+    {
+        get => _caseId;
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _caseId, value);
+            this.RaisePropertyChanged(nameof(Breadcrumb));
+        }
+    }
+
+    public string HealthStatus
+    {
+        get => _healthStatus;
+        set => this.RaiseAndSetIfChanged(ref _healthStatus, value);
+    }
+
+    public int WarningsCount
+    {
+        get => _warningsCount;
+        set => this.RaiseAndSetIfChanged(ref _warningsCount, value);
+    }
+
+    // App footer indicators
+    public string SqliteStatus
+    {
+        get => _sqliteStatus;
+        set => this.RaiseAndSetIfChanged(ref _sqliteStatus, value);
+    }
+
+    public string ManifestStatus
+    {
+        get => _manifestStatus;
+        set => this.RaiseAndSetIfChanged(ref _manifestStatus, value);
+    }
+
+    public string AuditStatus
+    {
+        get => _auditStatus;
+        set => this.RaiseAndSetIfChanged(ref _auditStatus, value);
+    }
+
+    public string SchemaVersion
+    {
+        get => _schemaVersion;
+        set => this.RaiseAndSetIfChanged(ref _schemaVersion, value);
+    }
+
+    public string LastActionTime
+    {
+        get => _lastActionTime;
+        set => this.RaiseAndSetIfChanged(ref _lastActionTime, value);
+    }
+
     public ViewModelBase? CurrentView
     {
         get => _currentView;
-        set => this.RaiseAndSetIfChanged(ref _currentView, value);
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _currentView, value);
+            this.RaisePropertyChanged(nameof(Breadcrumb));
+        }
+    }
+
+    public string Breadcrumb
+    {
+        get
+        {
+            if (CurrentView is HomeViewModel) return "Home";
+            string currentModule = CurrentView switch
+            {
+                CaseOverviewViewModel => "Overview do Caso",
+                MessageBrowserViewModel => "Navegador de Correio",
+                SearchViewModel => "Busca Integrada",
+                ExportPanelViewModel => "Exportação Forense",
+                ValidationPanelViewModel => "Laboratório de Validação",
+                AuditManifestViewModel => "Auditoria & Manifesto",
+                TestLabViewModel => "Test Lab",
+                SettingsViewModel => "Configurações",
+                NewCaseWizardViewModel => "Novo Caso",
+                _ => "Módulo"
+            };
+            return string.IsNullOrWhiteSpace(CaseId) ? $"Home > {currentModule}" : $"Home > Caso: {CaseId} > {currentModule}";
+        }
     }
 
     public HomeViewModel HomeVm => _homeViewModel;
@@ -98,12 +197,25 @@ public class MainWindowViewModel : ViewModelBase
     public ValidationPanelViewModel ValidationVm => _validationPanelViewModel;
     public MessageBrowserViewModel MessageBrowserVm => _messageBrowserViewModel;
 
+    // Milestone 6.2 ViewModels
+    public NewCaseWizardViewModel NewCaseWizardVm => _newCaseWizardViewModel;
+    public SettingsViewModel SettingsVm => _settingsViewModel;
+    public AuditManifestViewModel AuditManifestVm => _auditManifestViewModel;
+    public TestLabViewModel TestLabVm => _testLabViewModel;
+
     public ICommand CloseCaseCommand { get; }
     public ICommand ShowOverviewCommand { get; }
     public ICommand ShowBrowserCommand { get; }
     public ICommand ShowSearchCommand { get; }
     public ICommand ShowExportCommand { get; }
     public ICommand ShowValidationCommand { get; }
+
+    // Milestone 6.2 commands
+    public ICommand ShowNewCaseWizardCommand { get; }
+    public ICommand ShowSettingsCommand { get; }
+    public ICommand ShowAuditManifestCommand { get; }
+    public ICommand ShowTestLabCommand { get; }
+    public ICommand OpenCaseFromTopbarCommand { get; }
 
     public MainWindowViewModel()
         : this(new CaseWorkspaceDiagnosticService())
@@ -113,11 +225,13 @@ public class MainWindowViewModel : ViewModelBase
     public MainWindowViewModel(
         CaseWorkspaceDiagnosticService diagnosticService,
         CaseWorkspaceService? workspaceService = null,
-        RecentCasesService? recentCasesService = null)
+        RecentCasesService? recentCasesService = null,
+        LocalSettingsService? settingsService = null)
     {
         _diagnosticService = diagnosticService;
         _workspaceService = workspaceService ?? new CaseWorkspaceService(_diagnosticService);
         _recentCasesService = recentCasesService ?? new RecentCasesService();
+        _settingsService = settingsService ?? new LocalSettingsService();
 
         _homeViewModel = new HomeViewModel(_diagnosticService);
         _homeViewModel.CaseSelected += async path => await LoadCaseAsync(path);
@@ -131,6 +245,16 @@ public class MainWindowViewModel : ViewModelBase
         _exportPanelViewModel = new ExportPanelViewModel();
         _validationPanelViewModel = new ValidationPanelViewModel();
         _messageBrowserViewModel = new MessageBrowserViewModel(_folderTreeViewModel, _messageListViewModel, _messagePreviewViewModel);
+
+        // Milestone 6.2 VM Init
+        _newCaseWizardViewModel = new NewCaseWizardViewModel();
+        _newCaseWizardViewModel.IndexingCompleted += async path => await LoadCaseAsync(path);
+
+        _settingsViewModel = new SettingsViewModel();
+        _auditManifestViewModel = new AuditManifestViewModel();
+        
+        _testLabViewModel = new TestLabViewModel();
+        _testLabViewModel.CaseCreated += async path => await LoadCaseAsync(path);
 
         _folderTreeViewModel.FolderSelected += async fId =>
         {
@@ -157,8 +281,24 @@ public class MainWindowViewModel : ViewModelBase
         ShowExportCommand = ReactiveCommand.Create(() => CurrentView = _exportPanelViewModel);
         ShowValidationCommand = ReactiveCommand.Create(() => CurrentView = _validationPanelViewModel);
 
+        ShowNewCaseWizardCommand = ReactiveCommand.Create(() => CurrentView = _newCaseWizardViewModel);
+        ShowSettingsCommand = ReactiveCommand.Create(() => CurrentView = _settingsViewModel);
+        ShowAuditManifestCommand = ReactiveCommand.Create(() => CurrentView = _auditManifestViewModel);
+        ShowTestLabCommand = ReactiveCommand.Create(() => CurrentView = _testLabViewModel);
+        
+        OpenCaseFromTopbarCommand = ReactiveCommand.CreateFromTask(OnOpenCaseFromTopbarAsync);
+
         RefreshRecentCases();
         CurrentView = _homeViewModel;
+    }
+
+    private async Task OnOpenCaseFromTopbarAsync()
+    {
+        // Simple mock trigger: normally triggers directory selection dialog in View.
+        // For standard UI flow, we route to Home so the user can easily open it.
+        CurrentView = _homeViewModel;
+        _homeViewModel.StatusText = "Selecione a pasta do caso abaixo para abrir.";
+        await Task.CompletedTask;
     }
 
     public async Task LoadCaseAsync(string casePath)
@@ -195,15 +335,32 @@ public class MainWindowViewModel : ViewModelBase
 
             IsCaseLoaded = true;
             CaseStatusText = _caseOverviewViewModel.HealthStatus;
-            StatusBarText = $"Case {_caseOverviewViewModel.CaseId}: {_caseOverviewViewModel.HealthStatus}";
+            
+            // Sidebar Workspace Card
+            CaseId = string.IsNullOrWhiteSpace(_caseOverviewViewModel.CaseId)
+                ? Path.GetFileName(casePath)
+                : _caseOverviewViewModel.CaseId;
+            HealthStatus = _caseOverviewViewModel.HealthStatus;
+            WarningsCount = result.Warnings.Count;
+
+            // Footer indicators
+            SqliteStatus = "ReadOnly";
+            ManifestStatus = result.Diagnostic.ManifestExists ? "OK" : "Missing";
+            AuditStatus = File.Exists(Path.Combine(casePath, "audit.log")) ? "OK" : "Missing";
+            SchemaVersion = result.Diagnostic.SchemaVersion.ToString();
+            LastActionTime = DateTime.Now.ToString("HH:mm:ss");
+
+            _auditManifestViewModel.SetCaseFolder(casePath);
+            _exportPanelViewModel.SetCaseFolder(casePath);
+            _validationPanelViewModel.SetCaseFolder(casePath);
+
+            StatusBarText = $"Case {CaseId}: {HealthStatus}";
             WindowTitle = $"MailVault Recovery — Caso: {Path.GetFileName(casePath)}";
             CurrentView = _caseOverviewViewModel;
 
             _recentCasesService.AddOrUpdate(new RecentCaseEntry
             {
-                CaseId = string.IsNullOrWhiteSpace(_caseOverviewViewModel.CaseId)
-                    ? Path.GetFileName(casePath)
-                    : _caseOverviewViewModel.CaseId,
+                CaseId = CaseId,
                 CaseFolderPath = casePath,
                 OpenMode = result.OpenMode.ToString(),
                 LastOpenedAt = DateTimeOffset.UtcNow,
@@ -221,7 +378,8 @@ public class MainWindowViewModel : ViewModelBase
         catch (Exception ex)
         {
             ClearActiveCaseResources();
-            _homeViewModel.ShowError($"Erro ao carregar caso: {ex.Message}", "Confira o schema do case.db e o audit.log do case.");
+            var report = SafeDiagnosticsFormatter.Format(ex, "Abertura de Caso");
+            _homeViewModel.ShowError($"Erro: {report.Title}. {report.ProbableCause}", report.RecommendedAction);
             StatusBarText = "Erro ao abrir case.";
             CurrentView = _homeViewModel;
         }
@@ -254,10 +412,23 @@ public class MainWindowViewModel : ViewModelBase
         IsCaseLoaded = false;
         WarningBanner = null;
 
+        // Reset workspace card & footers
+        CaseId = "";
+        HealthStatus = "Sem Caso";
+        WarningsCount = 0;
+        SqliteStatus = "Desconectado";
+        ManifestStatus = "Ausente";
+        AuditStatus = "Ausente";
+        SchemaVersion = "N/A";
+        LastActionTime = "N/A";
+
         _messagePreviewViewModel.SetMessage(null);
         _messageListViewModel.ResetMessages();
         _folderTreeViewModel.ResetFolders();
         _searchViewModel.ClearReader();
+        _auditManifestViewModel.ClearData();
+        _exportPanelViewModel.SetCaseFolder("");
+        _validationPanelViewModel.SetCaseFolder("");
     }
 
     private void CancelCurrentCaseLoad()

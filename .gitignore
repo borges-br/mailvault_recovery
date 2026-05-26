@@ -42,3 +42,5 @@ bld/
 # Validation and test files
 .local_corpus/
 /.local_corpus/
+.tmp/
+scratch/

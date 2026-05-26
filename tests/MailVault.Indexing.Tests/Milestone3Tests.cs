@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using MailVault.Cli;
@@ -340,6 +341,336 @@ public class Milestone3Tests : IDisposable
         Assert.Contains("Assunto do Fake Inbox", output);
         Assert.Contains("Busca finalizada. Exibidos 3 e-mails correspondentes.", output);
         Assert.Contains(">>> PREVIEW:", output);
+    }
+
+    [Fact]
+    public async Task XstReaderMailStoreReader_DoesNotReopenStorePerFolder_WhenSessionActive()
+    {
+        var reader = new CountingSessionReader();
+        string caseDir = Path.Combine(_tempWorkspaceDir, "CASE-SESSION-COUNT");
+        using var store = new SqliteCaseIndexStore();
+        await store.InitializeAsync(caseDir, CancellationToken.None);
+
+        var result = await new IndexingService().RunIndexAsync(
+            _dummyPstFile,
+            store,
+            reader,
+            "CASE-SESSION-COUNT",
+            "Tester",
+            cachePreview: false,
+            limit: null,
+            CancellationToken.None);
+
+        Assert.Equal("Success", result.Status);
+        Assert.Equal(1, reader.BeginCount);
+        Assert.Equal(1, reader.EndCount);
+        Assert.True(reader.EnumerateMessagesCalls > 1);
+    }
+
+    [Fact]
+    public async Task IndexingService_CommitsCaseInfoBeforeFolderIndexing()
+    {
+        string caseDir = Path.Combine(_tempWorkspaceDir, "CASE-CASEINFO-FIRST");
+        using var store = new SqliteCaseIndexStore();
+        await store.InitializeAsync(caseDir, CancellationToken.None);
+
+        var result = await new IndexingService().RunIndexAsync(
+            _dummyPstFile,
+            store,
+            new ThrowingFolderReader(),
+            "CASE-CASEINFO-FIRST",
+            "Tester",
+            cachePreview: false,
+            limit: null,
+            CancellationToken.None);
+
+        Assert.Equal("Failed", result.Status);
+        Assert.Equal(1, await ExecuteIntAsync(store.DatabasePath, "SELECT COUNT(*) FROM case_info WHERE case_id = 'CASE-CASEINFO-FIRST';"));
+    }
+
+    [Fact]
+    public async Task IndexingService_RecordsFailedIndexRun_WhenReaderThrows()
+    {
+        string caseDir = Path.Combine(_tempWorkspaceDir, "CASE-FAILED-RUN");
+        using var store = new SqliteCaseIndexStore();
+        await store.InitializeAsync(caseDir, CancellationToken.None);
+
+        var result = await new IndexingService().RunIndexAsync(
+            _dummyPstFile,
+            store,
+            new ThrowingFolderReader(),
+            "CASE-FAILED-RUN",
+            "Tester",
+            cachePreview: false,
+            limit: null,
+            CancellationToken.None);
+
+        Assert.Equal("Failed", result.Status);
+        Assert.Equal(1, await ExecuteIntAsync(store.DatabasePath, "SELECT COUNT(*) FROM index_runs WHERE status = 'Failed';"));
+        Assert.Equal(1, await ExecuteIntAsync(store.DatabasePath, "SELECT COUNT(*) FROM issues WHERE issue_code = 'MV-ERR-INDEX-FATAL';"));
+    }
+
+    [Fact]
+    public async Task IndexCommand_ReturnsControlledFailure_WhenReaderThrows()
+    {
+        Program.InjectReader(new ThrowingFolderReader());
+
+        using var sw = new StringWriter();
+        Console.SetOut(sw);
+
+        int exitCode = await Program.Main(new[]
+        {
+            "index",
+            _dummyPstFile,
+            "--out",
+            _tempWorkspaceDir,
+            "--case-id",
+            "CASE-CLI-CONTROLLED-FAIL"
+        });
+
+        string output = sw.ToString();
+        string caseDir = Path.Combine(_tempWorkspaceDir, "CASE-CLI-CONTROLLED-FAIL");
+        string dbPath = Path.Combine(caseDir, "case.db");
+
+        Assert.Equal(8, exitCode);
+        Assert.Contains("FALHA CONTROLADA", output);
+        Assert.DoesNotContain("Unhandled exception", output);
+        Assert.True(File.Exists(dbPath));
+        Assert.Equal(1, await ExecuteIntAsync(dbPath, "SELECT COUNT(*) FROM case_info WHERE case_id = 'CASE-CLI-CONTROLLED-FAIL';"));
+        Assert.Equal(1, await ExecuteIntAsync(dbPath, "SELECT COUNT(*) FROM index_runs WHERE status = 'Failed';"));
+    }
+
+    [Fact]
+    public async Task IndexingService_DoesNotLeaveEmptySuccessfulCase_WhenFatalErrorOccurs()
+    {
+        string caseDir = Path.Combine(_tempWorkspaceDir, "CASE-NOT-EMPTY-SUCCESS");
+        using var store = new SqliteCaseIndexStore();
+        await store.InitializeAsync(caseDir, CancellationToken.None);
+
+        var result = await new IndexingService().RunIndexAsync(
+            _dummyPstFile,
+            store,
+            new ThrowingFolderReader(),
+            "CASE-NOT-EMPTY-SUCCESS",
+            "Tester",
+            cachePreview: false,
+            limit: null,
+            CancellationToken.None);
+
+        Assert.NotEqual("Success", result.Status);
+        Assert.Equal(1, await ExecuteIntAsync(store.DatabasePath, "SELECT COUNT(*) FROM case_info;"));
+        Assert.True(await ExecuteIntAsync(store.DatabasePath, "SELECT COUNT(*) FROM issues;") > 0);
+    }
+
+    [Fact]
+    public async Task SessionAwareReader_BeginAndEndCalledAroundIndexing()
+    {
+        var reader = new CountingSessionReader();
+        string caseDir = Path.Combine(_tempWorkspaceDir, "CASE-SESSION-LIFECYCLE");
+        using var store = new SqliteCaseIndexStore();
+        await store.InitializeAsync(caseDir, CancellationToken.None);
+
+        await new IndexingService().RunIndexAsync(
+            _dummyPstFile,
+            store,
+            reader,
+            "CASE-SESSION-LIFECYCLE",
+            "Tester",
+            cachePreview: false,
+            limit: null,
+            CancellationToken.None);
+
+        Assert.Equal(_dummyPstFile, reader.BeginFilePath);
+        Assert.Equal(1, reader.BeginCount);
+        Assert.Equal(1, reader.EndCount);
+    }
+
+    [Fact]
+    public async Task DebugDbOutput_NotPrintedWithoutVerbose()
+    {
+        string caseDir = Path.Combine(_tempWorkspaceDir, "CASE-NO-DEBUG");
+        using var store = new SqliteCaseIndexStore();
+        await store.InitializeAsync(caseDir, CancellationToken.None);
+
+        using var sw = new StringWriter();
+        Console.SetOut(sw);
+
+        await new IndexingService().RunIndexAsync(
+            _dummyPstFile,
+            store,
+            new FakeMailStoreReader(),
+            "CASE-NO-DEBUG",
+            "Tester",
+            cachePreview: false,
+            limit: null,
+            CancellationToken.None);
+
+        Assert.DoesNotContain("[DEBUG_DB]", sw.ToString());
+    }
+
+    [Fact]
+    public async Task PartialIndex_HasStatusFailedOrPartial_NotSuccess()
+    {
+        string caseDir = Path.Combine(_tempWorkspaceDir, "CASE-PARTIAL");
+        using var store = new SqliteCaseIndexStore();
+        await store.InitializeAsync(caseDir, CancellationToken.None);
+
+        var result = await new IndexingService().RunIndexAsync(
+            _dummyPstFile,
+            store,
+            new PartialThenThrowReader(),
+            "CASE-PARTIAL",
+            "Tester",
+            cachePreview: false,
+            limit: null,
+            CancellationToken.None);
+
+        Assert.Equal("Partial", result.Status);
+        Assert.NotEqual("Success", result.Status);
+        Assert.True(result.MessagesIndexed > 0);
+        Assert.Equal(1, await ExecuteIntAsync(store.DatabasePath, "SELECT COUNT(*) FROM index_runs WHERE status = 'Partial';"));
+    }
+
+    [Fact]
+    public async Task AdapterExceptions_AreMappedToExtractionIssues_WhenPossible()
+    {
+        string invalidPst = Path.Combine(_tempWorkspaceDir, "invalid.pst");
+        await File.WriteAllTextAsync(invalidPst, "not really a pst");
+
+        var reader = new MailVault.Adapters.XstReader.XstReaderMailStoreReader();
+        var metadata = await reader.InspectAsync(invalidPst, CancellationToken.None);
+
+        Assert.Contains(metadata.Issues, issue => issue.Code == "MV-ERR-ADAPTER-INSPECT");
+        Assert.Contains(reader.DrainIssues(), issue => issue.Code == "MV-ERR-ADAPTER-INSPECT");
+    }
+
+    [Fact]
+    public async Task ExistingFakeReaderTests_StillPass()
+    {
+        string caseDir = Path.Combine(_tempWorkspaceDir, "CASE-FAKE-STILL-PASS");
+        using var store = new SqliteCaseIndexStore();
+        await store.InitializeAsync(caseDir, CancellationToken.None);
+
+        var result = await new IndexingService().RunIndexAsync(
+            _dummyPstFile,
+            store,
+            new FakeMailStoreReader(),
+            "CASE-FAKE-STILL-PASS",
+            "Tester",
+            cachePreview: false,
+            limit: null,
+            CancellationToken.None);
+
+        Assert.Equal("Success", result.Status);
+        Assert.Equal(6, result.MessagesIndexed);
+    }
+
+    private static async Task<int> ExecuteIntAsync(string dbPath, string sql)
+    {
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        await using var connection = new SqliteConnection($"Data Source={dbPath}");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        return Convert.ToInt32(await command.ExecuteScalarAsync());
+    }
+
+    private sealed class CountingSessionReader : IMailStoreReader, ISessionAwareMailStoreReader
+    {
+        private readonly FakeMailStoreReader _inner = new();
+
+        public string ReaderName => _inner.ReaderName;
+        public int BeginCount { get; private set; }
+        public int EndCount { get; private set; }
+        public int EnumerateMessagesCalls { get; private set; }
+        public string? BeginFilePath { get; private set; }
+
+        public Task BeginReadSessionAsync(string filePath, CancellationToken ct)
+        {
+            BeginCount++;
+            BeginFilePath = filePath;
+            return Task.CompletedTask;
+        }
+
+        public Task EndReadSessionAsync(CancellationToken ct)
+        {
+            EndCount++;
+            return Task.CompletedTask;
+        }
+
+        public Task<StoreMetadata> InspectAsync(string filePath, CancellationToken ct) => _inner.InspectAsync(filePath, ct);
+        public IAsyncEnumerable<FolderNode> EnumerateFoldersAsync(CancellationToken ct) => _inner.EnumerateFoldersAsync(ct);
+        public Task<Stream> OpenAttachmentAsync(AttachmentRef attachment, CancellationToken ct) => _inner.OpenAttachmentAsync(attachment, ct);
+        public Task<Stream> OpenAttachmentStreamAsync(MessageId messageId, AttachmentId attachmentId, CancellationToken ct) => _inner.OpenAttachmentStreamAsync(messageId, attachmentId, ct);
+        public Task<OperationResult<MailItem>> GetMessageAsync(MessageId messageId, CancellationToken ct) => _inner.GetMessageAsync(messageId, ct);
+
+        public async IAsyncEnumerable<MailItem> EnumerateMessagesAsync(FolderId folderId, [EnumeratorCancellation] CancellationToken ct)
+        {
+            EnumerateMessagesCalls++;
+            await foreach (var message in _inner.EnumerateMessagesAsync(folderId, ct))
+            {
+                yield return message;
+            }
+        }
+    }
+
+    private sealed class ThrowingFolderReader : IMailStoreReader, ISessionAwareMailStoreReader
+    {
+        public string ReaderName => "Throwing Test Reader";
+
+        public Task BeginReadSessionAsync(string filePath, CancellationToken ct) => Task.CompletedTask;
+        public Task EndReadSessionAsync(CancellationToken ct) => Task.CompletedTask;
+
+        public Task<StoreMetadata> InspectAsync(string filePath, CancellationToken ct)
+        {
+            return Task.FromResult(new StoreMetadata(filePath, 1, "", "Fake", ReaderName, Array.Empty<ExtractionIssue>()));
+        }
+
+        public async IAsyncEnumerable<FolderNode> EnumerateFoldersAsync([EnumeratorCancellation] CancellationToken ct)
+        {
+            await Task.CompletedTask;
+            throw new InvalidOperationException("Simulated reader failure");
+            yield break; // unreachable; required by the compiler to treat this as an async iterator
+        }
+
+        public async IAsyncEnumerable<MailItem> EnumerateMessagesAsync(FolderId folderId, [EnumeratorCancellation] CancellationToken ct)
+        {
+            await Task.CompletedTask;
+            yield break;
+        }
+
+        public Task<Stream> OpenAttachmentAsync(AttachmentRef attachment, CancellationToken ct) => Task.FromResult<Stream>(Stream.Null);
+        public Task<Stream> OpenAttachmentStreamAsync(MessageId messageId, AttachmentId attachmentId, CancellationToken ct) => Task.FromResult<Stream>(Stream.Null);
+        public Task<OperationResult<MailItem>> GetMessageAsync(MessageId messageId, CancellationToken ct)
+            => Task.FromResult(OperationResult<MailItem>.Failure(new ExtractionIssue("MV-ERR-TEST", "Error", "Not found", messageId.Value, null)));
+    }
+
+    private sealed class PartialThenThrowReader : IMailStoreReader
+    {
+        private readonly FakeMailStoreReader _inner = new();
+        private int _folderCount;
+
+        public string ReaderName => _inner.ReaderName;
+
+        public Task<StoreMetadata> InspectAsync(string filePath, CancellationToken ct) => _inner.InspectAsync(filePath, ct);
+        public IAsyncEnumerable<MailItem> EnumerateMessagesAsync(FolderId folderId, CancellationToken ct) => _inner.EnumerateMessagesAsync(folderId, ct);
+        public Task<Stream> OpenAttachmentAsync(AttachmentRef attachment, CancellationToken ct) => _inner.OpenAttachmentAsync(attachment, ct);
+        public Task<Stream> OpenAttachmentStreamAsync(MessageId messageId, AttachmentId attachmentId, CancellationToken ct) => _inner.OpenAttachmentStreamAsync(messageId, attachmentId, ct);
+        public Task<OperationResult<MailItem>> GetMessageAsync(MessageId messageId, CancellationToken ct) => _inner.GetMessageAsync(messageId, ct);
+
+        public async IAsyncEnumerable<FolderNode> EnumerateFoldersAsync([EnumeratorCancellation] CancellationToken ct)
+        {
+            await foreach (var folder in _inner.EnumerateFoldersAsync(ct))
+            {
+                _folderCount++;
+                if (_folderCount > 1)
+                {
+                    throw new InvalidOperationException("Simulated partial reader failure");
+                }
+
+                yield return folder;
+            }
+        }
     }
 }
 
