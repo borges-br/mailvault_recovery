@@ -9,6 +9,9 @@
 *.mbox
 *.dump
 *.log
+*.db
+*.db-shm
+*.db-wal
 manifest.json
 mailvault-cases/
 

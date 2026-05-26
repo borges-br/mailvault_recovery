@@ -9,12 +9,15 @@ using System.Threading.Tasks;
 using MailVault.Audit;
 using MailVault.Core;
 using MailVault.Domain;
+using MailVault.Indexing;
 
 namespace MailVault.Cli;
 
 public static class Program
 {
     private static IMailStoreReader? _injectedReader;
+
+    public static int ExitCode { get; private set; } = 0;
 
     public static void InjectReader(IMailStoreReader reader)
     {
@@ -24,6 +27,7 @@ public static class Program
     public static async Task<int> Main(string[] args)
     {
         Console.OutputEncoding = System.Text.Encoding.UTF8;
+        ExitCode = 0; // Reset for testing runner environments
 
         var rootCommand = new RootCommand("MailVault Recovery CLI — Ferramenta local e offline de recuperação forense.");
 
@@ -73,7 +77,7 @@ public static class Program
 
         // Command: preview
         var previewCommand = new Command("preview", "Exibe detalhes seguros de uma mensagem específica.");
-        var fileArgPreview = new Argument<FileInfo>("file", "O caminho do arquivo .ost/.pst.") { Arity = ArgumentArity.ExactlyOne };
+        var fileArgPreview = new Argument<FileInfo>("file", "O caminho do arquivo .ost/.pst.");
         var msgIdOpt = new Option<string>("--message-id", "O ID interno da mensagem.") { IsRequired = true };
         var bodyLinesOpt = new Option<int>("--body-lines", () => 30, "Limite de linhas do corpo da mensagem no preview.");
         var outOptPreview = new Option<DirectoryInfo>("--out", "O diretório de saída base para o caso.") { IsRequired = false };
@@ -87,47 +91,87 @@ public static class Program
             await HandlePreviewAsync(file, messageId, bodyLines, outDir);
         }, fileArgPreview, msgIdOpt, bodyLinesOpt, outOptPreview);
 
+        // NEW Command: index
+        var indexCommand = new Command("index", "Lê e-mails da mídia via adapter e indexa metadados no case.db de forma persistente.");
+        var fileArgIndex = new Argument<FileInfo>("file", "O caminho do arquivo .ost/.pst.") { Arity = ArgumentArity.ExactlyOne };
+        var outOptIndex = new Option<DirectoryInfo>("--out", "O diretório de saída base para o caso.") { IsRequired = false };
+        outOptIndex.SetDefaultValue(new DirectoryInfo(Path.Combine(Directory.GetCurrentDirectory(), "mailvault-cases")));
+        var caseIdOpt = new Option<string>("--case-id", "Opcional: ID de caso pré-definido.");
+        var forceOpt = new Option<bool>("--force", "Força a recriação do índice do caso caso ele já exista.");
+        var limitOptIndex = new Option<int?>("--limit", "Opcional: Limita a quantidade de e-mails indexados por pasta.");
+        var noPreviewCacheOpt = new Option<bool>("--no-preview-cache", "Desativa o cacheamento e a geração do preview do corpo da mensagem.");
+        indexCommand.AddArgument(fileArgIndex);
+        indexCommand.AddOption(outOptIndex);
+        indexCommand.AddOption(caseIdOpt);
+        indexCommand.AddOption(forceOpt);
+        indexCommand.AddOption(limitOptIndex);
+        indexCommand.AddOption(noPreviewCacheOpt);
+        indexCommand.SetHandler(async (FileInfo file, DirectoryInfo outDir, string? caseId, bool force, int? limit, bool noPreviewCache) =>
+        {
+            await HandleIndexAsync(file, outDir, caseId, force, limit, noPreviewCache);
+        }, fileArgIndex, outOptIndex, caseIdOpt, forceOpt, limitOptIndex, noPreviewCacheOpt);
+
+        // NEW Command: stats
+        var statsCommand = new Command("stats", "Exibe estatísticas consolidadas e forenses a partir do índice case.db.");
+        var caseFolderArgStats = new Argument<DirectoryInfo>("case-folder", "A pasta de caso contendo o arquivo case.db.") { Arity = ArgumentArity.ExactlyOne };
+        statsCommand.AddArgument(caseFolderArgStats);
+        statsCommand.SetHandler(async (DirectoryInfo caseFolder) =>
+        {
+            await HandleStatsAsync(caseFolder);
+        }, caseFolderArgStats);
+
+        // NEW Command: search
+        var searchCommand = new Command("search", "Busca mensagens no índice persistente do caso.");
+        var caseFolderArgSearch = new Argument<DirectoryInfo>("case-folder", "A pasta de caso contendo o arquivo case.db.") { Arity = ArgumentArity.ExactlyOne };
+        var queryOpt = new Option<string>("--query", "Termo de texto para pesquisar.") { IsRequired = true };
+        var folderOptSearch = new Option<string?>("--folder", "Caminho da pasta para limitar a busca.");
+        var limitOptSearch = new Option<int>("--limit", () => 50, "Limite de resultados.");
+        var offsetOptSearch = new Option<int>("--offset", () => 0, "Ignorar os primeiros N e-mails.");
+        var includePreviewOpt = new Option<bool>("--include-preview", "Se marcado, exibe o preview do e-mail.");
+        searchCommand.AddArgument(caseFolderArgSearch);
+        searchCommand.AddOption(queryOpt);
+        searchCommand.AddOption(folderOptSearch);
+        searchCommand.AddOption(limitOptSearch);
+        searchCommand.AddOption(offsetOptSearch);
+        searchCommand.AddOption(includePreviewOpt);
+        searchCommand.SetHandler(async (DirectoryInfo caseFolder, string query, string? folder, int limit, int offset, bool includePreview) =>
+        {
+            await HandleSearchAsync(caseFolder, query, folder, limit, offset, includePreview);
+        }, caseFolderArgSearch, queryOpt, folderOptSearch, limitOptSearch, offsetOptSearch, includePreviewOpt);
+
         rootCommand.AddCommand(inspectCommand);
         rootCommand.AddCommand(treeCommand);
         rootCommand.AddCommand(listCommand);
         rootCommand.AddCommand(previewCommand);
+        rootCommand.AddCommand(indexCommand);
+        rootCommand.AddCommand(statsCommand);
+        rootCommand.AddCommand(searchCommand);
 
-        return await rootCommand.InvokeAsync(args);
+        int result = await rootCommand.InvokeAsync(args);
+        return ExitCode != 0 ? ExitCode : result;
     }
 
-    private static IMailStoreReader GetMailStoreReader()
+    private static IMailStoreReader GetMailStoreReader(string extension)
     {
         if (_injectedReader != null)
         {
             return _injectedReader;
         }
 
-        try
+        var resolver = new ReflectionAdapterResolver();
+        var result = resolver.ResolveAdapter(extension);
+        if (result.Success && result.Reader != null)
         {
-            string basePath = AppContext.BaseDirectory;
-            string adapterDll = Path.Combine(basePath, "MailVault.Adapters.XstReader.dll");
-            if (File.Exists(adapterDll))
-            {
-                var assembly = System.Runtime.Loader.AssemblyLoadContext.Default.LoadFromAssemblyPath(adapterDll);
-                var type = assembly.GetType("MailVault.Adapters.XstReader.XstReaderMailStoreReader");
-                if (type != null && Activator.CreateInstance(type) is IMailStoreReader reader)
-                {
-                    return reader;
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            throw new InvalidOperationException($"Erro ao inicializar dinamicamente o adapter XstReader: {ex.Message}", ex);
+            return result.Reader;
         }
 
-        throw new InvalidOperationException("Nenhum adapter de leitura PST/OST foi encontrado na pasta de build. Certifique-se de que MailVault.Adapters.XstReader está compilado.");
+        throw new InvalidOperationException(result.ErrorMessage ?? "Erro desconhecido ao carregar dinamicamente o adapter.");
     }
 
-    private static async Task<(string sha256, string caseId, string caseFolderPath, string auditLogFilePath, DateTimeOffset startedAt)> InitializeCaseAsync(FileInfo file, DirectoryInfo outDir, string commandName)
+    private static async Task<(string sha256, string caseId, string caseFolderPath, string auditLogFilePath, DateTimeOffset startedAt)> InitializeCaseAsync(FileInfo file, DirectoryInfo outDir, string commandName, string? explicitCaseId = null)
     {
         var startedAt = DateTimeOffset.Now;
-        var caseId = ManifestService.GenerateCaseId(startedAt);
+        var caseId = explicitCaseId ?? ManifestService.GenerateCaseId(startedAt);
         string caseFolderPath = Path.Combine(outDir.FullName, caseId);
         string auditLogFilePath = Path.Combine(caseFolderPath, "audit.log");
 
@@ -167,7 +211,6 @@ public static class Program
             Details: $"Comando {commandName} finalizado com sucesso."
         ), CancellationToken.None);
 
-        // Update manifest.json
         var manifest = new RecoveryManifest(
             CaseId: caseId,
             SourceFile: sourceFile,
@@ -198,7 +241,8 @@ public static class Program
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"[ERRO] O arquivo especificado não existe: '{file.FullName}'");
             Console.ResetColor();
-            Environment.Exit(1);
+            ExitCode = 1;
+            return;
         }
 
         var startedAt = DateTimeOffset.Now;
@@ -227,7 +271,8 @@ public static class Program
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"[ERRO] Falha ao calcular hash SHA-256: {ex.Message}");
             Console.ResetColor();
-            Environment.Exit(2);
+            ExitCode = 2;
+            return;
         }
 
         Console.WriteLine();
@@ -283,7 +328,8 @@ public static class Program
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"[ERRO] Falha ao salvar manifest.json: {ex.Message}");
             Console.ResetColor();
-            Environment.Exit(3);
+            ExitCode = 3;
+            return;
         }
 
         var auditEvent = new AuditEvent(
@@ -358,13 +404,14 @@ public static class Program
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"[ERRO] O arquivo especificado não existe: '{file.FullName}'");
             Console.ResetColor();
-            Environment.Exit(1);
+            ExitCode = 1;
+            return;
         }
 
         var caseDetails = await InitializeCaseAsync(file, outDir, "tree");
         var auditWriter = new FileAuditTrailWriter(caseDetails.auditLogFilePath);
 
-        var reader = GetMailStoreReader();
+        var reader = GetMailStoreReader(file.Extension);
         var warnings = new List<ExtractionIssue>();
 
         Console.WriteLine("[*] Abrindo arquivo e varrendo hierarquia de pastas...");
@@ -373,7 +420,7 @@ public static class Program
         try
         {
             await reader.InspectAsync(file.FullName, CancellationToken.None);
-            
+
             var roots = new List<FolderNode>();
             await foreach (var rootFolder in reader.EnumerateFoldersAsync(CancellationToken.None))
             {
@@ -413,7 +460,7 @@ public static class Program
             Console.WriteLine($"[CRITICAL ERRO] Falha ao processar árvore: {ex.Message}");
             Console.ResetColor();
             await auditWriter.WriteEventAsync(new AuditEvent(Guid.NewGuid().ToString(), DateTimeOffset.Now, "CommandFailed", Environment.UserName, $"FALHA DO COMANDO tree: {ex}"), CancellationToken.None);
-            Environment.Exit(4);
+            ExitCode = 4;
         }
     }
 
@@ -449,13 +496,14 @@ public static class Program
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"[ERRO] O arquivo especificado não existe: '{file.FullName}'");
             Console.ResetColor();
-            Environment.Exit(1);
+            ExitCode = 1;
+            return;
         }
 
         var caseDetails = await InitializeCaseAsync(file, outDir, "list");
         var auditWriter = new FileAuditTrailWriter(caseDetails.auditLogFilePath);
 
-        var reader = GetMailStoreReader();
+        var reader = GetMailStoreReader(file.Extension);
         var warnings = new List<ExtractionIssue>();
 
         Console.WriteLine($"[*] Buscando mensagens na pasta: '{folder}'...");
@@ -497,10 +545,10 @@ public static class Program
                 if (subStr.Length > 30) subStr = subStr.Substring(0, 27) + "...";
 
                 string idStr = m.InternalId;
-                if (idStr.Length > 15) idStr = idStr.Substring(idStr.Length - 15); // Show tail of the ID if long
+                if (idStr.Length > 15) idStr = idStr.Substring(idStr.Length - 15);
 
                 Console.WriteLine($"{idStr.PadRight(15)} | {dateStr.PadRight(14)} | {fromStr.PadRight(25)} | {subStr} | anexos: {m.Attachments.Count}");
-                
+
                 if (m.Issues.Count > 0)
                 {
                     Console.ForegroundColor = ConsoleColor.Yellow;
@@ -529,7 +577,7 @@ public static class Program
             Console.WriteLine($"[CRITICAL ERRO] Falha ao listar mensagens: {ex.Message}");
             Console.ResetColor();
             await auditWriter.WriteEventAsync(new AuditEvent(Guid.NewGuid().ToString(), DateTimeOffset.Now, "CommandFailed", Environment.UserName, $"FALHA DO COMANDO list: {ex}"), CancellationToken.None);
-            Environment.Exit(5);
+            ExitCode = 5;
         }
     }
 
@@ -546,13 +594,14 @@ public static class Program
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"[ERRO] O arquivo especificado não existe: '{file.FullName}'");
             Console.ResetColor();
-            Environment.Exit(1);
+            ExitCode = 1;
+            return;
         }
 
         var caseDetails = await InitializeCaseAsync(file, outDir, "preview");
         var auditWriter = new FileAuditTrailWriter(caseDetails.auditLogFilePath);
 
-        var reader = GetMailStoreReader();
+        var reader = GetMailStoreReader(file.Extension);
         var warnings = new List<ExtractionIssue>();
 
         Console.WriteLine($"[*] Buscando detalhes da mensagem ID: '{messageId}'...");
@@ -575,13 +624,13 @@ public static class Program
                 Console.ResetColor();
                 await auditWriter.WriteEventAsync(new AuditEvent(Guid.NewGuid().ToString(), DateTimeOffset.Now, "IssuesDetected", Environment.UserName, $"Falha ao abrir mensagem: {result.Issues.FirstOrDefault()?.Message}"), CancellationToken.None);
                 await CloseCaseAsync(caseDetails.auditLogFilePath, caseDetails.caseId, file.FullName, file.Length, caseDetails.sha256, caseDetails.startedAt, "preview", warnings);
-                Environment.Exit(6);
+                ExitCode = 6;
+                return;
             }
 
             var m = result.Value;
             await auditWriter.WriteEventAsync(new AuditEvent(Guid.NewGuid().ToString(), DateTimeOffset.Now, "MessagePreviewed", Environment.UserName, $"Preview da mensagem {messageId} carregado."), CancellationToken.None);
 
-            // Print metadata fields
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("CABEÇALHOS E DADOS:");
             Console.WriteLine("--------------------------------------------------------------------------------");
@@ -627,7 +676,6 @@ public static class Program
                 }
             }
 
-            // Print Truncated Body for Security Compliance
             string? bodyToTruncate = !string.IsNullOrEmpty(m.PlainTextBody) ? m.PlainTextBody : m.HtmlBody;
             Console.WriteLine();
             Console.ForegroundColor = ConsoleColor.Green;
@@ -674,7 +722,267 @@ public static class Program
             Console.WriteLine($"[CRITICAL ERRO] Falha no preview: {ex.Message}");
             Console.ResetColor();
             await auditWriter.WriteEventAsync(new AuditEvent(Guid.NewGuid().ToString(), DateTimeOffset.Now, "CommandFailed", Environment.UserName, $"FALHA DO COMANDO preview: {ex}"), CancellationToken.None);
-            Environment.Exit(7);
+            ExitCode = 7;
+        }
+    }
+
+    private static async Task<int> HandleIndexAsync(FileInfo file, DirectoryInfo outDir, string? explicitCaseId, bool force, int? limit, bool noPreviewCache)
+    {
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine("================================================================================");
+        Console.WriteLine("                  MailVault Recovery — Indexador Persistente                    ");
+        Console.WriteLine("================================================================================");
+        Console.ResetColor();
+
+        if (!file.Exists)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"[ERRO] O arquivo especificado não existe: '{file.FullName}'");
+            Console.ResetColor();
+            ExitCode = 1;
+            return 1;
+        }
+
+        var caseDetails = await InitializeCaseAsync(file, outDir, "index", explicitCaseId);
+        var auditWriter = new FileAuditTrailWriter(caseDetails.auditLogFilePath);
+
+        Console.WriteLine("[*] Criando banco de dados do caso e abrindo canal de persistência...");
+        await auditWriter.WriteEventAsync(new AuditEvent(Guid.NewGuid().ToString(), DateTimeOffset.Now, "IndexDatabaseCreated", Environment.UserName, "Banco de dados case.db inicializado e verificado."), CancellationToken.None);
+
+        try
+        {
+            using var store = new SqliteCaseIndexStore();
+            string dbPath = Path.Combine(caseDetails.caseFolderPath, "case.db");
+
+            if (File.Exists(dbPath) && force)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("[*] Opção --force ativa: removendo índice anterior...");
+                Console.ResetColor();
+                File.Delete(dbPath);
+            }
+
+            await store.InitializeAsync(caseDetails.caseFolderPath, CancellationToken.None);
+
+            var reader = GetMailStoreReader(file.Extension);
+            var indexingService = new IndexingService();
+
+            Console.WriteLine("[*] Iniciando indexação recursiva (pipeline de normalização ativo)...");
+            var result = await indexingService.RunIndexAsync(
+                file.FullName,
+                store,
+                reader,
+                caseDetails.caseId,
+                Environment.UserName,
+                !noPreviewCache,
+                limit,
+                CancellationToken.None
+            );
+
+            await auditWriter.WriteEventAsync(new AuditEvent(Guid.NewGuid().ToString(), DateTimeOffset.Now, "FoldersIndexed", Environment.UserName, $"Indexadas {result.FoldersIndexed} pastas."), CancellationToken.None);
+            await auditWriter.WriteEventAsync(new AuditEvent(Guid.NewGuid().ToString(), DateTimeOffset.Now, "MessagesIndexed", Environment.UserName, $"Indexadas {result.MessagesIndexed} mensagens."), CancellationToken.None);
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("================================================================================");
+            Console.WriteLine("                         RELATÓRIO DE INDEXAÇÃO                                 ");
+            Console.WriteLine("================================================================================");
+            Console.ResetColor();
+            Console.WriteLine($"Caminho do Caso       : {caseDetails.caseFolderPath}");
+            Console.WriteLine($"Caminho do Banco (db) : {result.DbPath}");
+            Console.WriteLine($"Pastas Indexadas      : {result.FoldersIndexed}");
+            Console.WriteLine($"Mensagens Indexadas   : {result.MessagesIndexed}");
+            Console.WriteLine($"Anexos Indexados      : {result.AttachmentsIndexed}");
+            Console.WriteLine($"Alertas / Issues      : {result.IssuesDetected}");
+            Console.WriteLine($"Duração total         : {result.DurationMs} ms");
+            Console.WriteLine($"Integridade (SHA-256) : {result.Sha256}");
+            Console.WriteLine("================================================================================");
+
+            await CloseCaseAsync(caseDetails.auditLogFilePath, caseDetails.caseId, file.FullName, file.Length, caseDetails.sha256, caseDetails.startedAt, "index", new List<ExtractionIssue>());
+
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine($"[*] Manifesto e logs de auditoria gravados perfeitamente.");
+            Console.WriteLine("================================================================================");
+            Console.ResetColor();
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"[CRITICAL ERRO] Falha na indexação técnica: {ex.Message}");
+            Console.ResetColor();
+            await auditWriter.WriteEventAsync(new AuditEvent(Guid.NewGuid().ToString(), DateTimeOffset.Now, "CommandFailed", Environment.UserName, $"FALHA DO COMANDO index: {ex}"), CancellationToken.None);
+            ExitCode = 8;
+            return 8;
+        }
+    }
+
+    private static async Task<int> HandleStatsAsync(DirectoryInfo caseFolder)
+    {
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine("================================================================================");
+        Console.WriteLine("                  MailVault Recovery — Estatísticas do Caso                     ");
+        Console.WriteLine("================================================================================");
+        Console.ResetColor();
+
+        string dbPath = Path.Combine(caseFolder.FullName, "case.db");
+        if (!File.Exists(dbPath))
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"[ERRO] O banco de dados indexado case.db não foi encontrado em: '{caseFolder.FullName}'");
+            Console.ResetColor();
+            ExitCode = 9;
+            return 9;
+        }
+
+        try
+        {
+            using var store = new SqliteCaseIndexStore();
+            await store.InitializeAsync(caseFolder.FullName, CancellationToken.None);
+
+            using var reader = store.CreateReader();
+
+            int foldersCount = await reader.GetFolderCountAsync(CancellationToken.None);
+            int messagesCount = await reader.GetMessageCountAsync(CancellationToken.None);
+            int attachmentsCount = await reader.GetAttachmentCountAsync(CancellationToken.None);
+            int issuesCount = await reader.GetIssueCountAsync(CancellationToken.None);
+            long totalAttachSize = await reader.GetTotalAttachmentSizeAsync(CancellationToken.None);
+            var largestAttach = await reader.GetLargestAttachmentAsync(CancellationToken.None);
+            var topFolders = await reader.GetTopFoldersByMessageCountAsync(5, CancellationToken.None);
+
+            Console.WriteLine($"Caminho da Sessão : {caseFolder.FullName}");
+            Console.WriteLine($"Arquivo de Banco  : {dbPath}");
+            Console.WriteLine();
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("MÉTRICAS GERAIS:");
+            Console.WriteLine("--------------------------------------------------------------------------------");
+            Console.ResetColor();
+            Console.WriteLine($"Pastas Encontradas    : {foldersCount}");
+            Console.WriteLine($"Mensagens Indexadas   : {messagesCount}");
+            Console.WriteLine($"Anexos Localizados    : {attachmentsCount}");
+            Console.WriteLine($"Tamanho Total Anexos  : {totalAttachSize:N0} bytes ({(double)totalAttachSize / (1024 * 1024):F2} MB)");
+            Console.WriteLine($"Maior Anexo Detectado : {largestAttach.fileName} ({(double)largestAttach.sizeBytes / (1024 * 1024):F2} MB)");
+            Console.WriteLine($"Alertas / Issues      : {issuesCount}");
+            Console.WriteLine();
+
+            if (topFolders.Count > 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("PASTAS COM MAIS MENSAGENS:");
+                Console.WriteLine("--------------------------------------------------------------------------------");
+                Console.ResetColor();
+                int idx = 1;
+                foreach (var pair in topFolders)
+                {
+                    Console.WriteLine($"{idx}. {pair.Key} — {pair.Value} e-mails");
+                    idx++;
+                }
+            }
+
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("================================================================================");
+            Console.ResetColor();
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"[CRITICAL ERRO] Falha ao computar estatísticas: {ex.Message}");
+            Console.ResetColor();
+            ExitCode = 10;
+            return 10;
+        }
+    }
+
+    private static async Task<int> HandleSearchAsync(DirectoryInfo caseFolder, string queryText, string? folderPath, int limit, int offset, bool includePreview)
+    {
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine("================================================================================");
+        Console.WriteLine("                  MailVault Recovery — Pesquisa do Caso                         ");
+        Console.WriteLine("================================================================================");
+        Console.ResetColor();
+
+        string dbPath = Path.Combine(caseFolder.FullName, "case.db");
+        if (!File.Exists(dbPath))
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"[ERRO] O arquivo case.db não foi encontrado na pasta: '{caseFolder.FullName}'");
+            Console.ResetColor();
+            ExitCode = 11;
+            return 11;
+        }
+
+        Console.WriteLine($"[*] Consultando índice pela query: '{queryText}'...");
+        if (!string.IsNullOrEmpty(folderPath))
+        {
+            Console.WriteLine($"[*] Filtro de pasta ativo: '{folderPath}'");
+        }
+        Console.WriteLine();
+
+        try
+        {
+            using var store = new SqliteCaseIndexStore();
+            await store.InitializeAsync(caseFolder.FullName, CancellationToken.None);
+
+            using var reader = store.CreateReader();
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("--------------------------------------------------------------------------------");
+            Console.WriteLine("   ID INTERNO   |      DATA      |      REMETENTE      | ASSUNTO");
+            Console.WriteLine("--------------------------------------------------------------------------------");
+            Console.ResetColor();
+
+            int matchesCount = 0;
+            await foreach (var m in reader.SearchMessagesAsync(queryText, folderPath, limit, offset, CancellationToken.None))
+            {
+                matchesCount++;
+                string dateStr = m.ReceivedAt?.ToString("yyyy-MM-dd HH:mm") ?? m.SentAt?.ToString("yyyy-MM-dd HH:mm") ?? "N/A";
+                string fromStr = m.From?.Name ?? m.From?.Address ?? "Remetente Desconhecido";
+                if (fromStr.Length > 25) fromStr = fromStr.Substring(0, 22) + "...";
+                string subStr = m.Subject ?? "(Sem Assunto)";
+                if (subStr.Length > 30) subStr = subStr.Substring(0, 27) + "...";
+
+                string idStr = m.InternalId;
+                if (idStr.Length > 15) idStr = idStr.Substring(idStr.Length - 15);
+
+                Console.WriteLine($"{idStr.PadRight(15)} | {dateStr.PadRight(14)} | {fromStr.PadRight(25)} | {subStr} | anexos: {m.Attachments.Count}");
+
+                if (includePreview && !string.IsNullOrEmpty(m.PlainTextBody))
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                    Console.WriteLine("   >>> PREVIEW:");
+                    var lines = m.PlainTextBody.Split('\n');
+                    foreach (var line in lines.Take(5))
+                    {
+                        Console.WriteLine($"     {line}");
+                    }
+                    if (lines.Length > 5)
+                    {
+                        Console.WriteLine("     [... preview truncado para legibilidade ...]");
+                    }
+                    Console.ResetColor();
+                }
+            }
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("--------------------------------------------------------------------------------");
+            Console.ResetColor();
+            Console.WriteLine($"[x] Busca finalizada. Exibidos {matchesCount} e-mails correspondentes.");
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("================================================================================");
+            Console.ResetColor();
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"[CRITICAL ERRO] Falha ao executar pesquisa: {ex.Message}");
+            Console.ResetColor();
+            ExitCode = 12;
+            return 12;
         }
     }
 
