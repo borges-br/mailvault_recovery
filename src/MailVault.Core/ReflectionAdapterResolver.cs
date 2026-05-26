@@ -33,6 +33,18 @@ public sealed class ReflectionAdapterResolver : IAdapterResolver
                 HealthStatus: File.Exists(Path.Combine(basePath, "MailVault.Adapters.Libpff.dll")) ? "Healthy" : "Missing"
             )
         };
+
+        // Attach event handler to resolve transitive assemblies of dynamic plugins
+        System.Runtime.Loader.AssemblyLoadContext.Default.Resolving += (context, assemblyName) =>
+        {
+            string dllName = $"{assemblyName.Name}.dll";
+            string pathInBase = Path.Combine(basePath, dllName);
+            if (File.Exists(pathInBase))
+            {
+                return context.LoadFromAssemblyPath(pathInBase);
+            }
+            return null;
+        };
     }
 
     public IEnumerable<AdapterDescriptor> GetAvailableAdapters()

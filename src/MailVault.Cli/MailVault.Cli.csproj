@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\MailVault.Domain\MailVault.Domain.csproj" />
@@ -7,6 +7,7 @@
     <ProjectReference Include="..\MailVault.Indexing\MailVault.Indexing.csproj" />
     <ProjectReference Include="..\MailVault.Exporters.Eml\MailVault.Exporters.Eml.csproj" />
     <ProjectReference Include="..\MailVault.Exporters.Mbox\MailVault.Exporters.Mbox.csproj" />
+    <ProjectReference Include="..\MailVault.Validation\MailVault.Validation.csproj" />
   </ItemGroup>
 
   <ItemGroup>

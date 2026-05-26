@@ -1,0 +1,465 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:MailVault.Desktop.ViewModels"
+        xmlns:domain="using:MailVault.Domain"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="700"
+        x:Class="MailVault.Desktop.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="{Binding WindowTitle}"
+        Width="1150" Height="750"
+        WindowStartupLocation="CenterScreen"
+        Background="#16181C">
+
+    <Grid RowDefinitions="Auto, *, Auto">
+        <!-- Top Toolbar -->
+        <Border Grid.Row="0" Height="60" Background="#0F1013" BorderBrush="#24262E" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*, Auto">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0">
+                    <TextBlock Text="MAILVAULT" FontWeight="Black" FontSize="20" Foreground="#00E5FF" LetterSpacing="2"/>
+                    <TextBlock Text="RECOVERY" FontWeight="Light" FontSize="20" Foreground="#FFFFFF" Margin="5,0,0,0" LetterSpacing="2"/>
+                    <Border Background="#1F222B" CornerRadius="4" Padding="8,3" Margin="15,0,0,0">
+                        <TextBlock Text="VISUAL HUB" FontSize="9" FontWeight="Bold" Foreground="#8C95A5" VerticalAlignment="Center" LetterSpacing="1"/>
+                    </Border>
+                </StackPanel>
+                
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0" Spacing="10">
+                    <Button Content="Fechar Caso" 
+                            Command="{Binding CloseCaseCommand}" 
+                            IsVisible="{Binding IsCaseLoaded}"
+                            Background="#D32F2F" Foreground="White" FontWeight="Bold" CornerRadius="4" Padding="12,6"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Application Content Grid -->
+        <Grid Grid.Row="1" ColumnDefinitions="Auto, *">
+            <!-- Sidebar Navigation (Visible only if Case is Loaded) -->
+            <Border Grid.Column="0" Width="240" Background="#0F1013" BorderBrush="#24262E" BorderThickness="0,0,1,0" IsVisible="{Binding IsCaseLoaded}">
+                <Grid RowDefinitions="*, Auto">
+                    <StackPanel Grid.Row="0" Margin="10,20,10,10" Spacing="8">
+                        <TextBlock Text="MÓDULOS FORENSES" FontSize="10" FontWeight="Bold" Foreground="#4A5260" Margin="10,0,0,15" LetterSpacing="1"/>
+                        
+                        <Button Content="📊 Overview do Caso" 
+                                Command="{Binding ShowOverviewCommand}"
+                                Background="Transparent" Foreground="#E2E8F0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="12,10" CornerRadius="4"/>
+                                
+                        <Button Content="📁 Navegador de Correio" 
+                                Command="{Binding ShowBrowserCommand}"
+                                Background="Transparent" Foreground="#E2E8F0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="12,10" CornerRadius="4"/>
+                                
+                        <Button Content="🔍 Busca Integrada" 
+                                Command="{Binding ShowSearchCommand}"
+                                Background="Transparent" Foreground="#E2E8F0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="12,10" CornerRadius="4"/>
+                                
+                        <Button Content="📦 Exportação Forense" 
+                                Command="{Binding ShowExportCommand}"
+                                Background="Transparent" Foreground="#E2E8F0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="12,10" CornerRadius="4"/>
+                                
+                        <Button Content="✔️ Laboratório de Validação" 
+                                Command="{Binding ShowValidationCommand}"
+                                Background="Transparent" Foreground="#E2E8F0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="12,10" CornerRadius="4"/>
+                    </StackPanel>
+                    
+                    <StackPanel Grid.Row="1" Margin="15" Spacing="10">
+                        <Border Background="#1C1E24" CornerRadius="6" Padding="10" BorderBrush="#252831" BorderThickness="1">
+                            <StackPanel Spacing="5">
+                                <TextBlock Text="STATUS DO CASO" FontSize="9" FontWeight="Bold" Foreground="#8C95A5"/>
+                                <TextBlock Text="ATIVO &amp; INTÁCTO" FontSize="10" FontWeight="Bold" Foreground="#00E5FF"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+            </Border>
+            
+            <!-- Main Content Pane -->
+            <ContentControl Grid.Column="1" Content="{Binding CurrentView}">
+                <ContentControl.DataTemplates>
+                    <!-- 1. Home / Landing View -->
+                    <DataTemplate DataType="{x:Type vm:HomeViewModel}">
+                        <Grid RowDefinitions="*, Auto, *" Background="#16181C">
+                            <StackPanel Grid.Row="1" Width="550" Spacing="25" HorizontalAlignment="Center">
+                                <Border Background="#1C1E24" CornerRadius="12" Padding="40" BorderBrush="#252831" BorderThickness="1">
+                                    <StackPanel Spacing="20">
+                                        <TextBlock Text="Inspeção Visual &amp; Auditoria" FontSize="24" FontWeight="Black" Foreground="#FFFFFF" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" Foreground="#8C95A5" TextAlignment="Center" FontSize="13" HorizontalAlignment="Center" Margin="0,5,0,10"/>
+                                        
+                                        <TextBox Text="{Binding SelectedCasePath, Mode=TwoWay}" Watermark="Caminho da pasta do caso (ex: C:\Github\mailvault_recovery\mailvault-cases\CASE-...)"
+                                                 Background="#111215" Foreground="White" BorderBrush="#2D313C" Padding="14" CornerRadius="6" FontSize="13"/>
+                                        
+                                        <Button Content="Abrir Caso Relacional" Command="{Binding OpenCaseCommand}"
+                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                                Background="#00E5FF" Foreground="#0F1013" FontWeight="Bold" Padding="14" CornerRadius="6" FontSize="14"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Grid>
+                    </DataTemplate>
+                    
+                    <!-- 2. Case Overview Tab View -->
+                    <DataTemplate DataType="{x:Type vm:CaseOverviewViewModel}">
+                        <!-- Overview Content -->
+                        <ScrollViewer Padding="30">
+                            <StackPanel Spacing="25">
+                                <TextBlock Text="Overview do Caso" FontSize="26" FontWeight="Black" Foreground="#FFFFFF"/>
+                                
+                                <Grid ColumnDefinitions="*, *" RowDefinitions="Auto, Auto" Margin="0,5,0,0">
+                                    <Border Grid.Row="0" Grid.Column="0" Background="#1C1E24" Margin="5" Padding="16" CornerRadius="8" BorderBrush="#252831" BorderThickness="1">
+                                        <StackPanel>
+                                            <TextBlock Text="Caso ID" FontSize="11" Foreground="#8C95A5" FontWeight="Bold"/>
+                                            <TextBlock Text="{Binding CaseId}" FontSize="18" FontWeight="Black" Foreground="#00E5FF" Margin="0,5,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Grid.Row="0" Grid.Column="1" Background="#1C1E24" Margin="5" Padding="16" CornerRadius="8" BorderBrush="#252831" BorderThickness="1">
+                                        <StackPanel>
+                                            <TextBlock Text="Motor / Adaptador Utilizado" FontSize="11" Foreground="#8C95A5" FontWeight="Bold"/>
+                                            <TextBlock Text="{Binding AdapterNameVersion}" FontSize="18" FontWeight="Black" Foreground="#FFFFFF" Margin="0,5,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Background="#1C1E24" Margin="5" Padding="16" CornerRadius="8" BorderBrush="#252831" BorderThickness="1">
+                                        <StackPanel>
+                                            <TextBlock Text="Mídia Originária Forense" FontSize="11" Foreground="#8C95A5" FontWeight="Bold"/>
+                                            <TextBlock Text="{Binding SourceFileMasked}" FontSize="14" FontWeight="Medium" Foreground="#FFFFFF" Margin="0,5,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+
+                                <TextBlock Text="Inventário Estatístico do SQLite" FontSize="18" FontWeight="ExtraBold" Foreground="#FFFFFF" Margin="5,15,0,0"/>
+
+                                <Grid ColumnDefinitions="*, *, *, *">
+                                    <Border Grid.Column="0" Background="#1C1E24" Margin="5" Padding="20" CornerRadius="8" BorderBrush="#252831" BorderThickness="1">
+                                        <StackPanel HorizontalAlignment="Center">
+                                            <TextBlock Text="Pastas" FontSize="11" Foreground="#8C95A5" HorizontalAlignment="Center" FontWeight="Bold"/>
+                                            <TextBlock Text="{Binding FolderCount}" FontSize="32" FontWeight="Black" Foreground="#FFFFFF" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Grid.Column="1" Background="#1C1E24" Margin="5" Padding="20" CornerRadius="8" BorderBrush="#252831" BorderThickness="1">
+                                        <StackPanel HorizontalAlignment="Center">
+                                            <TextBlock Text="Mensagens" FontSize="11" Foreground="#8C95A5" HorizontalAlignment="Center" FontWeight="Bold"/>
+                                            <TextBlock Text="{Binding MessageCount}" FontSize="32" FontWeight="Black" Foreground="#FFFFFF" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Grid.Column="2" Background="#1C1E24" Margin="5" Padding="20" CornerRadius="8" BorderBrush="#252831" BorderThickness="1">
+                                        <StackPanel HorizontalAlignment="Center">
+                                            <TextBlock Text="Anexos" FontSize="11" Foreground="#8C95A5" HorizontalAlignment="Center" FontWeight="Bold"/>
+                                            <TextBlock Text="{Binding AttachmentCount}" FontSize="32" FontWeight="Black" Foreground="#FFFFFF" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Grid.Column="3" Background="#1C1E24" Margin="5" Padding="20" CornerRadius="8" BorderBrush="#252831" BorderThickness="1">
+                                        <StackPanel HorizontalAlignment="Center">
+                                            <TextBlock Text="Divergências/Alertas" FontSize="11" Foreground="#8C95A5" HorizontalAlignment="Center" FontWeight="Bold"/>
+                                            <TextBlock Text="{Binding IssueCount}" FontSize="32" FontWeight="Black" Foreground="#FF9800" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+
+                                <Grid ColumnDefinitions="*, *" Margin="5,15,5,0">
+                                    <Border Grid.Column="0" Background="#1C1E24" Margin="0,0,5,0" Padding="20" CornerRadius="8" BorderBrush="#252831" BorderThickness="1">
+                                        <StackPanel>
+                                            <TextBlock Text="Tamanho de Anexos Extraídos" FontSize="11" Foreground="#8C95A5" FontWeight="Bold"/>
+                                            <TextBlock Text="{Binding TotalAttachmentSize}" FontSize="24" FontWeight="Black" Foreground="#FFFFFF" Margin="0,8,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Grid.Column="1" Background="#1C1E24" Margin="5,0,0,0" Padding="20" CornerRadius="8" BorderBrush="#252831" BorderThickness="1">
+                                        <StackPanel>
+                                            <TextBlock Text="Assinatura Hash de Integridade" FontSize="11" Foreground="#8C95A5" FontWeight="Bold"/>
+                                            <TextBlock Text="{Binding SourceSha256}" FontSize="12" FontFamily="Consolas" FontWeight="Bold" Foreground="#8C95A5" Margin="0,12,0,0" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </DataTemplate>
+
+                    <!-- 3. Message Browser View -->
+                    <DataTemplate DataType="{x:Type vm:MessageBrowserViewModel}">
+                        <Grid ColumnDefinitions="280, 4, 380, 4, *">
+                            <!-- Left Panel: Folder Tree -->
+                            <Border Grid.Column="0" Background="#111215" BorderBrush="#24262E" BorderThickness="0,0,1,0">
+                                <Grid RowDefinitions="Auto, *">
+                                    <Border Grid.Row="0" Height="40" Background="#0C0D0E" BorderBrush="#24262E" BorderThickness="0,0,0,1" Padding="12,0">
+                                        <TextBlock Text="ÁRVORE DE PASTAS" FontSize="10" FontWeight="Bold" Foreground="#8C95A5" VerticalAlignment="Center" LetterSpacing="0.5"/>
+                                    </Border>
+                                    <TreeView Grid.Row="1" ItemsSource="{Binding FolderTree.RootFolders}" SelectedItem="{Binding FolderTree.SelectedItem, Mode=TwoWay}" Padding="5">
+                                        <TreeView.ItemTemplate>
+                                            <TreeDataTemplate ItemsSource="{Binding Children}" x:DataType="vm:FolderTreeItemViewModel">
+                                                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,2">
+                                                    <TextBlock Text="📁" Foreground="#FFE082" FontSize="12"/>
+                                                    <TextBlock Text="{Binding DisplayName}" Foreground="#E2E8F0" FontSize="13"/>
+                                                </StackPanel>
+                                            </TreeDataTemplate>
+                                        </TreeView.ItemTemplate>
+                                    </TreeView>
+                                </Grid>
+                            </Border>
+
+                            <GridSplitter Grid.Column="1" Width="4" Background="#1F222B" ResizeBehavior="PreviousAndNext"/>
+
+                            <!-- Middle Panel: Message List -->
+                            <Border Grid.Column="2" Background="#16181C" BorderBrush="#24262E" BorderThickness="0,0,1,0">
+                                <Grid RowDefinitions="Auto, *, Auto">
+                                    <Border Grid.Row="0" Height="40" Background="#0C0D0E" BorderBrush="#24262E" BorderThickness="0,0,0,1" Padding="12,0">
+                                        <TextBlock Text="MENSAGENS INDEXADAS" FontSize="10" FontWeight="Bold" Foreground="#8C95A5" VerticalAlignment="Center" LetterSpacing="0.5"/>
+                                    </Border>
+                                    <ListBox Grid.Row="1" ItemsSource="{Binding MessageList.Messages}" SelectedItem="{Binding MessageList.SelectedMessage, Mode=TwoWay}" Background="Transparent">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate x:DataType="domain:MailItem">
+                                                <Border BorderBrush="#1F222B" BorderThickness="0,0,0,1" Padding="5,8">
+                                                    <Grid RowDefinitions="Auto, Auto, Auto" ColumnDefinitions="*, Auto">
+                                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Subject}" FontWeight="Bold" Foreground="White" FontSize="13" TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Grid.Row="0" Grid.Column="1" Text="📎" IsVisible="{Binding Attachments.Count}" Foreground="#00E5FF" Margin="5,0,0,0"/>
+                                                        
+                                                        <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding From.Address}" Foreground="#8C95A5" FontSize="11" TextTrimming="CharacterEllipsis" Margin="0,3,0,0"/>
+                                                        
+                                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding SentAt, StringFormat='\{0:g\}'}" Foreground="#4A5260" FontSize="10" Margin="0,3,0,0"/>
+                                                        <Border Grid.Row="2" Grid.Column="1" Background="#D32F2F" CornerRadius="3" Padding="4,1" IsVisible="{Binding Issues.Count}">
+                                                            <TextBlock Text="ALERTA" FontSize="8" FontWeight="Bold" Foreground="White"/>
+                                                        </Border>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                    
+                                    <!-- Pagination Panel -->
+                                    <Border Grid.Row="2" Height="45" Background="#0F1013" BorderBrush="#24262E" BorderThickness="0,1,0,0" Padding="10,0">
+                                        <Grid ColumnDefinitions="Auto, *, Auto">
+                                            <Button Grid.Column="0" Content="◀" Command="{Binding MessageList.PrevPageCommand}" Background="#1C1E24" Foreground="White" Padding="8,4" CornerRadius="4" FontSize="11"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding MessageList.CurrentPage, StringFormat='Página \{0\}'}" Foreground="#8C95A5" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            <Button Grid.Column="2" Content="▶" Command="{Binding MessageList.NextPageCommand}" Background="#1C1E24" Foreground="White" Padding="8,4" CornerRadius="4" FontSize="11"/>
+                                        </Grid>
+                                    </Border>
+                                </Grid>
+                            </Border>
+
+                            <GridSplitter Grid.Column="3" Width="4" Background="#1F222B" ResizeBehavior="PreviousAndNext"/>
+
+                            <!-- Right Panel: Message Preview Safe -->
+                            <ContentControl Grid.Column="4" Content="{Binding MessagePreview}"/>
+                        </Grid>
+                    </DataTemplate>
+
+                    <!-- 4. Message Preview Safe Template -->
+                    <DataTemplate DataType="{x:Type vm:MessagePreviewViewModel}">
+                        <Grid RowDefinitions="Auto, *">
+                            <!-- Message Toolbar / Header Info -->
+                            <Border Grid.Row="0" Background="#111215" BorderBrush="#24262E" BorderThickness="0,0,0,1" Padding="20">
+                                <StackPanel Spacing="10">
+                                    <TextBlock Text="{Binding Subject}" FontSize="18" FontWeight="Black" Foreground="White" TextWrapping="Wrap"/>
+                                    
+                                    <Grid ColumnDefinitions="Auto, *" Margin="0,5,0,0">
+                                        <TextBlock Grid.Column="0" Text="Remetente: " Foreground="#8C95A5" FontWeight="Bold" FontSize="12"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding From}" Foreground="#E2E8F0" FontSize="12"/>
+                                    </Grid>
+                                    <Grid ColumnDefinitions="Auto, *">
+                                        <TextBlock Grid.Column="0" Text="Para: " Foreground="#8C95A5" FontWeight="Bold" FontSize="12"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding To}" Foreground="#E2E8F0" FontSize="12"/>
+                                    </Grid>
+                                    <Grid ColumnDefinitions="Auto, *" IsVisible="{Binding Cc.Length}">
+                                        <TextBlock Grid.Column="0" Text="Cc: " Foreground="#8C95A5" FontWeight="Bold" FontSize="12"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding Cc}" Foreground="#E2E8F0" FontSize="12"/>
+                                    </Grid>
+                                    
+                                    <TextBlock Text="{Binding Dates}" Foreground="#4A5260" FontSize="11" Margin="0,5,0,0"/>
+                                    
+                                    <!-- Attachments List -->
+                                    <StackPanel Orientation="Horizontal" Margin="0,5,0,0" Spacing="8" IsVisible="{Binding Attachments.Count}">
+                                        <TextBlock Text="Anexos:" Foreground="#00E5FF" FontWeight="Bold" FontSize="12" VerticalAlignment="Center"/>
+                                        <ItemsControl ItemsSource="{Binding Attachments}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Horizontal" Spacing="6"/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="#1C1E24" CornerRadius="4" BorderBrush="#2D313C" BorderThickness="1" Padding="8,4">
+                                                        <TextBlock Text="{Binding}" Foreground="#E2E8F0" FontSize="11"/>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Safe Body ScrollViewer -->
+                            <ScrollViewer Grid.Row="1" Background="#16181C" Padding="20">
+                                <StackPanel Spacing="15">
+                                    <!-- Privacy/Security Warning Banner -->
+                                    <Border Background="#2A1B0E" BorderBrush="#E65100" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
+                                        <StackPanel Orientation="Horizontal" Spacing="10">
+                                            <TextBlock Text="🛡️" FontSize="18" VerticalAlignment="Center"/>
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Text="AVISO DE SEGURANÇA E PRIVACIDADE FORENSE" FontSize="10" FontWeight="Bold" Foreground="#FF9800" LetterSpacing="0.5"/>
+                                                <TextBlock Text="Pré-visualização de mensagem limitada. O corpo completo não reside no índice relacional (case.db) para assegurar o sigilo operacional. Use a exportação forense para obter a integridade total do conteúdo." FontSize="11" Foreground="#FFE082" TextWrapping="Wrap" Width="580"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <TextBlock Text="{Binding BodyPreview}" FontFamily="Consolas" FontSize="13" Foreground="#CBD5E1" TextWrapping="Wrap" LineHeight="18"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Grid>
+                    </DataTemplate>
+
+                    <!-- 5. Search View -->
+                    <DataTemplate DataType="{x:Type vm:SearchViewModel}">
+                        <Grid RowDefinitions="Auto, *">
+                            <!-- Top Search Bar -->
+                            <Border Grid.Row="0" Background="#111215" BorderBrush="#24262E" BorderThickness="0,0,0,1" Padding="20">
+                                <Grid ColumnDefinitions="*, Auto">
+                                    <TextBox Grid.Column="0" Text="{Binding SearchQuery, Mode=TwoWay}" Watermark="Digite um termo de busca nos e-mails indexados..."
+                                             Background="#16181C" Foreground="White" BorderBrush="#2D313C" Padding="12" CornerRadius="6" FontSize="13">
+                                        <TextBox.KeyBindings>
+                                            <KeyBinding Gesture="Enter" Command="{Binding SearchCommand}"/>
+                                        </TextBox.KeyBindings>
+                                    </TextBox>
+                                    <Button Grid.Column="1" Content="Pesquisar" Command="{Binding SearchCommand}"
+                                            Background="#00E5FF" Foreground="#0F1013" FontWeight="Bold" Padding="18,12" CornerRadius="6" FontSize="13" Margin="10,0,0,0"/>
+                                </Grid>
+                            </Border>
+
+                            <Grid Grid.Row="1" ColumnDefinitions="450, 4, *">
+                                <!-- Left: Results List -->
+                                <Border Grid.Column="0" Background="#16181C" BorderBrush="#24262E" BorderThickness="0,0,1,0">
+                                    <Grid RowDefinitions="Auto, *">
+                                        <Border Grid.Row="0" Height="30" Background="#0C0D0E" BorderBrush="#24262E" BorderThickness="0,0,0,1" Padding="12,0">
+                                            <TextBlock Text="{Binding StatusText}" FontSize="10" FontWeight="Bold" Foreground="#8C95A5" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ListBox Grid.Row="1" ItemsSource="{Binding Results}" SelectedItem="{Binding SelectedMessage, Mode=TwoWay}" Background="Transparent">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate x:DataType="domain:MailItem">
+                                                    <Border BorderBrush="#1F222B" BorderThickness="0,0,0,1" Padding="5,8">
+                                                        <Grid RowDefinitions="Auto, Auto, Auto" ColumnDefinitions="*, Auto">
+                                                            <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Subject}" FontWeight="Bold" Foreground="White" FontSize="13" TextTrimming="CharacterEllipsis"/>
+                                                            <TextBlock Grid.Row="0" Grid.Column="1" Text="📎" IsVisible="{Binding Attachments.Count}" Foreground="#00E5FF" Margin="5,0,0,0"/>
+                                                            
+                                                            <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding From.Address}" Foreground="#8C95A5" FontSize="11" TextTrimming="CharacterEllipsis" Margin="0,3,0,0"/>
+                                                            
+                                                            <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding SentAt, StringFormat='\{0:g\}'}" Foreground="#4A5260" FontSize="10" Margin="0,3,0,0"/>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+                                    </Grid>
+                                </Border>
+
+                                <GridSplitter Grid.Column="1" Width="4" Background="#1F222B" ResizeBehavior="PreviousAndNext"/>
+
+                                <!-- Right: Reused Preview Panel via Main Context Binding! -->
+                                <ContentControl Grid.Column="2" Content="{Binding $parent[Window].DataContext.MessagePreviewVm}"/>
+                            </Grid>
+                        </Grid>
+                    </DataTemplate>
+
+                    <!-- 6. Export Panel View -->
+                    <DataTemplate DataType="{x:Type vm:ExportPanelViewModel}">
+                        <ScrollViewer Padding="30">
+                            <StackPanel Spacing="25" MaxWidth="700" HorizontalAlignment="Left">
+                                <TextBlock Text="Módulo de Exportação Forense" FontSize="26" FontWeight="Black" Foreground="#FFFFFF"/>
+                                <TextBlock Text="Gere cópias físicas das mensagens recuperadas e indexadas. Todas as exportações são autenticadas com hash de conformidade." FontSize="13" Foreground="#8C95A5" TextWrapping="Wrap"/>
+
+                                <Border Background="#1C1E24" CornerRadius="12" Padding="25" BorderBrush="#252831" BorderThickness="1">
+                                    <StackPanel Spacing="20">
+                                        <TextBlock Text="CONFIGURAÇÕES DO JOB DE EXPORTAÇÃO" FontSize="12" FontWeight="Bold" Foreground="#00E5FF" LetterSpacing="0.5"/>
+                                        
+                                        <StackPanel Spacing="8">
+                                            <TextBlock Text="Formato de Destino" FontSize="11" Foreground="#8C95A5" FontWeight="Bold"/>
+                                            <ComboBox SelectedItem="{Binding ExportFormat, Mode=TwoWay}" Background="#111215" Foreground="White" Width="200" Padding="10">
+                                                <x:String>eml</x:String>
+                                                <x:String>mbox</x:String>
+                                            </ComboBox>
+                                        </StackPanel>
+
+                                        <StackPanel Spacing="8">
+                                            <TextBlock Text="Caminho da Pasta de Exportação" FontSize="11" Foreground="#8C95A5" FontWeight="Bold"/>
+                                            <TextBox Text="{Binding ExportPath, Mode=TwoWay}" Watermark="Ex: C:\Github\mailvault_recovery\exports-real"
+                                                     Background="#111215" Foreground="White" BorderBrush="#2D313C" Padding="12" CornerRadius="6" FontSize="13"/>
+                                        </StackPanel>
+
+                                        <CheckBox Content="Incluir e extrair anexos fisicamente" IsChecked="{Binding IncludeAttachments}" Foreground="White" FontSize="13"/>
+
+                                        <Button Content="Iniciar Exportação Forense" Command="{Binding RunExportCommand}"
+                                                Background="#00E5FF" Foreground="#0F1013" FontWeight="Bold" Padding="14,10" CornerRadius="6" FontSize="13" HorizontalAlignment="Left"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Background="#111215" CornerRadius="8" Padding="15" BorderBrush="#1F222B" BorderThickness="1">
+                                    <StackPanel Spacing="8">
+                                        <TextBlock Text="CONSOLE FORENSE &amp; STATUS DE EXECUÇÃO" FontSize="10" FontWeight="Bold" Foreground="#8C95A5" LetterSpacing="0.5"/>
+                                        <TextBlock Text="{Binding ExportStatus}" FontFamily="Consolas" FontSize="12" Foreground="#FFE082" TextWrapping="Wrap" LineHeight="18"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </DataTemplate>
+
+                    <!-- 7. Validation Panel View -->
+                    <DataTemplate DataType="{x:Type vm:ValidationPanelViewModel}">
+                        <ScrollViewer Padding="30">
+                            <StackPanel Spacing="25" MaxWidth="750" HorizontalAlignment="Left">
+                                <TextBlock Text="Laboratório de Validação e Conformidade" FontSize="26" FontWeight="Black" Foreground="#FFFFFF"/>
+                                <TextBlock Text="Compare a integridade estrutural e quantitativa entre os e-mails indexados no SQLite e os e-mails exportados física ou logicamente." FontSize="13" Foreground="#8C95A5" TextWrapping="Wrap"/>
+
+                                <Grid ColumnDefinitions="*, 15, *">
+                                    <!-- Validation Control Panel -->
+                                    <Border Grid.Column="0" Background="#1C1E24" CornerRadius="12" Padding="20" BorderBrush="#252831" BorderThickness="1">
+                                        <StackPanel Spacing="20">
+                                            <TextBlock Text="ORQUESTRAÇÃO DE CONFORMIDADE" FontSize="11" FontWeight="Bold" Foreground="#00E5FF" LetterSpacing="0.5"/>
+                                            <TextBlock Text="Execute uma rodada completa de validação de dados em memória contra a pasta do caso ativa." FontSize="12" Foreground="#8C95A5" TextWrapping="Wrap"/>
+                                            
+                                            <Button Content="Rodar Validação Completa" Command="{Binding RunValidationCommand}"
+                                                    Background="#FF9800" Foreground="White" FontWeight="Bold" Padding="14,10" CornerRadius="6" FontSize="13" HorizontalAlignment="Left"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Summary Status Panel -->
+                                    <Border Grid.Column="2" Background="#1C1E24" CornerRadius="12" Padding="20" BorderBrush="#252831" BorderThickness="1">
+                                        <StackPanel Spacing="10">
+                                            <TextBlock Text="STATUS DO RELATÓRIO" FontSize="11" FontWeight="Bold" Foreground="#8C95A5" LetterSpacing="0.5"/>
+                                            
+                                            <Border CornerRadius="4" Padding="12,6" HorizontalAlignment="Left" Background="#2A1B0E" BorderBrush="#FF9800" BorderThickness="1">
+                                                <TextBlock Text="{Binding ReportStatus}" FontSize="14" FontWeight="Bold" Foreground="#FF9800"/>
+                                            </Border>
+
+                                            <TextBlock Text="{Binding ValidationStatus}" FontSize="12" Foreground="#FFE082" TextWrapping="Wrap" Margin="0,5,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+
+                                <Border Background="#1C1E24" CornerRadius="12" Padding="20" BorderBrush="#252831" BorderThickness="1">
+                                    <StackPanel Spacing="15">
+                                        <TextBlock Text="MÉTRICAS DETALHADAS DE RECUPERAÇÃO" FontSize="12" FontWeight="Bold" Foreground="#00E5FF" LetterSpacing="0.5"/>
+                                        <Border Background="#111215" CornerRadius="8" Padding="15" BorderBrush="#1F222B" BorderThickness="1">
+                                            <TextBlock Text="{Binding ReportMetrics}" FontFamily="Consolas" FontSize="12" Foreground="#E2E8F0" TextWrapping="Wrap" LineHeight="18"/>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Background="#1C1E24" CornerRadius="12" Padding="20" BorderBrush="#252831" BorderThickness="1">
+                                    <StackPanel Spacing="15">
+                                        <TextBlock Text="ALERTAS E DIVERGÊNCIAS DETECTADAS" FontSize="12" FontWeight="Bold" Foreground="#D32F2F" LetterSpacing="0.5"/>
+                                        <Border Background="#111215" CornerRadius="8" Padding="15" BorderBrush="#1F222B" BorderThickness="1">
+                                            <TextBlock Text="{Binding ReportWarningsErrors}" FontFamily="Consolas" FontSize="12" Foreground="#FFE082" TextWrapping="Wrap" LineHeight="18"/>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </DataTemplate>
+                </ContentControl.DataTemplates>
+            </ContentControl>
+        </Grid>
+
+        <!-- Bottom status bar -->
+        <Border Grid.Row="2" Height="30" Background="#0F1013" BorderBrush="#24262E" BorderThickness="0,1,0,0">
+            <Grid ColumnDefinitions="*, Auto" Margin="20,0">
+                <TextBlock Grid.Column="0" Text="Inspeção Visual Conectada no case.db" FontSize="11" Foreground="#4A5260" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="MailVault Recovery © 2026" FontSize="11" Foreground="#4A5260" VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

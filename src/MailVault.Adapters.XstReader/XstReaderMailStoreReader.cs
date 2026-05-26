@@ -13,6 +13,7 @@ namespace MailVault.Adapters.XstReader;
 public sealed class XstReaderMailStoreReader : IMailStoreReader
 {
     private string? _filePath;
+    private string? _rootFolderPath;
 
     public string ReaderName => "XstReader.Api Engine";
 
@@ -48,6 +49,7 @@ public sealed class XstReaderMailStoreReader : IMailStoreReader
             // Open briefly to verify XstReader can parse the header without exception
             using var xstFile = new XstFile(filePath);
             var root = xstFile.RootFolder;
+            _rootFolderPath = root.Path;
         }
         catch (Exception ex)
         {
@@ -81,11 +83,12 @@ public sealed class XstReaderMailStoreReader : IMailStoreReader
 
         using var xstFile = new XstFile(_filePath);
         var root = xstFile.RootFolder;
+        _rootFolderPath = root.Path;
 
         foreach (var folder in root.Folders)
         {
             ct.ThrowIfCancellationRequested();
-            yield return MapFolderNode(folder);
+            yield return MapFolderNode(folder, isRoot: true);
         }
 
         await Task.CompletedTask;
@@ -198,17 +201,25 @@ public sealed class XstReaderMailStoreReader : IMailStoreReader
     }
 
     // Helper folder mapper
-    private FolderNode MapFolderNode(XstFolder folder)
+    private FolderNode MapFolderNode(XstFolder folder, bool isRoot = false)
     {
         var childrenList = new List<FolderNode>();
         foreach (var sub in folder.Folders)
         {
-            childrenList.Add(MapFolderNode(sub));
+            childrenList.Add(MapFolderNode(sub, isRoot: false));
+        }
+
+        FolderId? parentId = null;
+        if (!isRoot && folder.ParentFolder != null && 
+            !string.IsNullOrEmpty(folder.ParentFolder.Path) && 
+            folder.ParentFolder.Path != "\\")
+        {
+            parentId = new FolderId(folder.ParentFolder.Path);
         }
 
         return new FolderNode(
             Id: new FolderId(folder.Path),
-            ParentId: folder.ParentFolder != null ? new FolderId(folder.ParentFolder.Path) : null,
+            ParentId: parentId,
             DisplayName: folder.DisplayName ?? "Unamed Folder",
             FullPath: folder.Path,
             MessageCount: folder.ContentCount,

@@ -4,12 +4,14 @@ using System.CommandLine;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MailVault.Audit;
 using MailVault.Core;
 using MailVault.Domain;
 using MailVault.Indexing;
+using MailVault.Validation;
 
 namespace MailVault.Cli;
 
@@ -181,6 +183,63 @@ public static class Program
             context.ExitCode = exitCode;
         });
 
+        // NEW Command: validate
+        var validateCommand = new Command("validate", "Valida a integridade técnica e conformidade forense de uma exportação.");
+        var caseFolderArgValidate = new Argument<DirectoryInfo>("case-folder", "A pasta de caso contendo o case.db.") { Arity = ArgumentArity.ExactlyOne };
+        var exportFolderOpt = new Option<DirectoryInfo?>("--export-folder", "Opcional: Diretório contendo os e-mails exportados.");
+        var formatOptValidate = new Option<string>("--format", () => "auto", "Formato de exportação: eml, mbox ou auto.");
+        formatOptValidate.FromAmong("eml", "mbox", "auto");
+        var jsonOpt = new Option<bool>("--json", () => false, "Se marcado, gera a saída técnica em JSON bruto.");
+        var strictOpt = new Option<bool>("--strict", () => false, "Se ativado, qualquer warning estrutural gera falha técnica no status final.");
+        var checkEmlParseOpt = new Option<bool>("--check-eml-parse", () => true, "Habilita o parseamento estrutural profundo de EMLs.");
+        var checkMboxStructureOpt = new Option<bool>("--check-mbox-structure", () => true, "Habilita a auditoria de layout de arquivos MBOX.");
+        var checkAttachmentsOpt = new Option<bool>("--check-attachments", () => true, "Habilita a validação cruzada física de anexos.");
+        var sampleSizeOpt = new Option<int?>("--sample-size", "Opcional: Limita a amostragem física de arquivos validados.");
+        var outOptValidate = new Option<DirectoryInfo?>("--out", "Diretório de saída para salvar o validation-report.json.");
+
+        validateCommand.AddArgument(caseFolderArgValidate);
+        validateCommand.AddOption(exportFolderOpt);
+        validateCommand.AddOption(formatOptValidate);
+        validateCommand.AddOption(jsonOpt);
+        validateCommand.AddOption(strictOpt);
+        validateCommand.AddOption(checkEmlParseOpt);
+        validateCommand.AddOption(checkMboxStructureOpt);
+        validateCommand.AddOption(checkAttachmentsOpt);
+        validateCommand.AddOption(sampleSizeOpt);
+        validateCommand.AddOption(outOptValidate);
+
+        validateCommand.SetHandler(async (context) =>
+        {
+            var caseFolder = context.ParseResult.GetValueForArgument(caseFolderArgValidate);
+            var exportFolder = context.ParseResult.GetValueForOption(exportFolderOpt);
+            var format = context.ParseResult.GetValueForOption(formatOptValidate)!;
+            var json = context.ParseResult.GetValueForOption(jsonOpt);
+            var strict = context.ParseResult.GetValueForOption(strictOpt);
+            var checkEml = context.ParseResult.GetValueForOption(checkEmlParseOpt);
+            var checkMbox = context.ParseResult.GetValueForOption(checkMboxStructureOpt);
+            var checkAtt = context.ParseResult.GetValueForOption(checkAttachmentsOpt);
+            var sampleSize = context.ParseResult.GetValueForOption(sampleSizeOpt);
+            var outDir = context.ParseResult.GetValueForOption(outOptValidate);
+
+            var exitCode = await HandleValidateAsync(caseFolder, exportFolder, format, json, strict, checkEml, checkMbox, checkAtt, sampleSize, outDir);
+            context.ExitCode = exitCode;
+        });
+
+        // NEW Command: corpus scan
+        var corpusCommand = new Command("corpus", "Comandos auxiliares de gerência do laboratório de validação.");
+        var scanCommand = new Command("scan", "Escaneia e indexa metadados agregados do corpus de teste local.");
+        var corpusFolderArg = new Argument<DirectoryInfo>("corpus-folder", "O diretório do corpus de teste local.") { Arity = ArgumentArity.ExactlyOne };
+        var outOptCorpus = new Option<DirectoryInfo?>("--out", "Diretório de saída para salvar o relatório do corpus.");
+
+        scanCommand.AddArgument(corpusFolderArg);
+        scanCommand.AddOption(outOptCorpus);
+        scanCommand.SetHandler(async (DirectoryInfo corpusFolder, DirectoryInfo? outDir) =>
+        {
+            await HandleCorpusScanAsync(corpusFolder, outDir);
+        }, corpusFolderArg, outOptCorpus);
+
+        corpusCommand.AddCommand(scanCommand);
+
         rootCommand.AddCommand(inspectCommand);
         rootCommand.AddCommand(treeCommand);
         rootCommand.AddCommand(listCommand);
@@ -189,6 +248,8 @@ public static class Program
         rootCommand.AddCommand(statsCommand);
         rootCommand.AddCommand(searchCommand);
         rootCommand.AddCommand(exportCommand);
+        rootCommand.AddCommand(validateCommand);
+        rootCommand.AddCommand(corpusCommand);
 
         int result = await rootCommand.InvokeAsync(args);
         return ExitCode != 0 ? ExitCode : result;
@@ -1241,5 +1302,267 @@ public static class Program
                 }
             }
         }
+    }
+
+    private static async Task<int> HandleValidateAsync(
+        DirectoryInfo caseFolder,
+        DirectoryInfo? exportFolder,
+        string format,
+        bool json,
+        bool strict,
+        bool checkEml,
+        bool checkMbox,
+        bool checkAtt,
+        int? sampleSize,
+        DirectoryInfo? outDir)
+    {
+        string dbPath = Path.Combine(caseFolder.FullName, "case.db");
+        if (!File.Exists(dbPath))
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"[ERRO] O banco de dados do caso 'case.db' não foi encontrado na pasta: '{caseFolder.FullName}'");
+            Console.ResetColor();
+            ExitCode = 11;
+            return 11;
+        }
+
+        string auditLogFilePath = Path.Combine(caseFolder.FullName, "audit.log");
+        var auditWriter = new FileAuditTrailWriter(auditLogFilePath);
+
+        await auditWriter.WriteEventAsync(new AuditEvent(
+            EventId: Guid.NewGuid().ToString(),
+            Timestamp: DateTimeOffset.Now,
+            Action: "ValidationCommandStarted",
+            OperatorName: Environment.UserName,
+            Details: $"Validação técnica de qualidade iniciada. Strict={strict}."
+        ), CancellationToken.None);
+
+        try
+        {
+            var engine = new MailVault.Validation.ValidationEngine();
+            string? outPath = outDir?.FullName ?? caseFolder.FullName;
+
+            var report = await engine.ValidateAsync(
+                caseFolder.FullName,
+                exportFolder?.FullName,
+                format,
+                strict,
+                checkEml,
+                checkMbox,
+                checkAtt,
+                sampleSize,
+                outPath,
+                CancellationToken.None
+            );
+
+            if (json)
+            {
+                string reportJson = JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true });
+                Console.WriteLine(reportJson);
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine("================================================================================");
+                Console.WriteLine("                  MailVault Recovery — Relatório de Validação                   ");
+                Console.WriteLine("================================================================================");
+                Console.ResetColor();
+
+                Console.WriteLine($"Caso ID            : {report.CaseId}");
+                Console.WriteLine($"Mídia Original     : {report.SourceFileMasked}");
+                Console.WriteLine($"SHA-256 Original   : {report.SourceSha256}");
+                Console.WriteLine($"Adaptador Utilizado: {report.AdapterName} ({report.AdapterVersion})");
+                Console.WriteLine($"Exportação ID      : {report.ExportId}");
+                Console.WriteLine($"Formato Exportado  : {report.ExportFormat.ToUpperInvariant()}");
+                Console.WriteLine();
+
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("MÉTRICAS COMPARATIVAS:");
+                Console.WriteLine("--------------------------------------------------------------------------------");
+                Console.ResetColor();
+                Console.WriteLine($"Mensagens Indexadas : {report.IndexedMessages.ToString().PadRight(6)} | Exportadas: {report.ExportedMessages}");
+                Console.WriteLine($"Anexos Indexados    : {report.IndexedAttachments.ToString().PadRight(6)} | Exportados: {report.ExportedAttachments}");
+                Console.WriteLine();
+
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("AUDITORIA FÍSICA E SEGURANÇA:");
+                Console.WriteLine("--------------------------------------------------------------------------------");
+                Console.ResetColor();
+                Console.WriteLine($"Arquivos Vazios (0 bytes)    : {report.EmptyExportedFiles}");
+                Console.WriteLine($"Nomes de Arquivo Duplicados  : {report.DuplicateOutputNames}");
+                Console.WriteLine($"Mensagens Exportadas Faltando: {report.MissingExpectedFiles}");
+                Console.WriteLine($"Violações de Path Traversal  : {report.PathSafetyIssues}");
+                Console.WriteLine();
+
+                if (report.FolderResults.Count > 0)
+                {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine("DIVERGÊNCIAS DETALHADAS POR PASTA:");
+                    Console.WriteLine("--------------------------------------------------------------------------------");
+                    Console.ResetColor();
+                    foreach (var fRes in report.FolderResults)
+                    {
+                        string statusText = fRes.MismatchCount == 0 ? "OK" : $"DIVERGÊNCIA: {fRes.MismatchCount}";
+                        Console.WriteLine($"  * {fRes.FolderName.PadRight(35)} -> Indexados: {fRes.IndexedMessages} | Exportados: {fRes.ExportedMessages} | {statusText}");
+                    }
+                    Console.WriteLine();
+                }
+
+                if (report.Issues.Count > 0)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine("ALERTAS E FALHAS ESTRUTURAIS DETECTADAS:");
+                    Console.WriteLine("--------------------------------------------------------------------------------");
+                    Console.ResetColor();
+                    foreach (var issue in report.Issues)
+                    {
+                        string colorSymbol = issue.Severity.Equals("Error", StringComparison.OrdinalIgnoreCase) ? "[CRITICAL]" : "[AVISO]";
+                        Console.WriteLine($"  {colorSymbol} ({issue.Code}): {issue.Message} (ID: {issue.ObjectId ?? "N/A"})");
+                    }
+                    Console.WriteLine();
+                }
+
+                Console.WriteLine("RESULTADO DA VALIDAÇÃO:");
+                Console.WriteLine("--------------------------------------------------------------------------------");
+                if (report.Status.Equals("Passed", StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine(">>> STATUS: PASSED (Integridade estrutural e segurança forense validadas!)");
+                }
+                else if (report.Status.Equals("PassedWithWarnings", StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine(">>> STATUS: PASSED WITH WARNINGS (Validação concluída com alertas estruturais leves)");
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine(">>> STATUS: FAILED (Falhas de conformidade, mensagens faltantes ou problemas de segurança detectados!)");
+                }
+                Console.ResetColor();
+
+                Console.WriteLine($"--------------------------------------------------------------------------------");
+                Console.WriteLine($"[*] Relatório validation-report.json salvo em: {outPath}");
+                Console.WriteLine("================================================================================");
+            }
+
+            await auditWriter.WriteEventAsync(new AuditEvent(
+                EventId: Guid.NewGuid().ToString(),
+                Timestamp: DateTimeOffset.Now,
+                Action: "ValidationCommandCompleted",
+                OperatorName: Environment.UserName,
+                Details: $"Validação finalizada. Status final: {report.Status}. Erros: {report.ErrorCount}, Avisos: {report.WarningCount}."
+            ), CancellationToken.None);
+
+            return report.Status.Equals("Failed", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+        }
+        catch (Exception ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"[CRITICAL ERRO] Falha técnica durante validação forense: {ex.Message}");
+            Console.ResetColor();
+
+            await auditWriter.WriteEventAsync(new AuditEvent(
+                EventId: Guid.NewGuid().ToString(),
+                Timestamp: DateTimeOffset.Now,
+                Action: "ValidationFailed",
+                OperatorName: Environment.UserName,
+                Details: $"FALHA DO COMANDO validate: {ex.Message}"
+            ), CancellationToken.None);
+
+            ExitCode = 14;
+            return 14;
+        }
+    }
+
+    private static async Task HandleCorpusScanAsync(DirectoryInfo corpusFolder, DirectoryInfo? outDir)
+    {
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine("================================================================================");
+        Console.WriteLine("                  MailVault Recovery — Escaneamento de Corpus                  ");
+        Console.WriteLine("================================================================================");
+        Console.ResetColor();
+
+        if (!corpusFolder.Exists)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"[ERRO] O diretório do corpus especificado não existe: '{corpusFolder.FullName}'");
+            Console.ResetColor();
+            return;
+        }
+
+        Console.WriteLine($"[*] Inventariando arquivos em: {corpusFolder.FullName}...");
+        Console.WriteLine();
+
+        try
+        {
+            var files = Directory.GetFiles(corpusFolder.FullName, "*", SearchOption.AllDirectories)
+                .Where(f => !Path.GetFileName(f).Equals("README.md", StringComparison.OrdinalIgnoreCase) && 
+                            !Path.GetFileName(f).Equals(".gitkeep", StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("ARQUIVOS DE CORPUS LOCALIZADOS:");
+            Console.WriteLine("--------------------------------------------------------------------------------");
+            Console.ResetColor();
+
+            var records = new List<object>();
+            var hashService = new HashService();
+
+            foreach (var file in files)
+            {
+                var fileInfo = new FileInfo(file);
+                string ext = fileInfo.Extension.ToLowerInvariant();
+                string relativePath = Path.GetRelativePath(corpusFolder.FullName, file);
+                string maskedPath = MailVault.Validation.ValidationEngine.MaskPath(relativePath);
+
+                string category = "Outros / Desconhecido";
+                if (ext == ".ost") category = "OST Microsoft Outlook";
+                else if (ext == ".pst") category = "PST Microsoft Outlook";
+                else if (ext == ".eml") category = "EML RFC 822";
+                else if (ext == ".mbox" || Path.GetFileName(file).Equals("mbox", StringComparison.OrdinalIgnoreCase)) category = "MBOX Unix Mailbox";
+
+                string sha256 = await hashService.CalculateSha256Async(file, new NullProgressReporter(), CancellationToken.None);
+
+                Console.WriteLine($"  * Caminho  : {maskedPath}");
+                Console.WriteLine($"    Categoria: {category}");
+                Console.WriteLine($"    Tamanho  : {fileInfo.Length:N0} bytes ({(double)fileInfo.Length / (1024 * 1024):F2} MB)");
+                Console.WriteLine($"    SHA-256  : {sha256}");
+                Console.WriteLine();
+
+                records.Add(new {
+                    CaminhoMascarado = maskedPath,
+                    Extensao = ext,
+                    TamanhoBytes = fileInfo.Length,
+                    Sha256 = sha256,
+                    CategoriaInferida = category,
+                    Status = "validated"
+                });
+            }
+
+            Console.WriteLine($"--------------------------------------------------------------------------------");
+            Console.WriteLine($"[x] Varredura Concluída. Localizados {files.Length} arquivos.");
+
+            if (outDir != null)
+            {
+                if (!outDir.Exists) outDir.Create();
+                string reportPath = Path.Combine(outDir.FullName, "corpus-report.json");
+                string json = JsonSerializer.Serialize(records, new JsonSerializerOptions { WriteIndented = true });
+                await File.WriteAllTextAsync(reportPath, json);
+                Console.WriteLine($"[*] Relatório corpus-report.json salvo em: {reportPath}");
+            }
+            Console.WriteLine("================================================================================");
+        }
+        catch (Exception ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"[ERRO] Falha técnica durante varredura do corpus: {ex.Message}");
+            Console.ResetColor();
+        }
+    }
+
+    private sealed class NullProgressReporter : IProgressReporter
+    {
+        public void ReportProgress(double percentage, string status) { }
     }
 }

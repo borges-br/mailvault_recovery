@@ -76,11 +76,21 @@ public sealed class SqliteCaseIndexWriter : ICaseIndexWriter
 
         using var cmd = new SqliteCommand(query, _connection, _transaction);
         cmd.Parameters.AddWithValue("$folderId", folder.Id.Value);
-        cmd.Parameters.AddWithValue("$parentId", (object?)folder.ParentId?.Value ?? DBNull.Value);
+        object parentValue = DBNull.Value;
+        if (folder.ParentId != null && 
+            !string.IsNullOrEmpty(folder.ParentId.Value) && 
+            !folder.ParentId.Value.EndsWith("\\Root", StringComparison.OrdinalIgnoreCase) &&
+            !folder.ParentId.Value.EndsWith("/Root", StringComparison.OrdinalIgnoreCase) &&
+            !folder.ParentId.Value.Equals("Root", StringComparison.OrdinalIgnoreCase))
+        {
+            parentValue = folder.ParentId.Value;
+        }
+        cmd.Parameters.AddWithValue("$parentId", parentValue);
         cmd.Parameters.AddWithValue("$displayName", folder.DisplayName);
         cmd.Parameters.AddWithValue("$fullPath", folder.FullPath);
         cmd.Parameters.AddWithValue("$messageCount", (object?)folder.MessageCount ?? DBNull.Value);
 
+        Console.WriteLine($"[DEBUG_DB] SaveFolder: Id={folder.Id.Value}, Parent={folder.ParentId?.Value}, Name={folder.DisplayName}");
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
@@ -115,6 +125,7 @@ public sealed class SqliteCaseIndexWriter : ICaseIndexWriter
         cmd.Parameters.AddWithValue("$attachCount", message.Attachments.Count);
         cmd.Parameters.AddWithValue("$mapiCount", message.RawProperties.Count);
 
+        Console.WriteLine($"[DEBUG_DB] SaveMessage: Id={message.InternalId}, Folder={folderId.Value}, Subject={message.Subject}");
         await cmd.ExecuteNonQueryAsync(ct);
 
         // Save attachments associated
@@ -145,6 +156,7 @@ public sealed class SqliteCaseIndexWriter : ICaseIndexWriter
         cmd.Parameters.AddWithValue("$contentId", (object?)att.ContentId ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$isInline", att.IsInline ? 1 : 0);
 
+        Console.WriteLine($"[DEBUG_DB] SaveAttachment: Id={att.InternalId}, Message={messageId}, Name={att.FileName}");
         await cmd.ExecuteNonQueryAsync(ct);
     }
 

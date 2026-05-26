@@ -2,18 +2,19 @@
 /context/
 
 # MailVault Recovery strict blocking rules
+.local-corpus/
+validation-results/
+mailvault-cases/
+exports/
 *.ost
 *.pst
 *.msg
 *.eml
 *.mbox
-*.dump
-*.log
 *.db
 *.db-shm
 *.db-wal
 manifest.json
-mailvault-cases/
 
 # .NET core rules
 bin/
