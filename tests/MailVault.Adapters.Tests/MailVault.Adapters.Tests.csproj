@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -23,6 +23,7 @@
     <ProjectReference Include="..\..\src\MailVault.Core\MailVault.Core.csproj" />
     <ProjectReference Include="..\..\src\MailVault.Adapters.XstReader\MailVault.Adapters.XstReader.csproj" />
     <ProjectReference Include="..\..\src\MailVault.Adapters.Libpff\MailVault.Adapters.Libpff.csproj" />
+    <ProjectReference Include="..\..\src\MailVault.Cli\MailVault.Cli.csproj" />
   </ItemGroup>
 
 </Project>
