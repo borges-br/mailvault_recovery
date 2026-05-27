@@ -1680,6 +1680,7 @@ public static class Program
         public long EvidenceSize { get; set; }
         public string? SelectedReaderEngine { get; set; }
         public bool NoBodyLogging { get; set; }
+        public string? DeepRecoveryMode { get; set; }
     }
 
     private static async Task HandleIndexWorkerAsync(FileInfo jobFile)
@@ -1786,6 +1787,11 @@ public static class Program
             var engine = engineFactory.CreateEngine(engineName);
             engine.PrecalculatedSha256 = jobConfig.EvidenceSha256 ?? "";
 
+            if (engine is LibpffExternalEngine pffEngine)
+            {
+                pffEngine.DeepRecoveryMode = jobConfig.DeepRecoveryMode ?? "items";
+            }
+
             var progressReporter = new Progress<IndexingProgress>(p =>
             {
                 var progressEvent = new
@@ -1834,7 +1840,7 @@ public static class Program
             };
             realStdout.WriteLine(JsonSerializer.Serialize(completedEvent));
             realStdout.Flush();
-            ExitCode = result.Status == "Success" ? 0 : 8;
+            ExitCode = (result.Status == "Success" || result.Status == "NativeExportSuccess" || result.Status == "NativeExportSuccessWithWarnings") ? 0 : 8;
         }
         catch (OperationCanceledException)
         {
@@ -1896,6 +1902,7 @@ public static class Program
 
         // Fallback tool diagnostic parameter
         public string? FallbackToolName { get; set; }
+        public string? DeepRecoveryMode { get; set; }
     }
 
     private static async Task HandleWorkerJobAsync(FileInfo jobFile)
@@ -2006,6 +2013,11 @@ public static class Program
                 metadataEngine.MetadataOnly = job.IndexingModeMetadataOnly;
             }
 
+            if (engine is LibpffExternalEngine pffEngine)
+            {
+                pffEngine.DeepRecoveryMode = job.DeepRecoveryMode ?? "items";
+            }
+
             var progressReporter = new Progress<IndexingProgress>(p =>
             {
                 var pr = new
@@ -2053,6 +2065,10 @@ public static class Program
                 ));
             }
 
+            string actionText = engineName == "LibpffExternal"
+                ? $"Executed out-of-process native recovery and structural diagnostics (NativeRecoveryDiagnostic: {engineName})"
+                : $"Executed out-of-process indexer ({engineName})";
+
             var manifest = new RecoveryManifest(
                 CaseId: job.CaseId!,
                 SourceFile: job.EvidencePath!,
@@ -2062,7 +2078,7 @@ public static class Program
                 StartedAt: DateTimeOffset.UtcNow,
                 CompletedAt: DateTimeOffset.UtcNow,
                 ToolVersion: typeof(Program).Assembly.GetName().Version?.ToString() ?? "1.0.0.0",
-                Actions: new List<string> { $"Executed out-of-process indexer ({engineName})" },
+                Actions: new List<string> { actionText },
                 Warnings: warnings
             );
 
@@ -2071,12 +2087,18 @@ public static class Program
 
             string auditLogFilePath = Path.Combine(job.CasePath!, "audit.log");
             var auditWriter = new FileAuditTrailWriter(auditLogFilePath);
+
+            string auditAction = engineName == "LibpffExternal" ? "NativeRecoveryDiagnosticCompleted" : "IndexCompletedByWorker";
+            string auditDetails = engineName == "LibpffExternal"
+                ? "Recuperação nativa realizada via pffinfo/pffexport. Relatório native-fallback-report.json gerado."
+                : $"Indexação concluída pelo worker process. Pastas: {result.FoldersIndexed}, E-mails: {result.MessagesIndexed}.";
+
             await auditWriter.WriteEventAsync(new AuditEvent(
                 EventId: Guid.NewGuid().ToString(),
                 Timestamp: DateTimeOffset.UtcNow,
-                Action: "IndexCompletedByWorker",
+                Action: auditAction,
                 OperatorName: job.OperatorId ?? Environment.UserName,
-                Details: $"Indexação concluída pelo worker process. Pastas: {result.FoldersIndexed}, E-mails: {result.MessagesIndexed}."
+                Details: auditDetails
             ), CancellationToken.None);
 
             // Close store cleanly
@@ -2114,7 +2136,7 @@ public static class Program
             };
             realStdout.WriteLine(JsonSerializer.Serialize(completedEvent));
             realStdout.Flush();
-            ExitCode = result.Status == "Success" ? 0 : 8;
+            ExitCode = (result.Status == "Success" || result.Status == "NativeExportSuccess" || result.Status == "NativeExportSuccessWithWarnings") ? 0 : 8;
         }
         catch (OperationCanceledException)
         {

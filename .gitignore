@@ -44,3 +44,9 @@ bld/
 /.local_corpus/
 .tmp/
 scratch/
+/.libpff/
+.libpff/
+artifacts/
+/artifacts/
+/scratch/
+scratch/

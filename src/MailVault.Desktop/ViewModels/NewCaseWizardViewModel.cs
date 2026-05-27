@@ -14,6 +14,7 @@ using MailVault.Indexing;
 using MailVault.Core;
 using MailVault.Audit;
 using ReactiveUI;
+using System.Text.Json;
 
 namespace MailVault.Desktop.ViewModels;
 
@@ -69,11 +70,131 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
 
     // Milestone 6.2.3.1 Fields
     private string? _workerLaunchDiagnostics;
+    private int? _workerPid;
+    private string _workerEngine = "";
+    private string _workerJobKind = "";
+    private string _workerPhase = "";
+    private string _workerLastEventTime = "";
+
+    // Milestone 6.2.4.2 Fields
+    private bool _isNativeToolFailure;
+    private string _pffInfoRecognized = "Não";
+    private string _pffInfoFileType = "Desconhecido";
+    private int _pffExportExitCode;
+    private int _pffExportFileCount;
+    private string _nativeFailureCause = "Desconhecida";
+    private string _nativeFailureRecommendation = "Use XstReader para indexação.";
+    private string _deepRecoveryMode = "items";
+    private bool _showDeepRecoveryWarning;
+
+    public bool IsNativeToolFailure
+    {
+        get => _isNativeToolFailure;
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _isNativeToolFailure, value);
+            this.RaisePropertyChanged(nameof(ShowStandardFailureButtons));
+        }
+    }
+
+    public string PffInfoRecognized
+    {
+        get => _pffInfoRecognized;
+        set => this.RaiseAndSetIfChanged(ref _pffInfoRecognized, value);
+    }
+
+    public string PffInfoFileType
+    {
+        get => _pffInfoFileType;
+        set => this.RaiseAndSetIfChanged(ref _pffInfoFileType, value);
+    }
+
+    public int PffExportExitCode
+    {
+        get => _pffExportExitCode;
+        set => this.RaiseAndSetIfChanged(ref _pffExportExitCode, value);
+    }
+
+    public int PffExportFileCount
+    {
+        get => _pffExportFileCount;
+        set => this.RaiseAndSetIfChanged(ref _pffExportFileCount, value);
+    }
+
+    public string NativeFailureCause
+    {
+        get => _nativeFailureCause;
+        set => this.RaiseAndSetIfChanged(ref _nativeFailureCause, value);
+    }
+
+    public string NativeFailureRecommendation
+    {
+        get => _nativeFailureRecommendation;
+        set => this.RaiseAndSetIfChanged(ref _nativeFailureRecommendation, value);
+    }
+
+    public string DeepRecoveryMode
+    {
+        get => _deepRecoveryMode;
+        set => this.RaiseAndSetIfChanged(ref _deepRecoveryMode, value);
+    }
+
+    public bool ShowDeepRecoveryWarning
+    {
+        get => _showDeepRecoveryWarning;
+        set => this.RaiseAndSetIfChanged(ref _showDeepRecoveryWarning, value);
+    }
+
+    public bool ShowStandardFailureButtons => IndexingError != null && !IsNativeToolFailure;
+
+    public string SelectedReaderEngineDisplayName => SelectedReaderEngine switch
+    {
+        "XstReader" => "XstReader: Leitor C# Nativo (Recomendado)",
+        "LibpffExternal" => "LibpffExternal: Recuperação Nativa Experimental",
+        _ => SelectedReaderEngine
+    };
+
+    public string SelectedReaderEngineDescription => SelectedReaderEngine switch
+    {
+        "XstReader" => "Parser 100% C# gerenciado para indexação rápida e isolada. Ideal para análises eficientes com preservação de custódia forense.",
+        "LibpffExternal" => "Executa pffinfo/pffexport fora do processo para diagnóstico e recuperação de arquivos. Não substitui a indexação metadata-only do XstReader.",
+        _ => "Sem descrição disponível."
+    };
 
     public string? WorkerLaunchDiagnostics
     {
         get => _workerLaunchDiagnostics;
         set => this.RaiseAndSetIfChanged(ref _workerLaunchDiagnostics, value);
+    }
+
+    public int? WorkerPid
+    {
+        get => _workerPid;
+        set => this.RaiseAndSetIfChanged(ref _workerPid, value);
+    }
+
+    public string WorkerEngine
+    {
+        get => _workerEngine;
+        set => this.RaiseAndSetIfChanged(ref _workerEngine, value);
+    }
+
+    public string WorkerJobKind
+    {
+        get => _workerJobKind;
+        set => this.RaiseAndSetIfChanged(ref _workerJobKind, value);
+    }
+
+    public string WorkerPhase
+    {
+        get => _workerPhase;
+        set => this.RaiseAndSetIfChanged(ref _workerPhase, value);
+    }
+
+    public string WorkerLastEventTime
+    {
+        get => _workerLastEventTime;
+        set => this.RaiseAndSetIfChanged(ref _workerLastEventTime, value);
     }
 
     public int CurrentStep
@@ -287,7 +408,12 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
     public string SelectedReaderEngine
     {
         get => _selectedReaderEngine;
-        set => this.RaiseAndSetIfChanged(ref _selectedReaderEngine, value);
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _selectedReaderEngine, value);
+            this.RaisePropertyChanged(nameof(SelectedReaderEngineDisplayName));
+            this.RaisePropertyChanged(nameof(SelectedReaderEngineDescription));
+        }
     }
 
     public int HeartbeatAge
@@ -328,6 +454,14 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
     public ICommand BackToFirstStepCommand { get; }
     public ICommand CopyTechnicalErrorCommand { get; }
     public ICommand OpenCaseFolderCommand { get; }
+
+    // Milestone 6.2.4.2 Commands
+    public ICommand OpenNativeReportCommand { get; }
+    public ICommand TryXstReaderCommand { get; }
+    public ICommand TryDeepRecoveryCommand { get; }
+    public ICommand TriggerDeepRecoveryWarningCommand { get; }
+    public ICommand ConfirmDeepRecoveryCommand { get; }
+    public ICommand CancelDeepRecoveryWarningCommand { get; }
 
     public event Action<string>? IndexingCompleted;
 
@@ -391,6 +525,31 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
         var openCaseFolderCmd = ReactiveCommand.Create(OpenCaseFolder);
         openCaseFolderCmd.ThrownExceptions.Subscribe(HandleCommandException);
         OpenCaseFolderCommand = openCaseFolderCmd;
+
+        // Milestone 6.2.4.2 Commands initialization
+        var openNativeReportCmd = ReactiveCommand.Create(OpenNativeReport);
+        openNativeReportCmd.ThrownExceptions.Subscribe(HandleCommandException);
+        OpenNativeReportCommand = openNativeReportCmd;
+
+        var tryXstReaderCmd = ReactiveCommand.CreateFromTask(TryXstReaderAsync);
+        tryXstReaderCmd.ThrownExceptions.Subscribe(HandleCommandException);
+        TryXstReaderCommand = tryXstReaderCmd;
+
+        var tryDeepRecoveryCmd = ReactiveCommand.CreateFromTask(TryDeepRecoveryAsync);
+        tryDeepRecoveryCmd.ThrownExceptions.Subscribe(HandleCommandException);
+        TryDeepRecoveryCommand = tryDeepRecoveryCmd;
+
+        var triggerDeepRecoveryWarningCmd = ReactiveCommand.Create(() => { ShowDeepRecoveryWarning = true; });
+        triggerDeepRecoveryWarningCmd.ThrownExceptions.Subscribe(HandleCommandException);
+        TriggerDeepRecoveryWarningCommand = triggerDeepRecoveryWarningCmd;
+
+        var confirmDeepRecoveryCmd = ReactiveCommand.CreateFromTask(ConfirmDeepRecoveryAsync);
+        confirmDeepRecoveryCmd.ThrownExceptions.Subscribe(HandleCommandException);
+        ConfirmDeepRecoveryCommand = confirmDeepRecoveryCmd;
+
+        var cancelDeepRecoveryWarningCmd = ReactiveCommand.Create(() => { ShowDeepRecoveryWarning = false; });
+        cancelDeepRecoveryWarningCmd.ThrownExceptions.Subscribe(HandleCommandException);
+        CancelDeepRecoveryWarningCommand = cancelDeepRecoveryWarningCmd;
     }
 
     private void HandleCommandException(Exception ex)
@@ -700,25 +859,43 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
                 EvidenceSize: SourceSize,
                 SelectedReaderEngine: SelectedReaderEngine,
                 NoBodyLogging: true
-            );
+            )
+            {
+                DeepRecoveryMode = DeepRecoveryMode
+            };
+
+            DateTime lastUiUpdateTime = DateTime.MinValue;
 
             var orchestrationResult = await _orchestrator.RunJobAsync(
                 jobConfig,
                 p =>
                 {
                     _lastProgressTimestamp = DateTime.Now;
-                    RunOnUIThread(() =>
+                    
+                    DateTime now = DateTime.Now;
+                    bool isTerminal = p.Type == "completed" || p.Type == "failed" || p.Type == "cancelled";
+                    if (isTerminal || (now - lastUiUpdateTime).TotalMilliseconds >= 150.0)
                     {
-                        if (p.FoldersProcessed > FoldersIndexed) FoldersIndexed = p.FoldersProcessed;
-                        if (p.MessagesProcessed > MessagesIndexed) MessagesIndexed = p.MessagesProcessed;
-                        if (p.AttachmentsProcessed > AttachmentsIndexed) AttachmentsIndexed = p.AttachmentsProcessed;
-                        if (p.IssuesCount > IssuesDetected) IssuesDetected = p.IssuesCount;
+                        lastUiUpdateTime = now;
+                        RunOnUIThread(() =>
+                        {
+                            WorkerPid = _orchestrator?.ActiveWorkerPid;
+                            WorkerEngine = p.Engine ?? "";
+                            WorkerJobKind = "IndexMetadata";
+                            WorkerPhase = p.Phase ?? "";
+                            WorkerLastEventTime = p.TimestampUtc ?? "";
 
-                        double pct = 25.0 + (p.FoldersProcessed / 500.0) * 5.0 + 35.0;
-                        if (pct > 95.0) pct = 95.0;
-                        UpdateProgressFromStep(p.Message, pct);
-                        AppendLog($"[Worker] {p.Phase}: {p.Message} (Pastas: {p.FoldersProcessed}, E-mails: {p.MessagesProcessed}, Avisos: {p.IssuesCount})");
-                    });
+                            if (p.FoldersProcessed > FoldersIndexed) FoldersIndexed = p.FoldersProcessed;
+                            if (p.MessagesProcessed > MessagesIndexed) MessagesIndexed = p.MessagesProcessed;
+                            if (p.AttachmentsProcessed > AttachmentsIndexed) AttachmentsIndexed = p.AttachmentsProcessed;
+                            if (p.IssuesCount > IssuesDetected) IssuesDetected = p.IssuesCount;
+
+                            double pct = 25.0 + (p.FoldersProcessed / 500.0) * 5.0 + 35.0;
+                            if (pct > 95.0) pct = 95.0;
+                            UpdateProgressFromStep(p.Message, pct);
+                            AppendLog($"[Worker] {p.Phase}: {p.Message} (Pastas: {p.FoldersProcessed}, E-mails: {p.MessagesProcessed}, Avisos: {p.IssuesCount})");
+                        });
+                    }
                 },
                 _indexingCts.Token
             );
@@ -730,7 +907,7 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
             AppendLog($"Worker finalizado com status: {orchestrationResult.Status}");
 
             // Step 3: Finalization/Repair
-            if (orchestrationResult.Status == "Success")
+            if (orchestrationResult.Status == "Success" || orchestrationResult.Status == "NativeExportSuccess" || orchestrationResult.Status == "NativeExportSuccessWithWarnings")
             {
                 // Successful completion, let's write audit log and manifest
                 var warnings = new List<ExtractionIssue>();
@@ -745,6 +922,10 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
                     ));
                 }
 
+                string actionText = SelectedReaderEngine == "LibpffExternal"
+                    ? $"Executed out-of-process native recovery and structural diagnostics (NativeRecoveryDiagnostic: LibpffExternal)"
+                    : $"Executed out-of-process indexer ({SelectedReaderEngine})";
+
                 var manifest = new RecoveryManifest(
                     CaseId: CaseId,
                     SourceFile: SourcePath,
@@ -754,24 +935,30 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
                     StartedAt: DateTimeOffset.Now,
                     CompletedAt: DateTimeOffset.Now,
                     ToolVersion: Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0.0",
-                    Actions: new List<string> { "Created case from UI", $"Executed out-of-process indexer ({SelectedReaderEngine})" },
+                    Actions: new List<string> { actionText },
                     Warnings: warnings
                 );
 
                 await ManifestService.SaveManifestAsync(DestinationPath, manifest, _indexingCts.Token);
 
+                string auditAction = SelectedReaderEngine == "LibpffExternal" ? "NativeRecoveryDiagnosticCompleted" : "CaseClosedByUI";
+                string auditDetails = SelectedReaderEngine == "LibpffExternal"
+                    ? "Recuperação nativa realizada via pffinfo/pffexport. Relatório native-fallback-report.json gerado."
+                    : $"Indexação concluída com sucesso via worker process. Pastas: {orchestrationResult.FoldersIndexed}, E-mails: {orchestrationResult.MessagesIndexed}.";
+
                 await auditWriter.WriteEventAsync(new AuditEvent(
                     EventId: Guid.NewGuid().ToString(),
                     Timestamp: DateTimeOffset.Now,
-                    Action: "CaseClosedByUI",
+                    Action: auditAction,
                     OperatorName: Environment.UserName,
-                    Details: $"Indexação concluída com sucesso via worker process. Pastas: {orchestrationResult.FoldersIndexed}, E-mails: {orchestrationResult.MessagesIndexed}."
+                    Details: auditDetails
                 ), _indexingCts.Token);
 
-                IndexingStatus = "Success";
+                IndexingStatus = orchestrationResult.Status;
                 ProgressPercentage = 100;
                 ProgressPercent = 100;
-                ProgressDetailText = "Indexação concluída!";
+                ProgressDetailText = "Processamento concluído com sucesso!";
+                IsNativeToolFailure = false;
             }
             else
             {
@@ -784,8 +971,79 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
                 );
 
                 IndexingStatus = orchestrationResult.Status;
-                IndexingError = orchestrationResult.ErrorMessage ?? "Indexação falhou ou foi abortada via worker.";
-                AppendLog($"[ERRO] Indexação falhou: {IndexingError}");
+                string status = orchestrationResult.Status;
+
+                if (status == "NativeToolFailed" || status == "NativeToolUnsupportedStructure" || status == "NativeDiagnosticFailed" || status == "NativeToolTimeout" || status == "PartialNativeRecovery")
+                {
+                    IsNativeToolFailure = true;
+
+                    // Try to load native-fallback-report.json from the case folder
+                    string reportPath = Path.Combine(caseFolderPath, "native-fallback-report.json");
+                    if (File.Exists(reportPath))
+                    {
+                        try
+                        {
+                            string json = await File.ReadAllTextAsync(reportPath);
+                            using var doc = JsonDocument.Parse(json);
+                            var root = doc.RootElement;
+
+                            PffInfoRecognized = root.GetProperty("pffinfo").GetProperty("exitCode").GetInt32() == 0 ? "Sim" : "Não";
+
+                            string stdout = root.GetProperty("pffinfo").GetProperty("stdoutSummary").GetString() ?? "";
+                            if (stdout.Contains("File content type:"))
+                            {
+                                PffInfoFileType = "OST/PST (libpff)";
+                                var match = System.Text.RegularExpressions.Regex.Match(stdout, @"File content type:\s*(.*)");
+                                if (match.Success) PffInfoFileType = match.Groups[1].Value.Trim();
+                            }
+                            else
+                            {
+                                PffInfoFileType = "Desconhecido";
+                            }
+
+                            PffExportExitCode = root.GetProperty("pffexport").GetProperty("exitCode").GetInt32();
+                            PffExportFileCount = root.GetProperty("pffexport").GetProperty("outputFileCount").GetInt32();
+
+                            NativeFailureCause = root.GetProperty("finalStatus").GetString() switch
+                            {
+                                "NativeToolUnsupportedStructure" => "Falha crítica em descritores locais ou estruturas de anexos (página 4k).",
+                                "NativeToolTimeout" => "O tempo limite de processamento de ferramentas nativas foi excedido.",
+                                "NativeDiagnosticFailed" => "O arquivo de evidência está corrompido ou o cabeçalho não pôde ser lido.",
+                                "PartialNativeRecovery" => "Extração nativa incompleta (alguns itens corrompidos).",
+                                _ => "Erro geral na extração da ferramenta nativa pffexport."
+                            };
+
+                            NativeFailureRecommendation = "Recomendado: Utilize o motor XstReader com indexação apenas de metadados (MetadataOnly) para contornar a corrupção nativa.";
+                        }
+                        catch
+                        {
+                            PffInfoRecognized = "Não";
+                            PffInfoFileType = "Desconhecido";
+                            PffExportExitCode = 1;
+                            PffExportFileCount = 0;
+                            NativeFailureCause = "Falha em descritores locais/anexos dentro do OST.";
+                            NativeFailureRecommendation = "Use XstReader MetadataOnly para indexação. Use recuperação profunda apenas como tentativa experimental.";
+                        }
+                    }
+                    else
+                    {
+                        PffInfoRecognized = "Não";
+                        PffInfoFileType = "Desconhecido";
+                        PffExportExitCode = 1;
+                        PffExportFileCount = 0;
+                        NativeFailureCause = "Falha em descritores locais/anexos dentro do OST.";
+                        NativeFailureRecommendation = "Use XstReader MetadataOnly para indexação. Use recuperação profunda apenas como tentativa experimental.";
+                    }
+
+                    IndexingError = $"A recuperação nativa falhou ou está incompleta: {NativeFailureCause}";
+                }
+                else
+                {
+                    IsNativeToolFailure = false;
+                    IndexingError = orchestrationResult.ErrorMessage ?? "Indexação falhou ou foi abortada via worker.";
+                }
+
+                AppendLog($"[ERRO] Processamento falhou: {IndexingError}");
             }
 
             IsIndexing = false;
@@ -894,6 +1152,62 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
         IndexingStatus = "Failed";
         IndexingError = "O leitor foi encerrado sob força pelo operador.";
         AppendLog("[ERRO] O leitor foi encerrado sob força pelo operador.");
+    }
+
+    private void OpenNativeReport()
+    {
+        string caseFolderPath = Path.Combine(DestinationPath, CaseId);
+        string reportPath = Path.Combine(caseFolderPath, "native-fallback-report.json");
+        if (File.Exists(reportPath))
+        {
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = reportPath,
+                    UseShellExecute = true,
+                    Verb = "open"
+                });
+            }
+            catch (Exception ex)
+            {
+                AppendLog($"[ERRO] Não foi possível abrir o relatório nativo: {ex.Message}");
+            }
+        }
+        else
+        {
+            AppendLog("[ERRO] Arquivo de relatório nativo não encontrado.");
+        }
+    }
+
+    private async Task TryXstReaderAsync()
+    {
+        SelectedReaderEngine = "XstReader";
+        IsNativeToolFailure = false;
+        IndexingError = null;
+        CurrentStep = 4;
+        await StartIndexingAsync();
+    }
+
+    private async Task TryDeepRecoveryAsync()
+    {
+        DeepRecoveryMode = "recovered";
+        SelectedReaderEngine = "LibpffExternal";
+        IsNativeToolFailure = false;
+        IndexingError = null;
+        CurrentStep = 4;
+        await StartIndexingAsync();
+    }
+
+    private async Task ConfirmDeepRecoveryAsync()
+    {
+        ShowDeepRecoveryWarning = false;
+        DeepRecoveryMode = "all";
+        SelectedReaderEngine = "LibpffExternal";
+        IsNativeToolFailure = false;
+        IndexingError = null;
+        CurrentStep = 4;
+        await StartIndexingAsync();
     }
 
     private sealed class HashProgressWrapper : IProgressReporter

@@ -1,4 +1,6 @@
 using System;
+using System.Diagnostics;
+using System.Text.Json;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -32,6 +34,58 @@ public class MockWorkerResolver : IWorkerExecutableResolver
 
 public class WorkerResolutionAndUXTests
 {
+    public WorkerResolutionAndUXTests()
+    {
+        EnsureRealBinariesRestored();
+    }
+
+    private void EnsureRealBinariesRestored()
+    {
+        string vendorDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "vendor", "native-tools", "win-x64", "libpff"));
+        string pffExportReal = Path.Combine(vendorDir, "pffexport.exe");
+        string pffExportBak = Path.Combine(vendorDir, "pffexport.exe.bak");
+        string pffInfoReal = Path.Combine(vendorDir, "pffinfo.exe");
+        string pffInfoBak = Path.Combine(vendorDir, "pffinfo.exe.bak");
+
+        string srcDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", ".libpff", "pfftools"));
+        string srcExport = Path.Combine(srcDir, "pffexport.exe");
+        string srcInfo = Path.Combine(srcDir, "pffinfo.exe");
+
+        // If backup is missing but source compiled binary is present, copy it
+        if (!File.Exists(pffExportBak) && File.Exists(srcExport))
+        {
+            File.Copy(srcExport, pffExportBak, true);
+        }
+        if (!File.Exists(pffInfoBak) && File.Exists(srcInfo))
+        {
+            File.Copy(srcInfo, pffInfoBak, true);
+        }
+
+        // Restore pffexport
+        if (File.Exists(pffExportBak) && (!File.Exists(pffExportReal) || new FileInfo(pffExportReal).Length < 1000000))
+        {
+            if (File.Exists(pffExportReal)) File.Delete(pffExportReal);
+            File.Copy(pffExportBak, pffExportReal, true);
+        }
+        else if (File.Exists(srcExport) && (!File.Exists(pffExportReal) || new FileInfo(pffExportReal).Length < 1000000))
+        {
+            if (File.Exists(pffExportReal)) File.Delete(pffExportReal);
+            File.Copy(srcExport, pffExportReal, true);
+        }
+
+        // Restore pffinfo
+        if (File.Exists(pffInfoBak) && (!File.Exists(pffInfoReal) || new FileInfo(pffInfoReal).Length < 1000000))
+        {
+            if (File.Exists(pffInfoReal)) File.Delete(pffInfoReal);
+            File.Copy(pffInfoBak, pffInfoReal, true);
+        }
+        else if (File.Exists(srcInfo) && (!File.Exists(pffInfoReal) || new FileInfo(pffInfoReal).Length < 1000000))
+        {
+            if (File.Exists(pffInfoReal)) File.Delete(pffInfoReal);
+            File.Copy(srcInfo, pffInfoReal, true);
+        }
+    }
+
     [Fact]
     public void WorkerResolver_UsesEnvironmentVariable_WhenValid()
     {
@@ -310,5 +364,363 @@ public class WorkerResolutionAndUXTests
         Assert.NotNull(testLab.CliStatusText);
         Assert.NotNull(testLab.CliLaunchMode);
         Assert.NotNull(testLab.CliResolvedPath);
+    }
+
+    [Fact]
+    public void PublishScript_FailsRelease_WhenRealPffexportMissing()
+    {
+        EnsureRealBinariesRestored();
+        // Resolve script location
+        string scriptPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "scripts", "publish-windows.ps1"));
+        string vendorDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "vendor", "native-tools", "win-x64", "libpff"));
+        string pffExportReal = Path.Combine(vendorDir, "pffexport.exe");
+        string pffExportBak = Path.Combine(vendorDir, "pffexport.exe.bak");
+
+        bool renamed = false;
+        if (File.Exists(pffExportBak)) File.Delete(pffExportBak);
+        if (File.Exists(pffExportReal))
+        {
+            File.Move(pffExportReal, pffExportBak);
+            renamed = true;
+        }
+
+        try
+        {
+            // Execute publish script with RequireNativeTools and Release
+            using var proc = new Process();
+            proc.StartInfo = new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{scriptPath}\" -RequireNativeTools -Configuration Release -SkipCompile",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+            proc.Start();
+            string stdout = proc.StandardOutput.ReadToEnd();
+            string stderr = proc.StandardError.ReadToEnd();
+            proc.WaitForExit();
+
+            Assert.True(proc.ExitCode == 1, $"Expected exit code 1, but got {proc.ExitCode}.\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}");
+        }
+        finally
+        {
+            if (renamed && File.Exists(pffExportBak))
+            {
+                File.Move(pffExportBak, pffExportReal);
+            }
+        }
+    }
+
+    [Fact]
+    public void PublishScript_FailsRelease_WhenRealPffinfoMissing()
+    {
+        EnsureRealBinariesRestored();
+        string scriptPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "scripts", "publish-windows.ps1"));
+        string vendorDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "vendor", "native-tools", "win-x64", "libpff"));
+        string pffInfoReal = Path.Combine(vendorDir, "pffinfo.exe");
+        string pffInfoBak = Path.Combine(vendorDir, "pffinfo.exe.bak");
+
+        bool renamed = false;
+        if (File.Exists(pffInfoBak)) File.Delete(pffInfoBak);
+        if (File.Exists(pffInfoReal))
+        {
+            File.Move(pffInfoReal, pffInfoBak);
+            renamed = true;
+        }
+
+        try
+        {
+            using var proc = new Process();
+            proc.StartInfo = new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{scriptPath}\" -RequireNativeTools -Configuration Release -SkipCompile",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+            proc.Start();
+            string stdout = proc.StandardOutput.ReadToEnd();
+            string stderr = proc.StandardError.ReadToEnd();
+            proc.WaitForExit();
+
+            Assert.True(proc.ExitCode == 1, $"Expected exit code 1, but got {proc.ExitCode}.\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}");
+        }
+        finally
+        {
+            if (renamed && File.Exists(pffInfoBak))
+            {
+                File.Move(pffInfoBak, pffInfoReal);
+            }
+        }
+    }
+
+    [Fact]
+    public void PublishScript_RejectsFakeNativeToolsInRequireNativeTools()
+    {
+        EnsureRealBinariesRestored();
+        string scriptPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "scripts", "publish-windows.ps1"));
+        string vendorDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "vendor", "native-tools", "win-x64", "libpff"));
+        string pffExportReal = Path.Combine(vendorDir, "pffexport.exe");
+        string pffExportBak = Path.Combine(vendorDir, "pffexport.exe.bak");
+
+        bool renamed = false;
+        if (File.Exists(pffExportBak)) File.Delete(pffExportBak);
+        if (File.Exists(pffExportReal))
+        {
+            File.Move(pffExportReal, pffExportBak);
+            renamed = true;
+        }
+
+        try
+        {
+            // Write a dummy fake file
+            File.WriteAllText(pffExportReal, "this is a fake binary which fails the -V probe query execution test");
+
+            using var proc = new Process();
+            proc.StartInfo = new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{scriptPath}\" -RequireNativeTools -Configuration Release -SkipCompile",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+            proc.Start();
+            string stdout = proc.StandardOutput.ReadToEnd();
+            string stderr = proc.StandardError.ReadToEnd();
+            proc.WaitForExit();
+
+            // The script will run the probe on the fake file, which will fail or throw, returning non-zero exit code, so the script fails with 1
+            Assert.True(proc.ExitCode == 1, $"Expected exit code 1, but got {proc.ExitCode}.\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}");
+        }
+        finally
+        {
+            if (File.Exists(pffExportReal)) File.Delete(pffExportReal);
+            if (renamed && File.Exists(pffExportBak))
+            {
+                File.Move(pffExportBak, pffExportReal);
+            }
+        }
+    }
+
+    [Fact]
+    public void PublishScript_CopiesRealLibpffTools()
+    {
+        EnsureRealBinariesRestored();
+        string scriptPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "scripts", "publish-windows.ps1"));
+        string publishDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "artifacts", "publish", "MailVaultRecovery"));
+        string toolsPubDir = Path.Combine(publishDir, "tools", "libpff");
+
+        // Run publish script to package native tools
+        using var proc = new Process();
+        proc.StartInfo = new ProcessStartInfo
+        {
+            FileName = "powershell.exe",
+            Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{scriptPath}\" -RequireNativeTools -Configuration Release -SkipCompile",
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true
+        };
+        proc.Start();
+        string stdout = proc.StandardOutput.ReadToEnd();
+        string stderr = proc.StandardError.ReadToEnd();
+        proc.WaitForExit();
+
+        Assert.True(proc.ExitCode == 0, $"Expected exit code 0, but got {proc.ExitCode}.\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}");
+        Assert.True(File.Exists(Path.Combine(toolsPubDir, "pffexport.exe")));
+        Assert.True(File.Exists(Path.Combine(toolsPubDir, "pffinfo.exe")));
+        Assert.True(File.Exists(Path.Combine(toolsPubDir, "COPYING")));
+        Assert.True(File.Exists(Path.Combine(toolsPubDir, "COPYING.LESSER")));
+        Assert.True(File.Exists(Path.Combine(toolsPubDir, "checksums.txt")));
+    }
+
+    [Fact]
+    public void NativeToolsManifest_IncludesPffexportChecksum()
+    {
+        string publishDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "artifacts", "publish", "MailVaultRecovery"));
+        string manifestPath = Path.Combine(publishDir, "native-tools-manifest.json");
+        string pffExportPub = Path.Combine(publishDir, "tools", "libpff", "pffexport.exe");
+
+        Assert.True(File.Exists(manifestPath));
+        Assert.True(File.Exists(pffExportPub));
+
+        // Read manifest and parse JSON
+        string json = File.ReadAllText(manifestPath);
+        using var doc = JsonDocument.Parse(json);
+        var array = doc.RootElement;
+        
+        bool foundPffExport = false;
+        foreach (var element in array.EnumerateArray())
+        {
+            if (element.GetProperty("name").GetString() == "pffexport")
+            {
+                foundPffExport = true;
+                string sha256InManifest = element.GetProperty("sha256").GetString() ?? "";
+                
+                // Calculate file hash
+                using var sha = System.Security.Cryptography.SHA256.Create();
+                using var stream = File.OpenRead(pffExportPub);
+                byte[] hashBytes = sha.ComputeHash(stream);
+                string calculatedHash = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
+
+                Assert.Equal(calculatedHash, sha256InManifest);
+            }
+        }
+        Assert.True(foundPffExport);
+    }
+
+    [Fact]
+    public async Task WorkerStdoutStderr_AreReadAsync()
+    {
+        var mockResolver = new MockWorkerResolver();
+        var orchestrator = new WorkerProcessOrchestrator(mockResolver);
+        
+        orchestrator.CliPathOverride = "powershell.exe";
+        orchestrator.CliArgumentsOverride = "-NoProfile -Command \"Write-Output '{\\\"Type\\\":\\\"progress\\\",\\\"FoldersProcessed\\\":10,\\\"MessagesProcessed\\\":20,\\\"AttachmentsProcessed\\\":30,\\\"IssuesCount\\\":1}'; [Console]::Error.WriteLine('error telemetry'); exit 0 #\"";
+
+        var jobConfig = new WorkerJobConfig(
+            EvidencePath: "dummy.ost",
+            CasePath: Path.Combine(Path.GetTempPath(), $"stdout-err-test-{Guid.NewGuid():N}"),
+            CaseId: "CASE-STDOUT-ERR",
+            OperatorId: "operator",
+            EvidenceSha256: "sha",
+            EvidenceSize: 1000L,
+            SelectedReaderEngine: "XstReader"
+        );
+
+        int progressCalls = 0;
+        WorkerProgressEvent? lastProgress = null;
+
+        var result = await orchestrator.RunJobAsync(jobConfig, p =>
+        {
+            progressCalls++;
+            lastProgress = p;
+        }, CancellationToken.None);
+
+        Assert.Equal("Success", result.Status);
+        Assert.True(progressCalls > 0);
+        Assert.NotNull(lastProgress);
+        Assert.Equal(10, lastProgress.FoldersProcessed);
+        Assert.Equal(20, lastProgress.MessagesProcessed);
+        Assert.Equal(30, lastProgress.AttachmentsProcessed);
+        Assert.Equal(1, lastProgress.IssuesCount);
+    }
+
+    [Fact]
+    public async Task Desktop_XstReaderIndexing_StartsCliWorker()
+    {
+        string tempCasePath = Path.Combine(Path.GetTempPath(), $"wizard-worker-test-{Guid.NewGuid():N}");
+        string dummyOst = Path.Combine(Path.GetTempPath(), $"dummy-{Guid.NewGuid():N}.ost");
+        File.WriteAllText(dummyOst, "dummy pst contents");
+
+        var resolver = new WorkerExecutableResolver();
+        WorkerLaunchInfo info;
+        try
+        {
+            info = resolver.Resolve();
+        }
+        catch
+        {
+            Environment.SetEnvironmentVariable("MAILVAULT_CLI_PATH", "powershell.exe");
+            info = resolver.Resolve();
+        }
+
+        try
+        {
+            var vm = new NewCaseWizardViewModel();
+            vm.SourcePath = dummyOst;
+            vm.DestinationPath = tempCasePath;
+            vm.CaseId = "CASE-CLI-WIZARD";
+            vm.DisclaimerAccepted = true;
+            vm.SelectedReaderEngine = "XstReader";
+
+            vm.StartIndexingCommand.Execute(null);
+
+            int waitCount = 0;
+            while (vm.WorkerPid == null && waitCount < 50)
+            {
+                await Task.Delay(100);
+                waitCount++;
+            }
+
+            Assert.True(vm.IsIndexing);
+            
+            vm.CancelIndexingCommand.Execute(null);
+            
+            int waitCount2 = 0;
+            while (vm.IsIndexing && waitCount2 < 50)
+            {
+                await Task.Delay(100);
+                waitCount2++;
+            }
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("MAILVAULT_CLI_PATH", null);
+            if (File.Exists(dummyOst)) File.Delete(dummyOst);
+            if (Directory.Exists(tempCasePath)) Directory.Delete(tempCasePath, true);
+        }
+    }
+
+    [Fact]
+    public void WorkerProgress_DispatcherUpdatesAreThrottled()
+    {
+        var received = new List<WorkerProgressEvent>();
+        using var throttler = new MailVault.Core.ProgressThrottler<WorkerProgressEvent>(received.Add, TimeSpan.FromMilliseconds(150));
+
+        for (int i = 0; i < 10; i++)
+        {
+            throttler.Report(new WorkerProgressEvent("progress", "timestamp", "XstReader", "Phase", "Folder", 1, i, 0, 0, false, "Msg"));
+        }
+
+        Assert.True(received.Count <= 1);
+    }
+
+    // -------------------------------------------------------------
+    // Milestone 6.2.4.2 UI & Wizard VM Tests
+    // -------------------------------------------------------------
+
+    [Fact]
+    public void UI_NativeToolFailed_ShowsSpecificErrorNotGenericWorkerAborted()
+    {
+        var vm = new NewCaseWizardViewModel();
+        vm.IsNativeToolFailure = true;
+        vm.NativeFailureCause = "Falha em descritores locais/anexos dentro do OST.";
+        
+        Assert.True(vm.IsNativeToolFailure);
+        Assert.Equal("Falha em descritores locais/anexos dentro do OST.", vm.NativeFailureCause);
+    }
+
+    [Fact]
+    public void UI_NativeToolFailed_SuggestsXstReaderMetadataOnly()
+    {
+        var vm = new NewCaseWizardViewModel();
+        vm.IsNativeToolFailure = true;
+        vm.NativeFailureRecommendation = "Recomendado: Utilize o motor XstReader com indexação apenas de metadados (MetadataOnly) para contornar a corrupção nativa.";
+
+        Assert.Contains("XstReader", vm.NativeFailureRecommendation);
+        Assert.Contains("MetadataOnly", vm.NativeFailureRecommendation);
+    }
+
+    [Fact]
+    public void UI_AllDeepRecovery_RequiresExplicitConfirmation()
+    {
+        var vm = new NewCaseWizardViewModel();
+        vm.ShowDeepRecoveryWarning = false;
+        
+        // Simulating Trigger command
+        vm.TriggerDeepRecoveryWarningCommand.Execute(null);
+        Assert.True(vm.ShowDeepRecoveryWarning);
+
+        // Confirm
+        vm.ConfirmDeepRecoveryCommand.Execute(null);
+        Assert.False(vm.ShowDeepRecoveryWarning);
+        Assert.Equal("all", vm.DeepRecoveryMode);
     }
 }

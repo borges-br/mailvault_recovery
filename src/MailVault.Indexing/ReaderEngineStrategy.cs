@@ -43,14 +43,20 @@ public interface IReaderEngine
 
 public static class ExternalToolDetector
 {
-    private static readonly string[] SearchDirectories = new[]
+    private static readonly string[] SearchDirectories = GetSearchDirectories();
+
+    private static string[] GetSearchDirectories()
     {
-        AppContext.BaseDirectory,
-        Directory.GetCurrentDirectory(),
-        @"C:\Program Files\libpff",
-        @"C:\Program Files (x86)\libpff",
-        @"C:\libpff"
-    };
+        return new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, "tools", "libpff"),
+            AppContext.BaseDirectory,
+            Directory.GetCurrentDirectory(),
+            @"C:\Program Files\libpff",
+            @"C:\Program Files (x86)\libpff",
+            @"C:\libpff"
+        };
+    }
 
     public static async Task<ReaderEngineCapability> DetectToolAsync(string toolName, CancellationToken ct)
     {
@@ -352,6 +358,7 @@ public sealed class LibpffExternalEngine : IReaderEngine
     );
 
     public string PrecalculatedSha256 { get; set; } = string.Empty;
+    public string DeepRecoveryMode { get; set; } = "items";
 
     public async Task<ReaderEngineCapability> CheckCapabilityAsync(CancellationToken ct)
     {
@@ -374,57 +381,230 @@ public sealed class LibpffExternalEngine : IReaderEngine
             throw new InvalidOperationException("O utilitário externo 'pffexport' não está disponível ou instalado no sistema.");
         }
 
+        var pffInfoCap = await ExternalToolDetector.DetectToolAsync("pffinfo", ct);
+        if (!pffInfoCap.IsAvailable)
+        {
+            throw new InvalidOperationException("O utilitário externo 'pffinfo' não está disponível ou instalado no sistema.");
+        }
+
         string caseFolderPath = Path.GetDirectoryName(store.DatabasePath) ?? Directory.GetCurrentDirectory();
-        string recoveryDir = Path.Combine(caseFolderPath, "libpff-recovery");
+        if (!Directory.Exists(caseFolderPath))
+        {
+            Directory.CreateDirectory(caseFolderPath);
+        }
+
+        // 1. Dynamic Mode Verification (Probe)
+        progress?.Report(new IndexingProgress("OpeningEvidence", "", 0, 0, 0, 0, 5.0, TimeSpan.Zero, "Validando suporte a parâmetros da ferramenta nativa...", true));
+        var (helpStdout, helpStderr, helpExit) = await ExternalToolDetector.ExecuteToolWithTimeoutAsync(capability.ExecutablePath, "", 5000, ct);
+        string combinedHelp = helpStdout + "\n" + helpStderr;
+
+        string modeFlag = DeepRecoveryMode switch
+        {
+            "recovered" => "recovered",
+            "all" => "all",
+            _ => "items"
+        };
+        string formatFlag = DeepRecoveryMode == "all" ? "all" : "text";
+
+        bool supportsModeArg = combinedHelp.Contains("-m") || combinedHelp.Contains("mode");
+        if (!supportsModeArg || !combinedHelp.Contains(modeFlag))
+        {
+            return new ReaderEngineResult(
+                "NativeToolFailed",
+                $"O utilitário nativo pffexport não possui suporte ou não reconhece o modo de extração solicitado: '{modeFlag}'.",
+                0, 0, 0, 1
+            );
+        }
+
+        bool supportsFormatArg = combinedHelp.Contains("-f") || combinedHelp.Contains("format");
+        if (!supportsFormatArg || !combinedHelp.Contains(formatFlag))
+        {
+            return new ReaderEngineResult(
+                "NativeToolFailed",
+                $"O utilitário nativo pffexport não possui suporte ou não reconhece o formato de extração solicitado: '{formatFlag}'.",
+                0, 0, 0, 1
+            );
+        }
+
+        // 2. Evidence SHA-256 Calculation
+        string sha256 = PrecalculatedSha256;
+        if (string.IsNullOrWhiteSpace(sha256))
+        {
+            progress?.Report(new IndexingProgress("OpeningEvidence", "", 0, 0, 0, 0, 10.0, TimeSpan.Zero, "Calculando hash SHA-256 da evidência original...", true));
+            using var sha = System.Security.Cryptography.SHA256.Create();
+            using var stream = File.OpenRead(filePath);
+            byte[] hashBytes = await sha.ComputeHashAsync(stream, ct);
+            sha256 = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
+        }
+
+        // 3. Execute pffinfo
+        progress?.Report(new IndexingProgress("OpeningEvidence", "", 0, 0, 0, 0, 20.0, TimeSpan.Zero, "Executando pffinfo para diagnóstico de cabeçalho...", true));
+        var pffinfoStopwatch = System.Diagnostics.Stopwatch.StartNew();
+        var (infoStdout, infoStderr, infoExitCode) = await ExternalToolDetector.ExecuteToolWithTimeoutAsync(
+            pffInfoCap.ExecutablePath,
+            $"\"{filePath}\"",
+            30000,
+            ct
+        );
+        pffinfoStopwatch.Stop();
+
+        // 4. Build recovery directory and options
+
+        string runId = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
+        string recoveryDir = Path.Combine(caseFolderPath, "external-recovery", "pffexport", runId);
         if (!Directory.Exists(recoveryDir))
         {
             Directory.CreateDirectory(recoveryDir);
         }
 
-        progress?.Report(new IndexingProgress(
-            phase: "OpeningEvidence",
-            currentFolderPath: "",
-            foldersProcessed: 0,
-            messagesProcessed: 0,
-            attachmentsProcessed: 0,
-            issuesCount: 0,
-            percent: 5.0,
-            elapsed: TimeSpan.Zero,
-            message: "Iniciando ferramenta externa pffexport...",
-            isCancellable: true
-        ));
+        string exportArgs = $"-m {modeFlag} -f {formatFlag} -q -o \"{recoveryDir}\" \"{filePath}\"";
 
-        string arguments = $"-o \"{recoveryDir}\" \"{filePath}\"";
-        
+        // 5. Execute pffexport
+        progress?.Report(new IndexingProgress("OpeningEvidence", "", 0, 0, 0, 0, 40.0, TimeSpan.Zero, $"Executando pffexport em modo {modeFlag} (recuperação profunda)...", true));
+        var pffexportStopwatch = System.Diagnostics.Stopwatch.StartNew();
         var (stdout, stderr, exitCode) = await ExternalToolDetector.ExecuteToolWithTimeoutAsync(
             capability.ExecutablePath,
-            arguments,
-            120000, 
+            exportArgs,
+            180000, // Capped Timeout
             ct
         );
+        pffexportStopwatch.Stop();
 
-        string diagLogPath = Path.Combine(caseFolderPath, "libpff-diagnostic.log");
-        await File.WriteAllTextAsync(diagLogPath, $"--- STDOUT ---\n{stdout}\n\n--- STDERR ---\n{stderr}\n\n--- EXIT CODE: {exitCode} ---", ct);
+        // 6. Output statistics scanning
+        int outputFileCount = 0;
+        long outputTotalBytes = 0;
+        var firstOutputFiles = new List<string>();
+        if (Directory.Exists(recoveryDir))
+        {
+            var files = Directory.GetFiles(recoveryDir, "*", SearchOption.AllDirectories);
+            outputFileCount = files.Length;
+            foreach (var f in files)
+            {
+                outputTotalBytes += new FileInfo(f).Length;
+                if (firstOutputFiles.Count < 10)
+                {
+                    firstOutputFiles.Add(Path.GetRelativePath(recoveryDir, f));
+                }
+            }
+        }
 
+        // 7. Summarize and Sanitize Stderr
+        string errorCategory;
+        var deduplicatedErrors = NativeToolErrorSummarizer.Summarize(stderr, out errorCategory);
+
+        string sanitizedRawStderr = NativeToolErrorSummarizer.SanitizeAndLimitStderr(stderr);
+        string rawStderrPath = Path.Combine(caseFolderPath, "native-fallback-stderr.log");
+        await File.WriteAllTextAsync(rawStderrPath, sanitizedRawStderr, ct);
+
+        // 8. Classify Final Status
+        string finalStatus;
+        if (infoExitCode != 0)
+        {
+            finalStatus = "NativeDiagnosticFailed";
+        }
+        else if (exitCode == -99)
+        {
+            finalStatus = "NativeToolTimeout";
+        }
+        else if (outputFileCount > 0)
+        {
+            if (errorCategory.Contains("LocalDescriptor") || errorCategory.Contains("Attachment"))
+            {
+                // Even if exitCode == 0, if we have local descriptor/attachment structure corruptions, it is a partial recovery!
+                finalStatus = "PartialNativeRecovery";
+            }
+            else if (exitCode != 0)
+            {
+                finalStatus = "PartialNativeRecovery";
+            }
+            else
+            {
+                finalStatus = string.IsNullOrWhiteSpace(stderr) ? "NativeExportSuccess" : "NativeExportSuccessWithWarnings";
+            }
+        }
+        else // outputFileCount == 0
+        {
+            finalStatus = (errorCategory.Contains("LocalDescriptor") || errorCategory.Contains("Attachment"))
+                ? "NativeToolUnsupportedStructure"
+                : "NativeToolFailed";
+        }
+
+        string recommendation = finalStatus switch
+        {
+            "NativeToolFailed" or "NativeToolUnsupportedStructure" => "Use XstReader MetadataOnly para indexação. Use recuperação profunda apenas como tentativa experimental.",
+            _ => "Extração nativa concluída ou parcial. Revise os arquivos extraídos no diretório do caso."
+        };
+
+        // 9. Structured reports saving (Historical and Latest copy)
+        var report = new
+        {
+            caseId = caseId,
+            evidencePathSanitized = Path.GetFileName(filePath),
+            evidenceSha256 = sha256,
+            toolVersions = new
+            {
+                pffinfo = pffInfoCap.Version ?? "Unknown",
+                pffexport = capability.Version ?? "Unknown"
+            },
+            pffinfo = new
+            {
+                command = $"{pffInfoCap.ExecutablePath} \"{filePath}\"",
+                exitCode = infoExitCode,
+                stdoutSummary = infoStdout.Length > 1000 ? infoStdout.Substring(0, 1000) + "..." : infoStdout,
+                stderrSummary = infoStderr.Length > 1000 ? infoStderr.Substring(0, 1000) + "..." : infoStderr,
+                elapsedMs = pffinfoStopwatch.ElapsedMilliseconds
+            },
+            pffexport = new
+            {
+                command = $"{capability.ExecutablePath} {exportArgs}",
+                mode = modeFlag,
+                format = formatFlag,
+                exitCode = exitCode,
+                elapsedMs = pffexportStopwatch.ElapsedMilliseconds,
+                outputPath = recoveryDir,
+                outputFolderExists = Directory.Exists(recoveryDir),
+                outputFileCount = outputFileCount,
+                outputTotalBytes = outputTotalBytes,
+                firstOutputFiles = firstOutputFiles,
+                stderrSummaryDeduplicated = deduplicatedErrors,
+                rawStderrPath = "native-fallback-stderr.log"
+            },
+            finalStatus = finalStatus,
+            recommendation = recommendation
+        };
+
+        string reportJson = System.Text.Json.JsonSerializer.Serialize(report, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        
+        string historicalReportPath = Path.Combine(caseFolderPath, $"native-fallback-report-{runId}.json");
+        await File.WriteAllTextAsync(historicalReportPath, reportJson, ct);
+
+        string latestReportPath = Path.Combine(caseFolderPath, "native-fallback-report.json");
+        await File.WriteAllTextAsync(latestReportPath, reportJson, ct);
+
+        // 10. Persist issue inside case.db
         using var writer = store.CreateWriter();
-        var issue = new ExtractionIssue(
-            Code: exitCode == 0 ? "MV-INFO-LIBPFF" : "MV-ERR-LIBPFF",
-            Severity: exitCode == 0 ? "Info" : "Warning",
-            Message: $"Execução experimental do pffexport finalizada com exit code {exitCode}.",
+        var extractionIssue = new ExtractionIssue(
+            Code: finalStatus == "NativeExportSuccess" ? "MV-INFO-LIBPFF" : "MV-ERR-LIBPFF",
+            Severity: finalStatus == "NativeExportSuccess" ? "Info" : "Warning",
+            Message: $"Execução experimental de recuperação nativa finalizada com status: {finalStatus}.",
             ObjectId: "pffexport",
-            TechnicalDetails: $"RecoveryDir: libpff-recovery. ExitCode: {exitCode}. Detalhes salvos em libpff-diagnostic.log."
+            TechnicalDetails: $"RecoveryDir: {recoveryDir}. OutputFiles: {outputFileCount}. Categoria de Erros: {errorCategory}."
         );
 
         await writer.BeginTransactionAsync(ct);
-        await writer.SaveIssueAsync(issue, ct);
+        await writer.SaveIssueAsync(extractionIssue, ct);
         await writer.CommitTransactionAsync(CancellationToken.None);
 
-        if (exitCode != 0)
-        {
-            return new ReaderEngineResult("Failed", $"pffexport falhou com código de saída {exitCode}.", 0, 0, 0, 1);
-        }
-
-        return new ReaderEngineResult("Success", null, 1, 0, 0, 1);
+        // Relational database population is completely bypassed because folders/messages are never saved!
+        // We only return the result
+        return new ReaderEngineResult(
+            finalStatus,
+            finalStatus == "NativeExportSuccess" || finalStatus == "NativeExportSuccessWithWarnings" ? null : $"A ferramenta nativa retornou status: {finalStatus}.",
+            0,
+            0,
+            0,
+            finalStatus == "NativeExportSuccess" ? 0 : 1
+        );
     }
 }
 

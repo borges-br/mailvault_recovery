@@ -350,6 +350,13 @@
                                         <ComboBox ItemsSource="{Binding AvailableReaderEngines}" SelectedItem="{Binding SelectedReaderEngine, Mode=TwoWay}" 
                                                   Background="#070A0E" Foreground="White" HorizontalAlignment="Stretch" Padding="10" CornerRadius="6">
                                         </ComboBox>
+                                        <!-- Engine Description Panel -->
+                                        <Border Background="#0C152B" BorderBrush="#1C2E5D" BorderThickness="1" Padding="12" CornerRadius="6" Margin="0,5,0,0">
+                                            <StackPanel Spacing="4">
+                                                <TextBlock Text="{Binding SelectedReaderEngineDisplayName}" FontWeight="Bold" Foreground="#00E5FF" FontSize="12"/>
+                                                <TextBlock Text="{Binding SelectedReaderEngineDescription}" Foreground="#94A3B8" FontSize="11" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                        </Border>
                                     </StackPanel>
 
                                     <StackPanel Spacing="8">
@@ -416,30 +423,60 @@
 
                                       <Grid Grid.Row="1" ColumnDefinitions="*, *" Margin="0,10">
                                           <!-- Counters -->
-                                          <Border Grid.Column="0" Background="#111827" BorderBrush="#1F2937" BorderThickness="1" CornerRadius="8" Padding="15" Margin="0,0,5,0">
-                                              <StackPanel Spacing="15" VerticalAlignment="Center">
-                                                  <TextBlock Text="STATUS DAS MÉTRICAS" FontSize="10" FontWeight="Bold" Foreground="#64748B"/>
-                                                  
-                                                  <Grid ColumnDefinitions="*, *" RowDefinitions="Auto, Auto">
-                                                      <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,5">
-                                                          <TextBlock Text="Pastas" FontSize="10" Foreground="#64748B"/>
-                                                          <TextBlock Text="{Binding FoldersIndexed}" FontSize="24" FontWeight="Bold" Foreground="#FFFFFF"/>
-                                                      </StackPanel>
-                                                      <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,5">
-                                                          <TextBlock Text="Mensagens" FontSize="10" Foreground="#64748B"/>
-                                                          <TextBlock Text="{Binding MessagesIndexed}" FontSize="24" FontWeight="Bold" Foreground="#FFFFFF"/>
-                                                      </StackPanel>
-                                                      <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,5">
-                                                          <TextBlock Text="Anexos" FontSize="10" Foreground="#64748B"/>
-                                                          <TextBlock Text="{Binding AttachmentsIndexed}" FontSize="24" FontWeight="Bold" Foreground="#FFFFFF"/>
-                                                      </StackPanel>
-                                                      <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,5">
-                                                          <TextBlock Text="Divergências" FontSize="10" Foreground="#64748B"/>
-                                                          <TextBlock Text="{Binding IssuesDetected}" FontSize="24" FontWeight="Bold" Foreground="#F59E0B"/>
-                                                      </StackPanel>
-                                                  </Grid>
-                                              </StackPanel>
-                                          </Border>
+                                           <Border Grid.Column="0" Background="#111827" BorderBrush="#1F2937" BorderThickness="1" CornerRadius="8" Padding="15" Margin="0,0,5,0">
+                                               <StackPanel Spacing="10" VerticalAlignment="Center">
+                                                   <TextBlock Text="STATUS DAS MÉTRICAS" FontSize="10" FontWeight="Bold" Foreground="#64748B"/>
+                                                   
+                                                   <Grid ColumnDefinitions="*, *" RowDefinitions="Auto, Auto">
+                                                       <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,3">
+                                                           <TextBlock Text="Pastas" FontSize="10" Foreground="#64748B"/>
+                                                           <TextBlock Text="{Binding FoldersIndexed}" FontSize="20" FontWeight="Bold" Foreground="#FFFFFF"/>
+                                                       </StackPanel>
+                                                       <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,3">
+                                                           <TextBlock Text="Mensagens" FontSize="10" Foreground="#64748B"/>
+                                                           <TextBlock Text="{Binding MessagesIndexed}" FontSize="20" FontWeight="Bold" Foreground="#FFFFFF"/>
+                                                       </StackPanel>
+                                                       <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,3">
+                                                           <TextBlock Text="Anexos" FontSize="10" Foreground="#64748B"/>
+                                                           <TextBlock Text="{Binding AttachmentsIndexed}" FontSize="20" FontWeight="Bold" Foreground="#FFFFFF"/>
+                                                       </StackPanel>
+                                                       <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,3">
+                                                           <TextBlock Text="Divergências" FontSize="10" Foreground="#64748B"/>
+                                                           <TextBlock Text="{Binding IssuesDetected}" FontSize="20" FontWeight="Bold" Foreground="#F59E0B"/>
+                                                       </StackPanel>
+                                                   </Grid>
+
+                                                   <Border Height="1" Background="#1F2937" Margin="0,8"/>
+                                                   <TextBlock Text="TELEMETRIA DO LEITOR ISOLADO" FontSize="9" FontWeight="Bold" Foreground="#64748B"/>
+
+                                                   <Grid ColumnDefinitions="*, *" RowDefinitions="Auto, Auto, Auto">
+                                                       <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,2">
+                                                           <TextBlock Text="PID do Processo" FontSize="9" Foreground="#64748B"/>
+                                                           <TextBlock Text="{Binding WorkerPid, FallbackValue='N/A'}" FontSize="11" FontWeight="SemiBold" Foreground="#00E5FF"/>
+                                                       </StackPanel>
+                                                       <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,2">
+                                                           <TextBlock Text="Motor de Leitura" FontSize="9" Foreground="#64748B"/>
+                                                           <TextBlock Text="{Binding WorkerEngine, FallbackValue='N/A'}" FontSize="11" FontWeight="SemiBold" Foreground="#E2E8F0"/>
+                                                       </StackPanel>
+                                                       <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,2">
+                                                           <TextBlock Text="Tipo de Trabalho" FontSize="9" Foreground="#64748B"/>
+                                                           <TextBlock Text="{Binding WorkerJobKind, FallbackValue='N/A'}" FontSize="11" FontWeight="SemiBold" Foreground="#E2E8F0"/>
+                                                       </StackPanel>
+                                                       <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,2">
+                                                           <TextBlock Text="Fase Atual" FontSize="9" Foreground="#64748B"/>
+                                                           <TextBlock Text="{Binding WorkerPhase, FallbackValue='N/A'}" FontSize="11" FontWeight="SemiBold" Foreground="#FFE082"/>
+                                                       </StackPanel>
+                                                       <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,2">
+                                                           <TextBlock Text="Último Heartbeat" FontSize="9" Foreground="#64748B"/>
+                                                           <TextBlock Text="{Binding HeartbeatAge, StringFormat='\{0\}s'}" FontSize="11" FontWeight="SemiBold" Foreground="#00E5FF"/>
+                                                       </StackPanel>
+                                                       <StackPanel Grid.Row="2" Grid.Column="1" Margin="0,2">
+                                                           <TextBlock Text="Timestamp Evento" FontSize="9" Foreground="#64748B"/>
+                                                           <TextBlock Text="{Binding WorkerLastEventTime, FallbackValue='N/A'}" FontSize="9" FontWeight="SemiBold" Foreground="#64748B" TextTrimming="CharacterEllipsis"/>
+                                                       </StackPanel>
+                                                   </Grid>
+                                               </StackPanel>
+                                           </Border>
 
                                           <!-- Live logs -->
                                           <Border Grid.Column="1" Background="#070A0E" BorderBrush="#1F2937" BorderThickness="1" CornerRadius="8" Padding="8" Margin="5,0,0,0">
@@ -484,10 +521,47 @@
                                         </StackPanel>
                                     </Border>
 
-                                    <Border Background="#2A1010" BorderBrush="#EF4444" BorderThickness="1" CornerRadius="8" Padding="20" IsVisible="{Binding IndexingError, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                    <!-- Standard Failure border -->
+                                    <Border Background="#2A1010" BorderBrush="#EF4444" BorderThickness="1" CornerRadius="8" Padding="20" IsVisible="{Binding ShowStandardFailureButtons}">
                                         <StackPanel Spacing="10">
                                             <TextBlock Text="❌ FALHA NO PROCESSAMENTO" FontSize="16" FontWeight="Black" Foreground="#FCA5A5"/>
                                             <TextBlock Text="{Binding IndexingError}" FontSize="12" Foreground="#FCA5A5" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- NATIVE FALLBACK FAILURE PANEL -->
+                                    <Border Background="#2D1B1B" BorderBrush="#EF4444" BorderThickness="1" CornerRadius="8" Padding="20" IsVisible="{Binding IsNativeToolFailure}">
+                                        <StackPanel Spacing="15">
+                                            <StackPanel Spacing="5">
+                                                <TextBlock Text="⚠️ Recuperação nativa não conseguiu exportar este OST" FontSize="16" FontWeight="Black" Foreground="#FCA5A5"/>
+                                                <TextBlock Text="O processo de extração do motor Libpff falhou devido a incompatibilidade ou corrupção na estrutura do arquivo." FontSize="12" Foreground="#D1D5DB"/>
+                                            </StackPanel>
+                                            
+                                            <Border Background="#1E1313" CornerRadius="6" Padding="12">
+                                                <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto, Auto, Auto, Auto" Margin="0">
+                                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="pffinfo reconheceu o arquivo:  " Foreground="#94A3B8" FontSize="11" FontWeight="Bold" Margin="0,4"/>
+                                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding PffInfoRecognized}" Foreground="White" FontSize="11" Margin="0,4"/>
+                                                    
+                                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Tipo estrutural:  " Foreground="#94A3B8" FontSize="11" FontWeight="Bold" Margin="0,4"/>
+                                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding PffInfoFileType}" Foreground="White" FontSize="11" Margin="0,4"/>
+                                                    
+                                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="pffexport exit code:  " Foreground="#94A3B8" FontSize="11" FontWeight="Bold" Margin="0,4"/>
+                                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding PffExportExitCode}" Foreground="White" FontSize="11" Margin="0,4"/>
+                                                    
+                                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Arquivos úteis gerados:  " Foreground="#94A3B8" FontSize="11" FontWeight="Bold" Margin="0,4"/>
+                                                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding PffExportFileCount}" Foreground="White" FontSize="11" Margin="0,4"/>
+                                                </Grid>
+                                            </Border>
+
+                                            <StackPanel Spacing="5">
+                                                <TextBlock Text="Causa Provável:" FontSize="11" Foreground="#EF4444" FontWeight="Bold"/>
+                                                <TextBlock Text="{Binding NativeFailureCause}" FontSize="12" Foreground="#FCA5A5" TextWrapping="Wrap"/>
+                                            </StackPanel>
+
+                                            <StackPanel Spacing="5">
+                                                <TextBlock Text="Recomendação Forense:" FontSize="11" Foreground="#10B981" FontWeight="Bold"/>
+                                                <TextBlock Text="{Binding NativeFailureRecommendation}" FontSize="12" Foreground="#A5D6A7" TextWrapping="Wrap"/>
+                                            </StackPanel>
                                         </StackPanel>
                                     </Border>
 
@@ -509,7 +583,7 @@
                                     </StackPanel>
 
                                     <!-- Failure state recovery buttons -->
-                                    <StackPanel Spacing="12" IsVisible="{Binding IndexingError, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                    <StackPanel Spacing="12" IsVisible="{Binding ShowStandardFailureButtons}">
                                         <WrapPanel HorizontalAlignment="Center" Margin="0,10,0,0">
                                             <Button Content="🔄 Tentar Novamente" Command="{Binding RetryIndexingCommand}"
                                                     Background="#10B981" Foreground="White" FontWeight="Bold" Padding="18,10" CornerRadius="6" Margin="6"/>
@@ -523,10 +597,69 @@
                                                     Background="#1F2937" Foreground="#E5E7EB" FontWeight="Bold" Padding="18,10" CornerRadius="6" Margin="6"/>
                                         </WrapPanel>
                                     </StackPanel>
-                                </StackPanel>
-                            </Grid>
-                        </Grid>
-                    </DataTemplate>
+
+                                    <!-- Native Failure state recovery buttons -->
+                                    <StackPanel Spacing="12" IsVisible="{Binding IsNativeToolFailure}">
+                                        <WrapPanel HorizontalAlignment="Center" Margin="0,10,0,0">
+                                            <Button Content="📄 Abrir Relatório Nativo" Command="{Binding OpenNativeReportCommand}"
+                                                    Background="#1F2937" Foreground="White" FontWeight="Bold" Padding="18,10" CornerRadius="6" Margin="6"/>
+                                            <Button Content="📋 Copiar Diagnóstico" Command="{Binding CopyTechnicalErrorCommand}"
+                                                    Background="#1F2937" Foreground="#00E5FF" FontWeight="Bold" Padding="18,10" CornerRadius="6" Margin="6"/>
+                                            <Button Content="⚡ Tentar XstReader (Metadados)" Command="{Binding TryXstReaderCommand}"
+                                                    Background="#10B981" Foreground="White" FontWeight="Bold" Padding="18,10" CornerRadius="6" Margin="6"/>
+                                            <Button Content="🔍 Tentar Modo Recuperado" Command="{Binding TryDeepRecoveryCommand}"
+                                                    Background="#D97706" Foreground="White" FontWeight="Bold" Padding="18,10" CornerRadius="6" Margin="6"/>
+                                            <Button Content="🔥 Tentar Modo Profundo (Tudo)" Command="{Binding TriggerDeepRecoveryWarningCommand}"
+                                                    Background="#B91C1C" Foreground="White" FontWeight="Bold" Padding="18,10" CornerRadius="6" Margin="6"/>
+                                            <Button Content="📂 Abrir Pasta do Caso" Command="{Binding OpenCaseFolderCommand}"
+                                                    Background="#1F2937" Foreground="#E5E7EB" FontWeight="Bold" Padding="18,10" CornerRadius="6" Margin="6"/>
+                                            <Button Content="↩ Voltar ao Início" Command="{Binding BackToFirstStepCommand}"
+                                                    Background="#4B5563" Foreground="White" FontWeight="Bold" Padding="18,10" CornerRadius="6" Margin="6"/>
+                                        </WrapPanel>
+                                    </StackPanel>
+                                 </StackPanel>
+                             </Grid>
+
+                             <!-- Deep Recovery Warning Confirmation Overlay -->
+                             <Grid Grid.Row="0" Grid.RowSpan="2" Background="#D8000000" IsVisible="{Binding ShowDeepRecoveryWarning}" VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
+                                 <Border Background="#1A0D0D" BorderBrush="#EF4444" BorderThickness="1.5" CornerRadius="12" Padding="25" Width="550" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                     <StackPanel Spacing="20">
+                                         <StackPanel Spacing="5">
+                                             <TextBlock Text="🔥 CONFIRMAÇÃO OPERACIONAL EXPLICITA" FontSize="18" FontWeight="Black" Foreground="#EF4444" HorizontalAlignment="Center"/>
+                                             <Border Height="2" Background="#EF4444" Margin="0,5"/>
+                                             <TextBlock Text="MODO DE RECUPERAÇÃO PROFUNDA (ALL)" FontSize="12" FontWeight="Bold" Foreground="#FCA5A5" HorizontalAlignment="Center"/>
+                                         </StackPanel>
+
+                                         <StackPanel Spacing="10">
+                                             <TextBlock Text="Você está prestes a ativar a extração nativa em modo irrestrito ('all'). Este modo possui as seguintes implicações técnicas e forenses:" FontSize="12" Foreground="#D1D5DB" TextWrapping="Wrap"/>
+                                             
+                                             <Grid ColumnDefinitions="Auto, *" Margin="10,2">
+                                                 <TextBlock Grid.Column="0" Text="• " Foreground="#EF4444" Margin="0,0,8,0"/>
+                                                 <TextBlock Grid.Column="1" Text="A ferramenta tentará reconstruir órfãos e itens deletados diretamente das tabelas físicas do OST/PST." FontSize="11" Foreground="#EF4444" TextWrapping="Wrap"/>
+                                             </Grid>
+                                             
+                                             <Grid ColumnDefinitions="Auto, *" Margin="10,2">
+                                                 <TextBlock Grid.Column="0" Text="• " Foreground="#EF4444" Margin="0,0,8,0"/>
+                                                 <TextBlock Grid.Column="1" Text="Risco aumentado de arquivos de saída corrompidos ou incoerentes fora do índice relacional principal." FontSize="11" Foreground="#D1D5DB" TextWrapping="Wrap"/>
+                                             </Grid>
+
+                                             <Grid ColumnDefinitions="Auto, *" Margin="10,2">
+                                                 <TextBlock Grid.Column="0" Text="• " Foreground="#EF4444" Margin="0,0,8,0"/>
+                                                 <TextBlock Grid.Column="1" Text="O tempo de processamento pode aumentar significativamente em bases volumosas." FontSize="11" Foreground="#D1D5DB" TextWrapping="Wrap"/>
+                                             </Grid>
+                                         </StackPanel>
+
+                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="15" Margin="0,10,0,0">
+                                             <Button Content="Confirmar e Executar" Command="{Binding ConfirmDeepRecoveryCommand}"
+                                                     Background="#EF4444" Foreground="White" FontWeight="Bold" Padding="25,12" CornerRadius="6"/>
+                                             <Button Content="Cancelar" Command="{Binding CancelDeepRecoveryWarningCommand}"
+                                                     Background="#4B5563" Foreground="White" FontWeight="Bold" Padding="25,12" CornerRadius="6"/>
+                                         </StackPanel>
+                                     </StackPanel>
+                                 </Border>
+                             </Grid>
+                         </Grid>
+                     </DataTemplate>
 
                     <!-- 3. TEST LAB VIEW -->
                     <DataTemplate DataType="{x:Type vm:TestLabViewModel}">

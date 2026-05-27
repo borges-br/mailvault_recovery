@@ -33,6 +33,7 @@ public record WorkerJobConfig(
     public string? MessageId { get; init; }
     public string? AttachmentId { get; init; }
     public string? FallbackToolName { get; init; }
+    public string? DeepRecoveryMode { get; init; } = "items";
 }
 
 public record WorkerProgressEvent(
@@ -86,6 +87,21 @@ public sealed class WorkerProcessOrchestrator
         private set
         {
             lock (_eventLock) _lastKnownEvent = value;
+        }
+    }
+
+    public int? ActiveWorkerPid
+    {
+        get
+        {
+            try
+            {
+                return _activeProcess?.Id;
+            }
+            catch
+            {
+                return null;
+            }
         }
     }
 
@@ -192,13 +208,11 @@ public sealed class WorkerProcessOrchestrator
         {
             try
             {
-                while (!proc.StandardError.EndOfStream)
+                while (true)
                 {
                     string? errLine = await proc.StandardError.ReadLineAsync(ct);
-                    if (errLine != null)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"[Worker Stderr] {errLine}");
-                    }
+                    if (errLine == null) break;
+                    System.Diagnostics.Debug.WriteLine($"[Worker Stderr] {errLine}");
                 }
             }
             catch { }
@@ -213,9 +227,10 @@ public sealed class WorkerProcessOrchestrator
 
         try
         {
-            while (!proc.StandardOutput.EndOfStream)
+            while (true)
             {
                 string? line = await proc.StandardOutput.ReadLineAsync(ct);
+                if (line == null) break;
                 if (string.IsNullOrWhiteSpace(line)) continue;
 
                 try
