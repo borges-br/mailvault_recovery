@@ -13,6 +13,8 @@ public sealed class SqliteCaseIndexWriter : ICaseIndexWriter
     private readonly SqliteConnection _connection;
     private SqliteTransaction? _transaction;
 
+    public string? ActiveRunId { get; set; }
+
     public SqliteCaseIndexWriter(SqliteConnection connection)
     {
         _connection = connection;
@@ -71,8 +73,8 @@ public sealed class SqliteCaseIndexWriter : ICaseIndexWriter
     public async Task SaveFolderAsync(FolderNode folder, CancellationToken ct)
     {
         const string query = @"
-            INSERT OR REPLACE INTO folders (folder_id, parent_id, display_name, full_path, message_count)
-            VALUES ($folderId, $parentId, $displayName, $fullPath, $messageCount);";
+            INSERT OR REPLACE INTO folders (folder_id, parent_id, display_name, full_path, message_count, run_id)
+            VALUES ($folderId, $parentId, $displayName, $fullPath, $messageCount, $runId);";
 
         using var cmd = new SqliteCommand(query, _connection, _transaction);
         cmd.Parameters.AddWithValue("$folderId", folder.Id.Value);
@@ -89,6 +91,7 @@ public sealed class SqliteCaseIndexWriter : ICaseIndexWriter
         cmd.Parameters.AddWithValue("$displayName", folder.DisplayName);
         cmd.Parameters.AddWithValue("$fullPath", folder.FullPath);
         cmd.Parameters.AddWithValue("$messageCount", (object?)folder.MessageCount ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$runId", (object?)ActiveRunId ?? DBNull.Value);
 
         await cmd.ExecuteNonQueryAsync(ct);
     }
@@ -99,12 +102,12 @@ public sealed class SqliteCaseIndexWriter : ICaseIndexWriter
             INSERT OR REPLACE INTO messages (
                 message_id, internet_message_id, folder_id, subject, sender, 
                 recipients_to, recipients_cc, recipients_bcc, sent_at, received_at, 
-                has_text_body, has_html_body, body_preview, attachment_count, mapi_properties_count
+                has_text_body, has_html_body, body_preview, attachment_count, mapi_properties_count, run_id
             )
             VALUES (
                 $messageId, $internetMessageId, $folderId, $subject, $sender,
                 $to, $cc, $bcc, $sentAt, $receivedAt,
-                $hasText, $hasHtml, $bodyPreview, $attachCount, $mapiCount
+                $hasText, $hasHtml, $bodyPreview, $attachCount, $mapiCount, $runId
             );";
 
         using var cmd = new SqliteCommand(query, _connection, _transaction);
@@ -123,6 +126,7 @@ public sealed class SqliteCaseIndexWriter : ICaseIndexWriter
         cmd.Parameters.AddWithValue("$bodyPreview", (object?)message.PlainTextBody ?? DBNull.Value); // Body preview stored in PlainTextBody
         cmd.Parameters.AddWithValue("$attachCount", message.Attachments.Count);
         cmd.Parameters.AddWithValue("$mapiCount", message.RawProperties.Count);
+        cmd.Parameters.AddWithValue("$runId", (object?)ActiveRunId ?? DBNull.Value);
 
         await cmd.ExecuteNonQueryAsync(ct);
 
@@ -142,8 +146,8 @@ public sealed class SqliteCaseIndexWriter : ICaseIndexWriter
     private async Task SaveAttachmentAsync(AttachmentRef att, string messageId, CancellationToken ct)
     {
         const string query = @"
-            INSERT OR REPLACE INTO attachments (attachment_id, message_id, file_name, content_type, size_bytes, content_id, is_inline)
-            VALUES ($attachmentId, $messageId, $fileName, $contentType, $sizeBytes, $contentId, $isInline);";
+            INSERT OR REPLACE INTO attachments (attachment_id, message_id, file_name, content_type, size_bytes, content_id, is_inline, run_id)
+            VALUES ($attachmentId, $messageId, $fileName, $contentType, $sizeBytes, $contentId, $isInline, $runId);";
 
         using var cmd = new SqliteCommand(query, _connection, _transaction);
         cmd.Parameters.AddWithValue("$attachmentId", att.InternalId);
@@ -153,6 +157,7 @@ public sealed class SqliteCaseIndexWriter : ICaseIndexWriter
         cmd.Parameters.AddWithValue("$sizeBytes", (object?)att.SizeBytes ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$contentId", (object?)att.ContentId ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$isInline", att.IsInline ? 1 : 0);
+        cmd.Parameters.AddWithValue("$runId", (object?)ActiveRunId ?? DBNull.Value);
 
         await cmd.ExecuteNonQueryAsync(ct);
     }
@@ -163,8 +168,8 @@ public sealed class SqliteCaseIndexWriter : ICaseIndexWriter
         string? cleanDetails = SanitiseTechnicalDetails(issue.TechnicalDetails);
 
         const string query = @"
-            INSERT INTO issues (issue_code, severity, message, object_id, technical_details)
-            VALUES ($code, $severity, $message, $objectId, $technicalDetails);";
+            INSERT INTO issues (issue_code, severity, message, object_id, technical_details, run_id, folder_id, message_id, phase, folder_path)
+            VALUES ($code, $severity, $message, $objectId, $technicalDetails, $runId, NULL, NULL, NULL, NULL);";
 
         using var cmd = new SqliteCommand(query, _connection, _transaction);
         cmd.Parameters.AddWithValue("$code", issue.Code);
@@ -172,6 +177,7 @@ public sealed class SqliteCaseIndexWriter : ICaseIndexWriter
         cmd.Parameters.AddWithValue("$message", issue.Message);
         cmd.Parameters.AddWithValue("$objectId", issue.ObjectId);
         cmd.Parameters.AddWithValue("$technicalDetails", (object?)cleanDetails ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$runId", (object?)ActiveRunId ?? DBNull.Value);
 
         await cmd.ExecuteNonQueryAsync(ct);
     }
@@ -222,6 +228,16 @@ public sealed class SqliteCaseIndexWriter : ICaseIndexWriter
 
     public async Task SaveIndexRunAsync(string runId, string caseId, DateTime timestamp, string status, long durationMs, int foldersCount, int messagesCount, int attachmentsCount, int issuesCount, CancellationToken ct)
     {
+        string actualRunId = runId;
+        if (status.Equals("Running", StringComparison.OrdinalIgnoreCase))
+        {
+            ActiveRunId = runId;
+        }
+        else if (!string.IsNullOrEmpty(ActiveRunId))
+        {
+            actualRunId = ActiveRunId;
+        }
+
         if (!status.Equals("Running", StringComparison.OrdinalIgnoreCase))
         {
             const string updateCaseQuery = "UPDATE case_info SET completed_at = $completedAt WHERE case_id = $caseId;";
@@ -231,22 +247,52 @@ public sealed class SqliteCaseIndexWriter : ICaseIndexWriter
             await updateCaseCmd.ExecuteNonQueryAsync(ct);
         }
 
-        const string query = @"
-            INSERT INTO index_runs (run_id, case_id, timestamp, status, duration_ms, folders_indexed, messages_indexed, attachments_indexed, issues_detected)
-            VALUES ($runId, $caseId, $timestamp, $status, $durationMs, $foldersCount, $messagesCount, $attachmentsCount, $issuesCount);";
+        // Check if the run already exists to avoid INSERT OR REPLACE which triggers ON DELETE CASCADE in SQLite
+        bool exists = false;
+        using (var checkCmd = new SqliteCommand("SELECT 1 FROM index_runs WHERE run_id = $runId;", _connection, _transaction))
+        {
+            checkCmd.Parameters.AddWithValue("$runId", actualRunId);
+            var res = checkCmd.ExecuteScalar();
+            exists = res != null;
+        }
 
-        using var cmd = new SqliteCommand(query, _connection, _transaction);
-        cmd.Parameters.AddWithValue("$runId", runId);
-        cmd.Parameters.AddWithValue("$caseId", caseId);
-        cmd.Parameters.AddWithValue("$timestamp", timestamp.ToString("o"));
-        cmd.Parameters.AddWithValue("$status", status);
-        cmd.Parameters.AddWithValue("$durationMs", durationMs);
-        cmd.Parameters.AddWithValue("$foldersCount", foldersCount);
-        cmd.Parameters.AddWithValue("$messagesCount", messagesCount);
-        cmd.Parameters.AddWithValue("$attachmentsCount", attachmentsCount);
-        cmd.Parameters.AddWithValue("$issuesCount", issuesCount);
-
-        await cmd.ExecuteNonQueryAsync(ct);
+        if (exists)
+        {
+            const string updateQuery = @"
+                UPDATE index_runs 
+                SET case_id = $caseId, timestamp = $timestamp, status = $status, duration_ms = $durationMs, 
+                    folders_indexed = $foldersCount, messages_indexed = $messagesCount, 
+                    attachments_indexed = $attachmentsCount, issues_detected = $issuesCount
+                WHERE run_id = $runId;";
+            using var cmd = new SqliteCommand(updateQuery, _connection, _transaction);
+            cmd.Parameters.AddWithValue("$runId", actualRunId);
+            cmd.Parameters.AddWithValue("$caseId", caseId);
+            cmd.Parameters.AddWithValue("$timestamp", timestamp.ToString("o"));
+            cmd.Parameters.AddWithValue("$status", status);
+            cmd.Parameters.AddWithValue("$durationMs", durationMs);
+            cmd.Parameters.AddWithValue("$foldersCount", foldersCount);
+            cmd.Parameters.AddWithValue("$messagesCount", messagesCount);
+            cmd.Parameters.AddWithValue("$attachmentsCount", attachmentsCount);
+            cmd.Parameters.AddWithValue("$issuesCount", issuesCount);
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
+        else
+        {
+            const string insertQuery = @"
+                INSERT INTO index_runs (run_id, case_id, timestamp, status, duration_ms, folders_indexed, messages_indexed, attachments_indexed, issues_detected)
+                VALUES ($runId, $caseId, $timestamp, $status, $durationMs, $foldersCount, $messagesCount, $attachmentsCount, $issuesCount);";
+            using var cmd = new SqliteCommand(insertQuery, _connection, _transaction);
+            cmd.Parameters.AddWithValue("$runId", actualRunId);
+            cmd.Parameters.AddWithValue("$caseId", caseId);
+            cmd.Parameters.AddWithValue("$timestamp", timestamp.ToString("o"));
+            cmd.Parameters.AddWithValue("$status", status);
+            cmd.Parameters.AddWithValue("$durationMs", durationMs);
+            cmd.Parameters.AddWithValue("$foldersCount", foldersCount);
+            cmd.Parameters.AddWithValue("$messagesCount", messagesCount);
+            cmd.Parameters.AddWithValue("$attachmentsCount", attachmentsCount);
+            cmd.Parameters.AddWithValue("$issuesCount", issuesCount);
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
     }
 
     private static string? FormatAddress(MailAddressRef? addr)

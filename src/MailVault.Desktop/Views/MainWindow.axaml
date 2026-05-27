@@ -94,6 +94,23 @@
             </Grid>
         </Border>
 
+        <!-- Global Error Banner -->
+        <Border Grid.Row="1" Background="#2A1010" BorderBrush="#EF4444" BorderThickness="0,0,0,1" Padding="14,10" IsVisible="{Binding HasGlobalError}">
+            <Grid ColumnDefinitions="*, Auto">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="❌" Foreground="#EF4444" FontSize="14" FontWeight="Bold" VerticalAlignment="Center"/>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="ERRO CRÍTICO INESPERADO DETECTADO" FontSize="11" FontWeight="Black" Foreground="#FCA5A5" LetterSpacing="0.8"/>
+                        <TextBlock Text="{Binding GlobalErrorText}" Foreground="#FCA5A5" FontSize="12" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Button Content="Copiar Detalhes Técnicos" Command="{Binding CopyGlobalErrorDetailsCommand}" Background="#1E293B" Foreground="#00E5FF" BorderBrush="#334155" BorderThickness="1" FontSize="11" Padding="10,5" CornerRadius="4"/>
+                    <Button Content="Dispensar" Command="{Binding DismissGlobalErrorCommand}" Background="Transparent" Foreground="#FCA5A5" FontSize="11" Padding="10,5" BorderThickness="0"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
         <!-- Dynamic Warnings Banner -->
         <Border Grid.Row="1" Background="#2C1B10" BorderBrush="#D97706" BorderThickness="0,0,0,1" Padding="14,8" IsVisible="{Binding HasWarningBanner}">
             <Grid ColumnDefinitions="*, Auto">
@@ -134,6 +151,13 @@
                             <Border Background="#1E293B" CornerRadius="4" Padding="6,3" Margin="0,4,0,0">
                                 <TextBlock Text="✓ Cadeia de Custódia Ativa" FontSize="9" FontWeight="Bold" Foreground="#10B981" HorizontalAlignment="Center"/>
                             </Border>
+
+                            <Button Content="📂 Abrir Pasta no Explorer" 
+                                    Command="{Binding OpenCaseFolderInExplorerCommand}"
+                                    IsEnabled="{Binding IsCaseLoaded}"
+                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                    Background="#1E293B" Foreground="#00E5FF" BorderBrush="#334155" BorderThickness="1"
+                                    FontSize="11" FontWeight="Bold" Padding="8,6" CornerRadius="4" Margin="0,4,0,0"/>
                         </StackPanel>
                     </Border>
 
@@ -190,7 +214,7 @@
                                         <Grid ColumnDefinitions="*, Auto" Margin="0,5,0,0">
                                             <TextBox Grid.Column="0" Text="{Binding SelectedCasePath, Mode=TwoWay}" Watermark="Caminho da pasta do caso físico (Ex: C:\cases\CASE-001)"
                                                      Background="#070A0E" Foreground="White" BorderBrush="#1F2937" Padding="14" CornerRadius="6" FontSize="13"/>
-                                            <Button Grid.Column="1" Content="Procurar..." Command="{Binding OpenCaseCommand}" Margin="10,0,0,0" Padding="15,14" Background="#1E293B" Foreground="#00E5FF" CornerRadius="6"/>
+                                            <Button Grid.Column="1" Content="Procurar..." Command="{Binding SelectCaseFolderCommand}" Margin="10,0,0,0" Padding="15,14" Background="#1E293B" Foreground="#00E5FF" CornerRadius="6"/>
                                         </Grid>
 
                                         <Button Content="Iniciar Inspeção Técnica" Command="{Binding OpenCaseCommand}"
@@ -292,8 +316,11 @@
                                     <TextBlock Text="1. Selecione a mídia forense original" FontSize="20" FontWeight="Black" Foreground="#FFFFFF"/>
                                     <TextBlock Text="O MailVault Recovery trata arquivos OST e PST como evidências read-only locais. Nenhuma alteração é gravada na origem." FontSize="13" Foreground="#94A3B8"/>
                                     
-                                    <TextBox Text="{Binding SourcePath, Mode=TwoWay}" Watermark="Ex: C:\evidences\backup.ost" 
-                                             Background="#070A0E" Foreground="White" BorderBrush="#1F2937" Padding="14" CornerRadius="6"/>
+                                    <Grid ColumnDefinitions="*, Auto">
+                                        <TextBox Grid.Column="0" Text="{Binding SourcePath, Mode=TwoWay}" Watermark="Ex: C:\evidences\backup.ost" 
+                                                 Background="#070A0E" Foreground="White" BorderBrush="#1F2937" Padding="14" CornerRadius="6"/>
+                                        <Button Grid.Column="1" Content="Procurar..." Command="{Binding SelectSourceFileCommand}" Margin="10,0,0,0" Padding="15,14" Background="#1E293B" Foreground="#00E5FF" CornerRadius="6"/>
+                                    </Grid>
                                     
                                     <Border Background="#111827" BorderBrush="#1F2937" BorderThickness="1" CornerRadius="8" Padding="15">
                                         <StackPanel Spacing="8">
@@ -317,11 +344,21 @@
                                         <TextBox Text="{Binding CaseId, Mode=TwoWay}" Watermark="Ex: CASE-001" 
                                                  Background="#070A0E" Foreground="White" BorderBrush="#1F2937" Padding="14" CornerRadius="6"/>
                                     </StackPanel>
+                                    
+                                    <StackPanel Spacing="8">
+                                        <TextBlock Text="Motor de Leitura (Reader Engine)" FontSize="11" Foreground="#94A3B8" FontWeight="Bold"/>
+                                        <ComboBox ItemsSource="{Binding AvailableReaderEngines}" SelectedItem="{Binding SelectedReaderEngine, Mode=TwoWay}" 
+                                                  Background="#070A0E" Foreground="White" HorizontalAlignment="Stretch" Padding="10" CornerRadius="6">
+                                        </ComboBox>
+                                    </StackPanel>
 
                                     <StackPanel Spacing="8">
                                         <TextBlock Text="Diretório de Armazenamento do Caso" FontSize="11" Foreground="#94A3B8" FontWeight="Bold"/>
-                                        <TextBox Text="{Binding DestinationPath, Mode=TwoWay}" Watermark="Ex: C:\cases" 
-                                                 Background="#070A0E" Foreground="White" BorderBrush="#1F2937" Padding="14" CornerRadius="6"/>
+                                        <Grid ColumnDefinitions="*, Auto">
+                                            <TextBox Grid.Column="0" Text="{Binding DestinationPath, Mode=TwoWay}" Watermark="Ex: C:\cases" 
+                                                     Background="#070A0E" Foreground="White" BorderBrush="#1F2937" Padding="14" CornerRadius="6"/>
+                                            <Button Grid.Column="1" Content="Procurar..." Command="{Binding SelectDestinationFolderCommand}" Margin="10,0,0,0" Padding="15,14" Background="#1E293B" Foreground="#00E5FF" CornerRadius="6"/>
+                                        </Grid>
                                     </StackPanel>
 
                                     <Grid ColumnDefinitions="Auto, *, Auto" Margin="0,15,0,0">
@@ -353,52 +390,88 @@
                                     </Grid>
                                 </StackPanel>
 
-                                <!-- STEP 4 CONTENT -->
-                                <Grid RowDefinitions="Auto, *, Auto" IsVisible="{Binding IsStep4}" Height="550">
-                                    <StackPanel Grid.Row="0" Spacing="8" Margin="0,0,0,15">
-                                        <TextBlock Text="4. Processando indexação no SQLite..." FontSize="20" FontWeight="Black" Foreground="#FFFFFF"/>
-                                        <ProgressBar Value="{Binding ProgressPercentage}" Minimum="0" Maximum="100" Height="20" CornerRadius="10" Foreground="#00E5FF" Background="#111827"/>
-                                        <TextBlock Text="{Binding ProgressText}" FontSize="12" Foreground="#00E5FF" HorizontalAlignment="Center"/>
-                                    </StackPanel>
+                                  <!-- STEP 4 CONTENT -->
+                                  <Grid RowDefinitions="Auto, *, Auto" IsVisible="{Binding IsStep4}" Height="550">
+                                      <StackPanel Grid.Row="0" Spacing="8" Margin="0,0,0,15">
+                                          <TextBlock Text="4. Processando indexação no SQLite..." FontSize="20" FontWeight="Black" Foreground="#FFFFFF"/>
+                                          <ProgressBar Value="{Binding ProgressPercent}" Minimum="0" Maximum="100" Height="20" CornerRadius="10" Foreground="#00E5FF" Background="#111827"/>
+                                          <Grid ColumnDefinitions="*, Auto, Auto" Margin="4,0">
+                                              <TextBlock Text="{Binding ProgressDetailText}" FontSize="12" Foreground="#00E5FF" VerticalAlignment="Center"/>
+                                              <TextBlock Grid.Column="1" Text="{Binding ThroughputText, StringFormat='Velocidade: \{0\}'}" FontSize="11" Foreground="#10B981" FontWeight="Bold" Margin="15,0,0,0" IsVisible="{Binding ThroughputText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" VerticalAlignment="Center"/>
+                                              <TextBlock Grid.Column="2" Text="{Binding EtaText, StringFormat='ETA: \{0\}'}" FontSize="11" Foreground="#FFE082" FontWeight="Bold" Margin="15,0,0,0" IsVisible="{Binding EtaText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" VerticalAlignment="Center"/>
+                                          </Grid>
 
-                                    <Grid Grid.Row="1" ColumnDefinitions="*, *" Margin="0,10">
-                                        <!-- Counters -->
-                                        <Border Grid.Column="0" Background="#111827" BorderBrush="#1F2937" BorderThickness="1" CornerRadius="8" Padding="15" Margin="0,0,5,0">
-                                            <StackPanel Spacing="15" VerticalAlignment="Center">
-                                                <TextBlock Text="STATUS DAS MÉTRICAS" FontSize="10" FontWeight="Bold" Foreground="#64748B"/>
-                                                
-                                                <Grid ColumnDefinitions="*, *" RowDefinitions="Auto, Auto">
-                                                    <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,5">
-                                                        <TextBlock Text="Pastas" FontSize="10" Foreground="#64748B"/>
-                                                        <TextBlock Text="{Binding FoldersIndexed}" FontSize="24" FontWeight="Bold" Foreground="#FFFFFF"/>
-                                                    </StackPanel>
-                                                    <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,5">
-                                                        <TextBlock Text="Mensagens" FontSize="10" Foreground="#64748B"/>
-                                                        <TextBlock Text="{Binding MessagesIndexed}" FontSize="24" FontWeight="Bold" Foreground="#FFFFFF"/>
-                                                    </StackPanel>
-                                                    <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,5">
-                                                        <TextBlock Text="Anexos" FontSize="10" Foreground="#64748B"/>
-                                                        <TextBlock Text="{Binding AttachmentsIndexed}" FontSize="24" FontWeight="Bold" Foreground="#FFFFFF"/>
-                                                    </StackPanel>
-                                                    <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,5">
-                                                        <TextBlock Text="Divergências" FontSize="10" Foreground="#64748B"/>
-                                                        <TextBlock Text="{Binding IssuesDetected}" FontSize="24" FontWeight="Bold" Foreground="#F59E0B"/>
-                                                    </StackPanel>
-                                                </Grid>
-                                            </StackPanel>
-                                        </Border>
+                                          <!-- Watchdog Warning Card/Banner -->
+                                          <Border Background="#2C1B10" BorderBrush="#D97706" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,10,0,0" IsVisible="{Binding ShowWatchdogWarning}">
+                                              <StackPanel Orientation="Horizontal" Spacing="10">
+                                                  <TextBlock Text="⚠️" FontSize="18" VerticalAlignment="Center"/>
+                                                  <StackPanel VerticalAlignment="Center">
+                                                      <TextBlock Text="LEITOR SEM RESPOSTA" FontSize="11" FontWeight="Bold" Foreground="#F59E0B" LetterSpacing="0.5"/>
+                                                      <TextBlock Text="O arquivo pode ser grande, moderno, corrompido ou incompatível com este motor. Aguardando atividade técnica..." FontSize="11" Foreground="#FDE68A" TextWrapping="Wrap" Width="500"/>
+                                                      <TextBlock Text="{Binding HeartbeatAge, StringFormat='Inatividade: \{0\} segundos'}" FontSize="10" Foreground="#FFE082" FontWeight="SemiBold" Margin="0,4,0,0"/>
+                                                  </StackPanel>
+                                              </StackPanel>
+                                          </Border>
+                                      </StackPanel>
 
-                                        <!-- Live logs -->
-                                        <Border Grid.Column="1" Background="#070A0E" BorderBrush="#1F2937" BorderThickness="1" CornerRadius="8" Padding="10" Margin="5,0,0,0">
-                                            <ScrollViewer>
-                                                <TextBlock Text="{Binding LogsText}" FontFamily="Consolas" FontSize="11" Foreground="#10B981" TextWrapping="Wrap"/>
-                                            </ScrollViewer>
-                                        </Border>
-                                    </Grid>
+                                      <Grid Grid.Row="1" ColumnDefinitions="*, *" Margin="0,10">
+                                          <!-- Counters -->
+                                          <Border Grid.Column="0" Background="#111827" BorderBrush="#1F2937" BorderThickness="1" CornerRadius="8" Padding="15" Margin="0,0,5,0">
+                                              <StackPanel Spacing="15" VerticalAlignment="Center">
+                                                  <TextBlock Text="STATUS DAS MÉTRICAS" FontSize="10" FontWeight="Bold" Foreground="#64748B"/>
+                                                  
+                                                  <Grid ColumnDefinitions="*, *" RowDefinitions="Auto, Auto">
+                                                      <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,5">
+                                                          <TextBlock Text="Pastas" FontSize="10" Foreground="#64748B"/>
+                                                          <TextBlock Text="{Binding FoldersIndexed}" FontSize="24" FontWeight="Bold" Foreground="#FFFFFF"/>
+                                                      </StackPanel>
+                                                      <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,5">
+                                                          <TextBlock Text="Mensagens" FontSize="10" Foreground="#64748B"/>
+                                                          <TextBlock Text="{Binding MessagesIndexed}" FontSize="24" FontWeight="Bold" Foreground="#FFFFFF"/>
+                                                      </StackPanel>
+                                                      <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,5">
+                                                          <TextBlock Text="Anexos" FontSize="10" Foreground="#64748B"/>
+                                                          <TextBlock Text="{Binding AttachmentsIndexed}" FontSize="24" FontWeight="Bold" Foreground="#FFFFFF"/>
+                                                      </StackPanel>
+                                                      <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,5">
+                                                          <TextBlock Text="Divergências" FontSize="10" Foreground="#64748B"/>
+                                                          <TextBlock Text="{Binding IssuesDetected}" FontSize="24" FontWeight="Bold" Foreground="#F59E0B"/>
+                                                      </StackPanel>
+                                                  </Grid>
+                                              </StackPanel>
+                                          </Border>
 
-                                    <Button Grid.Row="2" Content="Cancelar Indexação" Command="{Binding CancelIndexingCommand}"
-                                            Background="#EF4444" Foreground="White" FontWeight="Bold" HorizontalAlignment="Center" Padding="30,12" CornerRadius="6"/>
-                                </Grid>
+                                          <!-- Live logs -->
+                                          <Border Grid.Column="1" Background="#070A0E" BorderBrush="#1F2937" BorderThickness="1" CornerRadius="8" Padding="8" Margin="5,0,0,0">
+                                              <ListBox Name="LogsListBox" ItemsSource="{Binding LogLines}" 
+                                                       AttachedToVisualTree="LogsListBox_AttachedToVisualTree" 
+                                                       DetachedFromVisualTree="LogsListBox_DetachedFromVisualTree" 
+                                                       Background="Transparent" BorderThickness="0" Padding="0">
+                                                  <ListBox.ItemTemplate>
+                                                      <DataTemplate DataType="{x:Type vm:LogLineViewModel}">
+                                                          <TextBlock Text="{Binding Message}" FontFamily="Consolas" FontSize="11" Foreground="#10B981" TextWrapping="Wrap"/>
+                                                      </DataTemplate>
+                                                  </ListBox.ItemTemplate>
+                                                  <ListBox.Styles>
+                                                      <Style Selector="ListBoxItem">
+                                                          <Setter Property="Padding" Value="2,1"/>
+                                                          <Setter Property="Background" Value="Transparent"/>
+                                                          <Setter Property="BorderThickness" Value="0"/>
+                                                      </Style>
+                                                  </ListBox.Styles>
+                                              </ListBox>
+                                          </Border>
+                                      </Grid>
+
+                                      <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12" Margin="0,10,0,0">
+                                          <Button Content="Cancelar Indexação" Command="{Binding CancelIndexingCommand}"
+                                                  IsEnabled="{Binding CanCancel}" IsVisible="{Binding IsBusy}"
+                                                  Background="#EF4444" Foreground="White" FontWeight="Bold" Padding="30,12" CornerRadius="6"/>
+                                          <Button Content="Forçar encerramento do leitor" Command="{Binding ForceStopCommand}"
+                                                  IsEnabled="{Binding CanForceStop}" IsVisible="{Binding CanForceStop}"
+                                                  Background="#B91C1C" Foreground="White" FontWeight="Bold" Padding="25,12" CornerRadius="6"/>
+                                      </StackPanel>
+                                  </Grid>
 
                                 <!-- STEP 5 CONTENT -->
                                 <StackPanel Spacing="20" IsVisible="{Binding IsStep5}">
@@ -427,8 +500,29 @@
                                         </Grid>
                                     </Border>
 
-                                    <Button Content="Abrir Cofre no Inspector" Command="{Binding OpenCreatedCase}"
-                                            Background="#00E5FF" Foreground="#0A0C10" FontWeight="Bold" HorizontalAlignment="Center" Padding="40,15" CornerRadius="6" FontSize="14" Margin="0,15,0,0"/>
+                                    <!-- Case success options -->
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12" IsVisible="{Binding IndexingError, Converter={x:Static ObjectConverters.IsNull}}">
+                                        <Button Content="Abrir Cofre no Inspector" Command="{Binding OpenCreatedCase}"
+                                                Background="#00E5FF" Foreground="#0A0C10" FontWeight="Bold" Padding="30,12" CornerRadius="6"/>
+                                        <Button Content="Novo Caso" Command="{Binding StartNewCaseCommand}"
+                                                Background="#1E293B" Foreground="#00E5FF" FontWeight="Bold" Padding="30,12" CornerRadius="6"/>
+                                    </StackPanel>
+
+                                    <!-- Failure state recovery buttons -->
+                                    <StackPanel Spacing="12" IsVisible="{Binding IndexingError, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                        <WrapPanel HorizontalAlignment="Center" Margin="0,10,0,0">
+                                            <Button Content="🔄 Tentar Novamente" Command="{Binding RetryIndexingCommand}"
+                                                    Background="#10B981" Foreground="White" FontWeight="Bold" Padding="18,10" CornerRadius="6" Margin="6"/>
+                                            <Button Content="➕ Novo Caso" Command="{Binding StartNewCaseCommand}"
+                                                    Background="#3B82F6" Foreground="White" FontWeight="Bold" Padding="18,10" CornerRadius="6" Margin="6"/>
+                                            <Button Content="↩ Voltar ao Início" Command="{Binding BackToFirstStepCommand}"
+                                                    Background="#4B5563" Foreground="White" FontWeight="Bold" Padding="18,10" CornerRadius="6" Margin="6"/>
+                                            <Button Content="📋 Copiar Erro Técnico" Command="{Binding CopyTechnicalErrorCommand}"
+                                                    Background="#1F2937" Foreground="#00E5FF" FontWeight="Bold" Padding="18,10" CornerRadius="6" Margin="6"/>
+                                            <Button Content="📂 Abrir Pasta do Caso" Command="{Binding OpenCaseFolderCommand}"
+                                                    Background="#1F2937" Foreground="#E5E7EB" FontWeight="Bold" Padding="18,10" CornerRadius="6" Margin="6"/>
+                                        </WrapPanel>
+                                    </StackPanel>
                                 </StackPanel>
                             </Grid>
                         </Grid>
@@ -492,32 +586,116 @@
 
                                     <!-- Middle: Logs & Summary -->
                                     <Grid Grid.Row="1" ColumnDefinitions="*, *">
-                                        <!-- Summary result -->
-                                        <Border Grid.Column="0" Background="#070A0E" BorderBrush="#1F2937" BorderThickness="1" CornerRadius="6" Padding="15" Margin="0,0,6,0">
-                                            <ScrollViewer>
-                                                <StackPanel Spacing="12">
-                                                    <TextBlock Text="RESUMO DAÚLTIMA PIPELINE" FontSize="11" FontWeight="Bold" Foreground="#64748B"/>
-                                                    
-                                                    <TextBlock Text="Nenhum pipeline rodado nesta sessão." Foreground="#475569" FontSize="12" IsVisible="{Binding PipelineSummaryResult, Converter={x:Static ObjectConverters.IsNull}}"/>
-                                                    
-                                                    <StackPanel Spacing="10" IsVisible="{Binding PipelineSummaryResult, Converter={x:Static ObjectConverters.IsNotNull}}">
-                                                        <TextBlock Text="{Binding PipelineSummaryResult.CaseId, StringFormat='Case ID: \{0\}'}" Foreground="White" FontWeight="Bold" FontSize="14"/>
-                                                        <TextBlock Text="{Binding PipelineSummaryResult.Status, StringFormat='Status Pipeline: \{0\}'}" Foreground="#00E5FF" FontWeight="Bold" FontSize="12"/>
-                                                        <TextBlock Text="{Binding PipelineSummaryResult.ValidationStatus, StringFormat='Status Validação: \{0\}'}" Foreground="#10B981" FontSize="12"/>
-                                                        <TextBlock Text="{Binding PipelineSummaryResult.TotalDurationMs, StringFormat='Tempo Total: \{0\} ms'}" Foreground="White" FontSize="12"/>
+                                        <!-- Summary & Engines diagnostic -->
+                                        <StackPanel Grid.Column="0" Spacing="10" Margin="0,0,6,0">
+                                            <!-- Summary result -->
+                                            <Border Background="#070A0E" BorderBrush="#1F2937" BorderThickness="1" CornerRadius="6" Padding="15">
+                                                <ScrollViewer Height="185">
+                                                    <StackPanel Spacing="12">
+                                                        <TextBlock Text="RESUMO DA ÚLTIMA PIPELINE" FontSize="11" FontWeight="Bold" Foreground="#64748B"/>
+                                                        
+                                                        <TextBlock Text="Nenhum pipeline rodado nesta sessão." Foreground="#475569" FontSize="12" IsVisible="{Binding PipelineSummaryResult, Converter={x:Static ObjectConverters.IsNull}}"/>
+                                                        
+                                                        <StackPanel Spacing="10" IsVisible="{Binding PipelineSummaryResult, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                                            <TextBlock Text="{Binding PipelineSummaryResult.CaseId, StringFormat='Case ID: \{0\}'}" Foreground="White" FontWeight="Bold" FontSize="14"/>
+                                                            <TextBlock Text="{Binding PipelineSummaryResult.Status, StringFormat='Status Pipeline: \{0\}'}" Foreground="#00E5FF" FontWeight="Bold" FontSize="12"/>
+                                                            <TextBlock Text="{Binding PipelineSummaryResult.ValidationStatus, StringFormat='Status Validação: \{0\}'}" Foreground="#10B981" FontSize="12"/>
+                                                            <TextBlock Text="{Binding PipelineSummaryResult.TotalDurationMs, StringFormat='Tempo Total: \{0\} ms'}" Foreground="White" FontSize="12"/>
 
-                                                        <Border Height="1" Background="#1F2937" Margin="0,5"/>
+                                                            <Border Height="1" Background="#1F2937" Margin="0,5"/>
 
-                                                        <TextBlock Text="{Binding PipelineSummaryResult.FoldersIndexed, StringFormat='Pastas Indexadas: \{0\}'}" Foreground="White" FontSize="12"/>
-                                                        <TextBlock Text="{Binding PipelineSummaryResult.MessagesIndexed, StringFormat='E-mails Mapeados: \{0\}'}" Foreground="White" FontSize="12"/>
-                                                        <TextBlock Text="{Binding PipelineSummaryResult.AttachmentsIndexed, StringFormat='Anexos Localizados: \{0\}'}" Foreground="White" FontSize="12"/>
-                                                        <TextBlock Text="{Binding PipelineSummaryResult.IssuesDetected, StringFormat='Divergências/Alertas: \{0\}'}" Foreground="#F59E0B" FontSize="12"/>
-                                                        <TextBlock Text="{Binding PipelineSummaryResult.MessagesExportedEml, StringFormat='Exportados EML: \{0\}'}" Foreground="White" FontSize="12"/>
-                                                        <TextBlock Text="{Binding PipelineSummaryResult.MessagesExportedMbox, StringFormat='Exportados MBOX: \{0\}'}" Foreground="White" FontSize="12"/>
+                                                            <TextBlock Text="{Binding PipelineSummaryResult.FoldersIndexed, StringFormat='Pastas Indexadas: \{0\}'}" Foreground="White" FontSize="12"/>
+                                                            <TextBlock Text="{Binding PipelineSummaryResult.MessagesIndexed, StringFormat='E-mails Mapeados: \{0\}'}" Foreground="White" FontSize="12"/>
+                                                            <TextBlock Text="{Binding PipelineSummaryResult.AttachmentsIndexed, StringFormat='Anexos Localizados: \{0\}'}" Foreground="White" FontSize="12"/>
+                                                            <TextBlock Text="{Binding PipelineSummaryResult.IssuesDetected, StringFormat='Divergências/Alertas: \{0\}'}" Foreground="#F59E0B" FontSize="12"/>
+                                                            <TextBlock Text="{Binding PipelineSummaryResult.MessagesExportedEml, StringFormat='Exportados EML: \{0\}'}" Foreground="White" FontSize="12"/>
+                                                            <TextBlock Text="{Binding PipelineSummaryResult.MessagesExportedMbox, StringFormat='Exportados MBOX: \{0\}'}" Foreground="White" FontSize="12"/>
+                                                        </StackPanel>
                                                     </StackPanel>
+                                                </ScrollViewer>
+                                            </Border>
+
+                                            <!-- Reader Engines Diagnostic Panel -->
+                                            <Border Background="#070A0E" BorderBrush="#1F2937" BorderThickness="1" CornerRadius="6" Padding="15">
+                                                <StackPanel Spacing="10">
+                                                    <TextBlock Text="MOTORES DE LEITURA REGISTRADOS" FontSize="11" FontWeight="Bold" Foreground="#64748B"/>
+                                                    
+                                                    <!-- XstReader -->
+                                                    <Grid ColumnDefinitions="*, Auto" Margin="0,2">
+                                                        <StackPanel Grid.Column="0">
+                                                            <TextBlock Text="XstReader Engine (.NET Native)" FontSize="12" FontWeight="Bold" Foreground="White"/>
+                                                            <TextBlock Text="{Binding XstVersion, StringFormat='Versão: \{0\}'}" FontSize="10" Foreground="#94A3B8"/>
+                                                        </StackPanel>
+                                                        <Border Grid.Column="1" Background="#101C15" BorderBrush="#1B5E20" BorderThickness="1" CornerRadius="4" Padding="6,2" IsVisible="{Binding XstAvailable}">
+                                                            <TextBlock Text="ATIVO" FontSize="9" FontWeight="Bold" Foreground="#A5D6A7"/>
+                                                        </Border>
+                                                    </Grid>
+
+                                                    <!-- pffexport (libpff) -->
+                                                    <Grid ColumnDefinitions="*, Auto" Margin="0,2">
+                                                        <StackPanel Grid.Column="0">
+                                                            <TextBlock Text="pffexport Engine (libpff)" FontSize="12" FontWeight="Bold" Foreground="White"/>
+                                                            <TextBlock Text="{Binding PffVersion, StringFormat='Versão: \{0\}'}" FontSize="10" Foreground="#94A3B8"/>
+                                                            <TextBlock Text="{Binding PffWarning}" FontSize="9" Foreground="#FFE082" TextWrapping="Wrap" IsVisible="{Binding PffWarning, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                                        </StackPanel>
+                                                        <Border Grid.Column="1" Background="#101C15" BorderBrush="#1B5E20" BorderThickness="1" CornerRadius="4" Padding="6,2" IsVisible="{Binding PffAvailable}">
+                                                            <TextBlock Text="DISPONÍVEL" FontSize="9" FontWeight="Bold" Foreground="#A5D6A7"/>
+                                                        </Border>
+                                                        <Border Grid.Column="1" Background="#2A1010" BorderBrush="#EF4444" BorderThickness="1" CornerRadius="4" Padding="6,2" IsVisible="{Binding !PffAvailable}">
+                                                            <TextBlock Text="AUSENTE" FontSize="9" FontWeight="Bold" Foreground="#FCA5A5"/>
+                                                        </Border>
+                                                    </Grid>
+
+                                                    <!-- readpst -->
+                                                    <Grid ColumnDefinitions="*, Auto" Margin="0,2">
+                                                        <StackPanel Grid.Column="0">
+                                                            <TextBlock Text="readpst Engine (GPL Utility)" FontSize="12" FontWeight="Bold" Foreground="White"/>
+                                                            <TextBlock Text="{Binding ReadPstVersion, StringFormat='Versão: \{0\}'}" FontSize="10" Foreground="#94A3B8"/>
+                                                            <TextBlock Text="{Binding ReadPstWarning}" FontSize="9" Foreground="#FFE082" TextWrapping="Wrap" IsVisible="{Binding ReadPstWarning, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                                        </StackPanel>
+                                                        <Border Grid.Column="1" Background="#101C15" BorderBrush="#1B5E20" BorderThickness="1" CornerRadius="4" Padding="6,2" IsVisible="{Binding ReadPstAvailable}">
+                                                            <TextBlock Text="DISPONÍVEL" FontSize="9" FontWeight="Bold" Foreground="#A5D6A7"/>
+                                                        </Border>
+                                                        <Border Grid.Column="1" Background="#2A1010" BorderBrush="#EF4444" BorderThickness="1" CornerRadius="4" Padding="6,2" IsVisible="{Binding !ReadPstAvailable}">
+                                                            <TextBlock Text="AUSENTE" FontSize="9" FontWeight="Bold" Foreground="#FCA5A5"/>
+                                                        </Border>
+                                                    </Grid>
+
+                                                    <Border Height="1" Background="#1F2937" Margin="0,5"/>
+
+                                                    <!-- MailVault CLI Worker -->
+                                                    <Grid ColumnDefinitions="*, Auto" Margin="0,2">
+                                                        <StackPanel Grid.Column="0" Spacing="4">
+                                                            <TextBlock Text="CLI Worker (MailVault.Cli)" FontSize="12" FontWeight="Bold" Foreground="White"/>
+                                                            <TextBlock Text="{Binding CliLaunchMode, StringFormat='Modo de Inicialização: \{0\}'}" FontSize="10" Foreground="#94A3B8"/>
+                                                            <TextBlock Text="{Binding CliResolvedPath, StringFormat='Executável Resolvido: \{0\}'}" FontSize="9" Foreground="#94A3B8" TextWrapping="Wrap"/>
+                                                            <TextBlock Text="{Binding CliWorkingDirectory, StringFormat='Diretório de Trabalho: \{0\}'}" FontSize="9" Foreground="#94A3B8" TextWrapping="Wrap"/>
+                                                            <TextBlock Text="{Binding CliAppBaseDir, StringFormat='App Base Dir: \{0\}'}" FontSize="8" Foreground="#64748B" TextWrapping="Wrap"/>
+                                                            <TextBlock Text="{Binding CliCurrentDir, StringFormat='Current Dir: \{0\}'}" FontSize="8" Foreground="#64748B" TextWrapping="Wrap"/>
+                                                            
+                                                            <TextBlock Text="Caminhos de busca (Probed Paths):" FontSize="9" FontWeight="Bold" Foreground="#64748B" Margin="0,4,0,0"/>
+                                                            <ItemsControl ItemsSource="{Binding ProbedPaths}">
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate>
+                                                                        <TextBlock Text="{Binding}" FontSize="8" Foreground="#475569" Margin="10,1,0,1" TextWrapping="Wrap"/>
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+
+                                                            <TextBlock Text="{Binding CliWarning}" FontSize="9" Foreground="#FFE082" TextWrapping="Wrap" IsVisible="{Binding CliWarning, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Margin="0,4,0,0"/>
+                                                            <TextBlock Text="{Binding CliError}" FontSize="9" Foreground="#FCA5A5" TextWrapping="Wrap" IsVisible="{Binding CliError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Margin="0,4,0,0"/>
+                                                        </StackPanel>
+                                                        
+                                                        <Border Grid.Column="1" Background="#101C15" BorderBrush="#1B5E20" BorderThickness="1" CornerRadius="4" Padding="6,2" IsVisible="{Binding CliAvailable}" VerticalAlignment="Top">
+                                                            <TextBlock Text="DISPONÍVEL" FontSize="9" FontWeight="Bold" Foreground="#A5D6A7"/>
+                                                        </Border>
+                                                        <Border Grid.Column="1" Background="#2A1010" BorderBrush="#EF4444" BorderThickness="1" CornerRadius="4" Padding="6,2" IsVisible="{Binding !CliAvailable}" VerticalAlignment="Top">
+                                                            <TextBlock Text="AUSENTE" FontSize="9" FontWeight="Bold" Foreground="#FCA5A5"/>
+                                                        </Border>
+                                                    </Grid>
                                                 </StackPanel>
-                                            </ScrollViewer>
-                                        </Border>
+                                            </Border>
+                                        </StackPanel>
 
                                         <!-- Pipeline live logs -->
                                         <Border Grid.Column="1" Background="#070A0E" BorderBrush="#1F2937" BorderThickness="1" CornerRadius="6" Padding="10" Margin="6,0,0,0">

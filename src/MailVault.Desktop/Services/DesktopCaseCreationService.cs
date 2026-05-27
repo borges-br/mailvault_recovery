@@ -19,14 +19,14 @@ public sealed record DesktopIndexingProgress(
     int AttachmentsIndexed,
     int IssuesDetected);
 
-public sealed class DesktopCaseCreationService
+public class DesktopCaseCreationService
 {
     public interface IIndexingProgressReporter
     {
         void Report(DesktopIndexingProgress progress);
     }
 
-    public async Task<IndexResult> CreateAndIndexCaseAsync(
+    public virtual async Task<IndexResult> CreateAndIndexCaseAsync(
         string sourceFilePath,
         string outputDir,
         string caseId,
@@ -99,7 +99,33 @@ public sealed class DesktopCaseCreationService
         await store.InitializeAsync(caseFolderPath, ct);
 
         progressReporter.Report(new DesktopIndexingProgress("Executando pipeline de indexação...", 45, 0, 0, 0, 0));
-        var indexingService = new IndexingService();
+        var indexingService = new IndexingService
+        {
+            PrecalculatedSha256 = sha256
+        };
+
+        var progressAdapter = new Progress<IndexingProgress>(p =>
+        {
+            double overallPercent = 35;
+            if (p.Phase == "Completed")
+            {
+                overallPercent = 95;
+            }
+            else
+            {
+                double estPct = Math.Min(90.0, (p.MessagesProcessed / 500.0) * 5.0);
+                overallPercent = 35 + estPct * 0.60;
+            }
+
+            progressReporter.Report(new DesktopIndexingProgress(
+                CurrentStep: p.Message,
+                Percentage: overallPercent,
+                FoldersIndexed: p.FoldersProcessed,
+                MessagesIndexed: p.MessagesProcessed,
+                AttachmentsIndexed: p.AttachmentsProcessed,
+                IssuesDetected: p.IssuesCount
+            ));
+        });
 
         var indexResult = await indexingService.RunIndexAsync(
             sourceFilePath,
@@ -109,6 +135,7 @@ public sealed class DesktopCaseCreationService
             Environment.UserName,
             cachePreview,
             limit,
+            progressAdapter,
             ct
         );
 

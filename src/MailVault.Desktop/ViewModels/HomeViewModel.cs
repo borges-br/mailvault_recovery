@@ -17,6 +17,7 @@ public class HomeViewModel : LoadableViewModelBase
     private bool _hasWarningBanner;
 
     private readonly CaseWorkspaceDiagnosticService _diagnostics;
+    private readonly IDesktopFileDialogService _fileDialogService;
 
     public string StatusText
     {
@@ -54,21 +55,35 @@ public class HomeViewModel : LoadableViewModelBase
     public ICommand OpenRecentCaseCommand { get; }
     public ICommand RemoveRecentCaseCommand { get; }
     public ICommand RetryCommand { get; }
+    public ICommand SelectCaseFolderCommand { get; }
 
     public event Action<string>? CaseSelected;
     public event Action<string>? RecentCaseRemovalRequested;
 
-    public HomeViewModel() : this(new CaseWorkspaceDiagnosticService()) { }
+    public HomeViewModel() : this(new CaseWorkspaceDiagnosticService(), new DesktopFileDialogService()) { }
 
-    public HomeViewModel(CaseWorkspaceDiagnosticService diagnostics)
+    public HomeViewModel(CaseWorkspaceDiagnosticService diagnostics) : this(diagnostics, new DesktopFileDialogService()) { }
+
+    public HomeViewModel(CaseWorkspaceDiagnosticService diagnostics, IDesktopFileDialogService fileDialogService)
     {
         _diagnostics = diagnostics;
+        _fileDialogService = fileDialogService ?? new DesktopFileDialogService();
         OpenCaseCommand = ReactiveCommand.CreateFromTask(OnOpenCaseAsync);
         CreateCaseCommand = ReactiveCommand.Create(OnCreateCase);
         OpenMboxCaseCommand = ReactiveCommand.Create(OnOpenMbox);
         OpenRecentCaseCommand = ReactiveCommand.CreateFromTask<RecentCaseEntry>(OpenRecentCaseAsync);
         RemoveRecentCaseCommand = ReactiveCommand.Create<RecentCaseEntry>(RemoveRecentCase);
         RetryCommand = ReactiveCommand.CreateFromTask(OnOpenCaseAsync);
+        SelectCaseFolderCommand = ReactiveCommand.CreateFromTask(OnSelectCaseFolderAsync);
+    }
+
+    private async Task OnSelectCaseFolderAsync()
+    {
+        string? path = await _fileDialogService.OpenFolderAsync();
+        if (!string.IsNullOrWhiteSpace(path))
+        {
+            SelectedCasePath = path;
+        }
     }
 
     private async Task OnOpenCaseAsync()

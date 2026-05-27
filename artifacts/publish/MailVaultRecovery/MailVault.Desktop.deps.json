@@ -1,0 +1,778 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0/win-x64",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {},
+    ".NETCoreApp,Version=v10.0/win-x64": {
+      "MailVault.Desktop/1.0.0": {
+        "dependencies": {
+          "Avalonia": "11.0.10",
+          "Avalonia.Desktop": "11.0.10",
+          "Avalonia.Fonts.Inter": "11.0.10",
+          "Avalonia.ReactiveUI": "11.0.10",
+          "Avalonia.Themes.Fluent": "11.0.10",
+          "MailVault.Adapters.Libpff": "1.0.0",
+          "MailVault.Adapters.XstReader": "1.0.0",
+          "MailVault.Audit": "1.0.0",
+          "MailVault.Core": "1.0.0",
+          "MailVault.Domain": "1.0.0",
+          "MailVault.Exporters.Eml": "1.0.0",
+          "MailVault.Exporters.Mbox": "1.0.0",
+          "MailVault.Indexing": "1.0.0",
+          "MailVault.Validation": "1.0.0",
+          "Tmds.DBus.Protocol": "0.21.3"
+        },
+        "runtime": {
+          "MailVault.Desktop.dll": {}
+        }
+      },
+      "Avalonia/11.0.10": {
+        "dependencies": {
+          "Avalonia.Remote.Protocol": "11.0.10",
+          "MicroCom.Runtime": "0.11.0"
+        },
+        "runtime": {
+          "lib/net6.0/Avalonia.Base.dll": {
+            "assemblyVersion": "11.0.10.0",
+            "fileVersion": "11.0.10.0"
+          },
+          "lib/net6.0/Avalonia.Controls.dll": {
+            "assemblyVersion": "11.0.10.0",
+            "fileVersion": "11.0.10.0"
+          },
+          "lib/net6.0/Avalonia.DesignerSupport.dll": {
+            "assemblyVersion": "0.7.0.0",
+            "fileVersion": "0.7.0.0"
+          },
+          "lib/net6.0/Avalonia.Dialogs.dll": {
+            "assemblyVersion": "11.0.10.0",
+            "fileVersion": "11.0.10.0"
+          },
+          "lib/net6.0/Avalonia.Markup.Xaml.dll": {
+            "assemblyVersion": "11.0.10.0",
+            "fileVersion": "11.0.10.0"
+          },
+          "lib/net6.0/Avalonia.Markup.dll": {
+            "assemblyVersion": "11.0.10.0",
+            "fileVersion": "11.0.10.0"
+          },
+          "lib/net6.0/Avalonia.Metal.dll": {
+            "assemblyVersion": "11.0.10.0",
+            "fileVersion": "11.0.10.0"
+          },
+          "lib/net6.0/Avalonia.MicroCom.dll": {
+            "assemblyVersion": "11.0.10.0",
+            "fileVersion": "11.0.10.0"
+          },
+          "lib/net6.0/Avalonia.OpenGL.dll": {
+            "assemblyVersion": "11.0.10.0",
+            "fileVersion": "11.0.10.0"
+          },
+          "lib/net6.0/Avalonia.dll": {
+            "assemblyVersion": "11.0.10.0",
+            "fileVersion": "11.0.10.0"
+          }
+        }
+      },
+      "Avalonia.Angle.Windows.Natives/2.1.0.2023020321": {
+        "native": {
+          "runtimes/win-x64/native/av_libglesv2.dll": {
+            "fileVersion": "2.1.0.0"
+          }
+        }
+      },
+      "Avalonia.Desktop/11.0.10": {
+        "dependencies": {
+          "Avalonia": "11.0.10",
+          "Avalonia.Native": "11.0.10",
+          "Avalonia.Skia": "11.0.10",
+          "Avalonia.Win32": "11.0.10",
+          "Avalonia.X11": "11.0.10"
+        },
+        "runtime": {
+          "lib/net6.0/Avalonia.Desktop.dll": {
+            "assemblyVersion": "11.0.10.0",
+            "fileVersion": "11.0.10.0"
+          }
+        }
+      },
+      "Avalonia.Fonts.Inter/11.0.10": {
+        "dependencies": {
+          "Avalonia": "11.0.10"
+        },
+        "runtime": {
+          "lib/net6.0/Avalonia.Fonts.Inter.dll": {
+            "assemblyVersion": "11.0.10.0",
+            "fileVersion": "11.0.10.0"
+          }
+        }
+      },
+      "Avalonia.FreeDesktop/11.0.10": {
+        "dependencies": {
+          "Avalonia": "11.0.10",
+          "Tmds.DBus.Protocol": "0.21.3"
+        },
+        "runtime": {
+          "lib/net6.0/Avalonia.FreeDesktop.dll": {
+            "assemblyVersion": "11.0.10.0",
+            "fileVersion": "11.0.10.0"
+          }
+        }
+      },
+      "Avalonia.Native/11.0.10": {
+        "dependencies": {
+          "Avalonia": "11.0.10"
+        },
+        "runtime": {
+          "lib/net6.0/Avalonia.Native.dll": {
+            "assemblyVersion": "11.0.10.0",
+            "fileVersion": "11.0.10.0"
+          }
+        }
+      },
+      "Avalonia.ReactiveUI/11.0.10": {
+        "dependencies": {
+          "Avalonia": "11.0.10",
+          "ReactiveUI": "18.3.1",
+          "System.Reactive": "5.0.0"
+        },
+        "runtime": {
+          "lib/net6.0/Avalonia.ReactiveUI.dll": {
+            "assemblyVersion": "11.0.10.0",
+            "fileVersion": "11.0.10.0"
+          }
+        }
+      },
+      "Avalonia.Remote.Protocol/11.0.10": {
+        "runtime": {
+          "lib/net6.0/Avalonia.Remote.Protocol.dll": {
+            "assemblyVersion": "11.0.10.0",
+            "fileVersion": "11.0.10.0"
+          }
+        }
+      },
+      "Avalonia.Skia/11.0.10": {
+        "dependencies": {
+          "Avalonia": "11.0.10",
+          "HarfBuzzSharp": "7.3.0",
+          "SkiaSharp": "2.88.7"
+        },
+        "runtime": {
+          "lib/net6.0/Avalonia.Skia.dll": {
+            "assemblyVersion": "11.0.10.0",
+            "fileVersion": "11.0.10.0"
+          }
+        }
+      },
+      "Avalonia.Themes.Fluent/11.0.10": {
+        "dependencies": {
+          "Avalonia": "11.0.10"
+        },
+        "runtime": {
+          "lib/net6.0/Avalonia.Themes.Fluent.dll": {
+            "assemblyVersion": "11.0.10.0",
+            "fileVersion": "11.0.10.0"
+          }
+        }
+      },
+      "Avalonia.Win32/11.0.10": {
+        "dependencies": {
+          "Avalonia": "11.0.10",
+          "Avalonia.Angle.Windows.Natives": "2.1.0.2023020321"
+        },
+        "runtime": {
+          "lib/net6.0/Avalonia.Win32.dll": {
+            "assemblyVersion": "11.0.10.0",
+            "fileVersion": "11.0.10.0"
+          }
+        }
+      },
+      "Avalonia.X11/11.0.10": {
+        "dependencies": {
+          "Avalonia": "11.0.10",
+          "Avalonia.FreeDesktop": "11.0.10",
+          "Avalonia.Skia": "11.0.10"
+        },
+        "runtime": {
+          "lib/net6.0/Avalonia.X11.dll": {
+            "assemblyVersion": "11.0.10.0",
+            "fileVersion": "11.0.10.0"
+          }
+        }
+      },
+      "BouncyCastle.Cryptography/2.6.2": {
+        "runtime": {
+          "lib/net6.0/BouncyCastle.Cryptography.dll": {
+            "assemblyVersion": "2.0.0.0",
+            "fileVersion": "2.6.2.46322"
+          }
+        }
+      },
+      "DynamicData/7.9.5": {
+        "dependencies": {
+          "System.Reactive": "5.0.0"
+        },
+        "runtime": {
+          "lib/net6.0/DynamicData.dll": {
+            "assemblyVersion": "7.9.0.0",
+            "fileVersion": "7.9.5.54039"
+          }
+        }
+      },
+      "HarfBuzzSharp/7.3.0": {
+        "dependencies": {
+          "HarfBuzzSharp.NativeAssets.Win32": "7.3.0"
+        },
+        "runtime": {
+          "lib/net6.0/HarfBuzzSharp.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "7.3.0.0"
+          }
+        }
+      },
+      "HarfBuzzSharp.NativeAssets.Win32/7.3.0": {
+        "native": {
+          "runtimes/win-x64/native/libHarfBuzzSharp.dll": {
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "MicroCom.Runtime/0.11.0": {
+        "runtime": {
+          "lib/net5.0/MicroCom.Runtime.dll": {
+            "assemblyVersion": "0.11.0.0",
+            "fileVersion": "0.11.0.0"
+          }
+        }
+      },
+      "Microsoft.Data.Sqlite/10.0.8": {
+        "dependencies": {
+          "Microsoft.Data.Sqlite.Core": "10.0.8",
+          "SQLitePCLRaw.bundle_e_sqlite3": "2.1.11",
+          "SQLitePCLRaw.core": "2.1.11"
+        }
+      },
+      "Microsoft.Data.Sqlite.Core/10.0.8": {
+        "dependencies": {
+          "SQLitePCLRaw.core": "2.1.11"
+        },
+        "runtime": {
+          "lib/net8.0/Microsoft.Data.Sqlite.dll": {
+            "assemblyVersion": "10.0.8.0",
+            "fileVersion": "10.0.826.23019"
+          }
+        }
+      },
+      "MimeKit/4.16.0": {
+        "dependencies": {
+          "BouncyCastle.Cryptography": "2.6.2",
+          "System.Security.Cryptography.Pkcs": "10.0.0"
+        },
+        "runtime": {
+          "lib/net10.0/MimeKit.dll": {
+            "assemblyVersion": "4.16.0.0",
+            "fileVersion": "4.16.0.0"
+          }
+        }
+      },
+      "ReactiveUI/18.3.1": {
+        "dependencies": {
+          "DynamicData": "7.9.5",
+          "Splat": "14.4.1"
+        },
+        "runtime": {
+          "lib/net6.0/ReactiveUI.dll": {
+            "assemblyVersion": "18.3.0.0",
+            "fileVersion": "18.3.1.49589"
+          }
+        }
+      },
+      "SkiaSharp/2.88.7": {
+        "dependencies": {
+          "SkiaSharp.NativeAssets.Win32": "2.88.7"
+        },
+        "runtime": {
+          "lib/net6.0/SkiaSharp.dll": {
+            "assemblyVersion": "2.88.0.0",
+            "fileVersion": "2.88.7.0"
+          }
+        }
+      },
+      "SkiaSharp.NativeAssets.Win32/2.88.7": {
+        "native": {
+          "runtimes/win-x64/native/libSkiaSharp.dll": {
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "Splat/14.4.1": {
+        "runtime": {
+          "lib/net6.0/Splat.dll": {
+            "assemblyVersion": "14.4.0.0",
+            "fileVersion": "14.4.1.53869"
+          }
+        }
+      },
+      "SQLitePCLRaw.bundle_e_sqlite3/2.1.11": {
+        "dependencies": {
+          "SQLitePCLRaw.lib.e_sqlite3": "2.1.11",
+          "SQLitePCLRaw.provider.e_sqlite3": "2.1.11"
+        },
+        "runtime": {
+          "lib/netstandard2.0/SQLitePCLRaw.batteries_v2.dll": {
+            "assemblyVersion": "2.1.11.2622",
+            "fileVersion": "2.1.11.2622"
+          }
+        }
+      },
+      "SQLitePCLRaw.core/2.1.11": {
+        "runtime": {
+          "lib/netstandard2.0/SQLitePCLRaw.core.dll": {
+            "assemblyVersion": "2.1.11.2622",
+            "fileVersion": "2.1.11.2622"
+          }
+        }
+      },
+      "SQLitePCLRaw.lib.e_sqlite3/2.1.11": {
+        "native": {
+          "runtimes/win-x64/native/e_sqlite3.dll": {
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "SQLitePCLRaw.provider.e_sqlite3/2.1.11": {
+        "dependencies": {
+          "SQLitePCLRaw.core": "2.1.11"
+        },
+        "runtime": {
+          "lib/net6.0/SQLitePCLRaw.provider.e_sqlite3.dll": {
+            "assemblyVersion": "2.1.11.2622",
+            "fileVersion": "2.1.11.2622"
+          }
+        }
+      },
+      "System.Reactive/5.0.0": {
+        "runtime": {
+          "lib/net5.0/System.Reactive.dll": {
+            "assemblyVersion": "5.0.0.0",
+            "fileVersion": "5.0.0.1"
+          }
+        }
+      },
+      "System.Security.Cryptography.Pkcs/10.0.0": {
+        "runtime": {
+          "runtimes/win/lib/net10.0/System.Security.Cryptography.Pkcs.dll": {
+            "assemblyVersion": "10.0.0.0",
+            "fileVersion": "10.0.25.52411"
+          }
+        }
+      },
+      "Tmds.DBus.Protocol/0.21.3": {
+        "runtime": {
+          "lib/net8.0/Tmds.DBus.Protocol.dll": {
+            "assemblyVersion": "0.21.3.0",
+            "fileVersion": "0.21.3.0"
+          }
+        }
+      },
+      "XstReader.Api/1.0.6": {
+        "dependencies": {
+          "System.Security.Cryptography.Pkcs": "10.0.0"
+        },
+        "runtime": {
+          "lib/netstandard2.0/XstReader.Api.dll": {
+            "assemblyVersion": "1.0.6.0",
+            "fileVersion": "1.0.6.0"
+          }
+        }
+      },
+      "MailVault.Adapters.Libpff/1.0.0": {
+        "dependencies": {
+          "MailVault.Core": "1.0.0",
+          "MailVault.Domain": "1.0.0"
+        },
+        "runtime": {
+          "MailVault.Adapters.Libpff.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "MailVault.Adapters.XstReader/1.0.0": {
+        "dependencies": {
+          "MailVault.Core": "1.0.0",
+          "MailVault.Domain": "1.0.0",
+          "System.Security.Cryptography.Pkcs": "10.0.0",
+          "XstReader.Api": "1.0.6"
+        },
+        "runtime": {
+          "MailVault.Adapters.XstReader.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "MailVault.Audit/1.0.0": {
+        "dependencies": {
+          "MailVault.Domain": "1.0.0"
+        },
+        "runtime": {
+          "MailVault.Audit.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "MailVault.Core/1.0.0": {
+        "dependencies": {
+          "MailVault.Domain": "1.0.0"
+        },
+        "runtime": {
+          "MailVault.Core.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "MailVault.Domain/1.0.0": {
+        "runtime": {
+          "MailVault.Domain.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "MailVault.Exporters.Eml/1.0.0": {
+        "dependencies": {
+          "MailVault.Core": "1.0.0",
+          "MailVault.Domain": "1.0.0",
+          "MimeKit": "4.16.0"
+        },
+        "runtime": {
+          "MailVault.Exporters.Eml.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "MailVault.Exporters.Mbox/1.0.0": {
+        "dependencies": {
+          "MailVault.Core": "1.0.0",
+          "MailVault.Domain": "1.0.0"
+        },
+        "runtime": {
+          "MailVault.Exporters.Mbox.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "MailVault.Indexing/1.0.0": {
+        "dependencies": {
+          "MailVault.Core": "1.0.0",
+          "MailVault.Domain": "1.0.0",
+          "Microsoft.Data.Sqlite": "10.0.8"
+        },
+        "runtime": {
+          "MailVault.Indexing.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "MailVault.Validation/1.0.0": {
+        "dependencies": {
+          "MailVault.Core": "1.0.0",
+          "MailVault.Domain": "1.0.0",
+          "MailVault.Indexing": "1.0.0",
+          "MimeKit": "4.16.0"
+        },
+        "runtime": {
+          "MailVault.Validation.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "MailVault.Desktop/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Avalonia/11.0.10": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-EH1FyD1SA7G/TfLmb7JKQlZiOBqr6VzttJMtA5Hnc/c1623zJej0PRuQlqn8Ad6qWKorrKEypBGA9Gye3uWDrA==",
+      "path": "avalonia/11.0.10",
+      "hashPath": "avalonia.11.0.10.nupkg.sha512"
+    },
+    "Avalonia.Angle.Windows.Natives/2.1.0.2023020321": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-Zlkkb8ipxrxNWVPCJgMO19fpcpYPP+bpOQ+jPtCFj8v+TzVvPdnGHuyv9IMvSHhhMfEpps4m4hjaP4FORQYVAA==",
+      "path": "avalonia.angle.windows.natives/2.1.0.2023020321",
+      "hashPath": "avalonia.angle.windows.natives.2.1.0.2023020321.nupkg.sha512"
+    },
+    "Avalonia.Desktop/11.0.10": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-jPflQRB94sr3D7tgcUuSHnvK212ZtoM2oBZVQoP/musPWiu56LZ+o7+bAt8TMGhkUBMAylZ5u+tMGCe7EUwbEA==",
+      "path": "avalonia.desktop/11.0.10",
+      "hashPath": "avalonia.desktop.11.0.10.nupkg.sha512"
+    },
+    "Avalonia.Fonts.Inter/11.0.10": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-4hVv6u5o8NxfPv2pl1Mg0VTYzxHkc85Wnye3sQJCQtbrd8s9v3DSEYK68zT4wBFlCtc4JHUP85PfyZuoTkf08A==",
+      "path": "avalonia.fonts.inter/11.0.10",
+      "hashPath": "avalonia.fonts.inter.11.0.10.nupkg.sha512"
+    },
+    "Avalonia.FreeDesktop/11.0.10": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-QLVn1pjCe5ez4cH5B+NmhT61xK502mjxPxkswIbag5FB45tuNOF5zRszH+dN81rNw+VSf/J6PVXdmHz/FojyDw==",
+      "path": "avalonia.freedesktop/11.0.10",
+      "hashPath": "avalonia.freedesktop.11.0.10.nupkg.sha512"
+    },
+    "Avalonia.Native/11.0.10": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-eJUPh4VOBomF36DzJQ+M+T1lVBVhpK3Ryx3xNnhVvYcW3dPNgugXApSbxulSipWnMfJh4DAKQD2Mt3ahy3Tp8Q==",
+      "path": "avalonia.native/11.0.10",
+      "hashPath": "avalonia.native.11.0.10.nupkg.sha512"
+    },
+    "Avalonia.ReactiveUI/11.0.10": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-3haOqr1p4RguatFmKZ4dU1sPrw7oAadnoey6KCN60p3V7roBY0n28qAgwtrq0oH5wdXrYlhfqCws8aqew3LK8w==",
+      "path": "avalonia.reactiveui/11.0.10",
+      "hashPath": "avalonia.reactiveui.11.0.10.nupkg.sha512"
+    },
+    "Avalonia.Remote.Protocol/11.0.10": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-4/zXSx7P2+4g7nIkSd8aIfEfRnvHjpeSEBjJznzE5iJBYO98B78wDPWEkyN8sQBJnLghaNKKsGCApx3g5R0Gsg==",
+      "path": "avalonia.remote.protocol/11.0.10",
+      "hashPath": "avalonia.remote.protocol.11.0.10.nupkg.sha512"
+    },
+    "Avalonia.Skia/11.0.10": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-0rDySePqUkg6cMBZEXp+5P04XgyIXOcqhsCaWhrwFAqxcp5qKjILSCNvt0pden3TqCRjuNuGaWGV+qyk58l9vA==",
+      "path": "avalonia.skia/11.0.10",
+      "hashPath": "avalonia.skia.11.0.10.nupkg.sha512"
+    },
+    "Avalonia.Themes.Fluent/11.0.10": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-V7xu7ddtUFwYHb+u3S4he2/PGGUHkeTI66j3PyGTZi0Uz8Ma4prb/Lgz7Qd/vpO4lukxw1G4DmxB1tClNS9qUw==",
+      "path": "avalonia.themes.fluent/11.0.10",
+      "hashPath": "avalonia.themes.fluent.11.0.10.nupkg.sha512"
+    },
+    "Avalonia.Win32/11.0.10": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-XD4fiRpiLHB6Q8e9Vevj42rYQvdnrqs56Jwu9T4UaClcuk578fUH1LP/vl9q/n8LrEUyng01Q7vtpp5sgwsXDw==",
+      "path": "avalonia.win32/11.0.10",
+      "hashPath": "avalonia.win32.11.0.10.nupkg.sha512"
+    },
+    "Avalonia.X11/11.0.10": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-WUhPBIYqjJdBf1TgUARYNyH1clntZ435eQzR+db4fxrg4OemePX6nJTp1Lh7G/hTVEvRgWCoYFccqm/6vsfJQQ==",
+      "path": "avalonia.x11/11.0.10",
+      "hashPath": "avalonia.x11.11.0.10.nupkg.sha512"
+    },
+    "BouncyCastle.Cryptography/2.6.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-7oWOcvnntmMKNzDLsdxAYqApt+AjpRpP2CShjMfIa3umZ42UQMvH0tl1qAliYPNYO6vTdcGMqnRrCPmsfzTI1w==",
+      "path": "bouncycastle.cryptography/2.6.2",
+      "hashPath": "bouncycastle.cryptography.2.6.2.nupkg.sha512"
+    },
+    "DynamicData/7.9.5": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-xFwVha7o3qUtVYxco5p+7Urcztc/m1gmaEUxOG0i7LNe+vfCfyb0ECAsT2FLm3zOPHb0g8s9qVu5LfPKfRNVng==",
+      "path": "dynamicdata/7.9.5",
+      "hashPath": "dynamicdata.7.9.5.nupkg.sha512"
+    },
+    "HarfBuzzSharp/7.3.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-OrQLaxtZMIeS2yHSUtsKzeSdk9CPaCpyJ/JCs+wLfRGatjE8MLUS6LGj6vdbGRxqRavcXs79C9O3oWe6FJR0JQ==",
+      "path": "harfbuzzsharp/7.3.0",
+      "hashPath": "harfbuzzsharp.7.3.0.nupkg.sha512"
+    },
+    "HarfBuzzSharp.NativeAssets.Win32/7.3.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-ulEewLMk+dNmbmpy15ny/YusI6JNUWqchF080TV2jgfFBXPXjWm767JleDi/S7hp8eDeEN6GYIIxpvNr5fLvIw==",
+      "path": "harfbuzzsharp.nativeassets.win32/7.3.0",
+      "hashPath": "harfbuzzsharp.nativeassets.win32.7.3.0.nupkg.sha512"
+    },
+    "MicroCom.Runtime/0.11.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-MEnrZ3UIiH40hjzMDsxrTyi8dtqB5ziv3iBeeU4bXsL/7NLSal9F1lZKpK+tfBRnUoDSdtcW3KufE4yhATOMCA==",
+      "path": "microcom.runtime/0.11.0",
+      "hashPath": "microcom.runtime.0.11.0.nupkg.sha512"
+    },
+    "Microsoft.Data.Sqlite/10.0.8": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-iyDWyD6r/SnqgoYYQIlLhxL1ZIGZr+SByMXrJKSA1w7sOt7bPMJmN3h2laqwKqyQkjh/lUPJ7LTXwpvqzhggOQ==",
+      "path": "microsoft.data.sqlite/10.0.8",
+      "hashPath": "microsoft.data.sqlite.10.0.8.nupkg.sha512"
+    },
+    "Microsoft.Data.Sqlite.Core/10.0.8": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-26t7WDiEjjAls/sFpWvVEFDxt+7Q5VPt6+blU2Lafuj9L8PzAv/GtGV4cqVPtrhWbfD2BX/z2v8hD1qXYtK6Aw==",
+      "path": "microsoft.data.sqlite.core/10.0.8",
+      "hashPath": "microsoft.data.sqlite.core.10.0.8.nupkg.sha512"
+    },
+    "MimeKit/4.16.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-X0LFxeM4gPRIhODyY/HYS9b+zRZ7y//v59rFzgS6wLxcPuZThnMtNZHtrr0fjLyRRkg3gqJBtvW36XfUzZ7Djw==",
+      "path": "mimekit/4.16.0",
+      "hashPath": "mimekit.4.16.0.nupkg.sha512"
+    },
+    "ReactiveUI/18.3.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-0tclGtjrRPfA2gbjiM7O3DeNmo6/TpDn7CMN6jgzDrbgrnysM7oEzjGEeXbtXaOxH6kEf6RiMKWobZoSgbBXhQ==",
+      "path": "reactiveui/18.3.1",
+      "hashPath": "reactiveui.18.3.1.nupkg.sha512"
+    },
+    "SkiaSharp/2.88.7": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-LJHAMrbWO00J7jXWLWehyjqFo29T4VzABimfJb4nICqpEe3c/KvQGWL4ItON8ymzhxYOeFgyxeRzuNzO4GHSug==",
+      "path": "skiasharp/2.88.7",
+      "hashPath": "skiasharp.2.88.7.nupkg.sha512"
+    },
+    "SkiaSharp.NativeAssets.Win32/2.88.7": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-BCXmWdQ0oVck9vRwC8U3ocSaTHEx28VB+6qw9OxGIMQ86iO5bp4Flqk3IXH0l9Pbr7vWAUOpI212iaL9mTaUZQ==",
+      "path": "skiasharp.nativeassets.win32/2.88.7",
+      "hashPath": "skiasharp.nativeassets.win32.2.88.7.nupkg.sha512"
+    },
+    "Splat/14.4.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-Z1Mncnzm9pNIaIbZ/EWH6x5ESnKsmAvu8HP4StBRw+yhz0lzE7LCbt22TNTPaFrYLYbYCbGQIc/61yuSnpLidg==",
+      "path": "splat/14.4.1",
+      "hashPath": "splat.14.4.1.nupkg.sha512"
+    },
+    "SQLitePCLRaw.bundle_e_sqlite3/2.1.11": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-DC4nA7yWnf4UZdgJDF+9Mus4/cb0Y3Sfgi3gDnAoKNAIBwzkskNAbNbyu+u4atT0ruVlZNJfwZmwiEwE5oz9LQ==",
+      "path": "sqlitepclraw.bundle_e_sqlite3/2.1.11",
+      "hashPath": "sqlitepclraw.bundle_e_sqlite3.2.1.11.nupkg.sha512"
+    },
+    "SQLitePCLRaw.core/2.1.11": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-PK0GLFkfhZzLQeR3PJf71FmhtHox+U3vcY6ZtswoMjrefkB9k6ErNJEnwXqc5KgXDSjige2XXrezqS39gkpQKA==",
+      "path": "sqlitepclraw.core/2.1.11",
+      "hashPath": "sqlitepclraw.core.2.1.11.nupkg.sha512"
+    },
+    "SQLitePCLRaw.lib.e_sqlite3/2.1.11": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-Ev2ytaXiOlWZ4b3R67GZBsemTINslLD1DCJr2xiacpn4tbapu0Q4dHEzSvZSMnVWeE5nlObU3VZN2p81q3XOYQ==",
+      "path": "sqlitepclraw.lib.e_sqlite3/2.1.11",
+      "hashPath": "sqlitepclraw.lib.e_sqlite3.2.1.11.nupkg.sha512"
+    },
+    "SQLitePCLRaw.provider.e_sqlite3/2.1.11": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-Y/0ZkR+r0Cg3DQFuCl1RBnv/tmxpIZRU3HUvelPw6MVaKHwYYR8YNvgs0vuNuXCMvlyJ+Fh88U1D4tah1tt6qw==",
+      "path": "sqlitepclraw.provider.e_sqlite3/2.1.11",
+      "hashPath": "sqlitepclraw.provider.e_sqlite3.2.1.11.nupkg.sha512"
+    },
+    "System.Reactive/5.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-erBZjkQHWL9jpasCE/0qKAryzVBJFxGHVBAvgRN1bzM0q2s1S4oYREEEL0Vb+1kA/6BKb5FjUZMp5VXmy+gzkQ==",
+      "path": "system.reactive/5.0.0",
+      "hashPath": "system.reactive.5.0.0.nupkg.sha512"
+    },
+    "System.Security.Cryptography.Pkcs/10.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-UPWqLSygJlFerRi9XNIuM0a1VC8gHUIufyP24xQ0sc+XimqUAEcjpOz9DhKpyDjH+5B/wO3RpC0KpkEeDj/ddg==",
+      "path": "system.security.cryptography.pkcs/10.0.0",
+      "hashPath": "system.security.cryptography.pkcs.10.0.0.nupkg.sha512"
+    },
+    "Tmds.DBus.Protocol/0.21.3": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-hDwB8WsQoyALQKqIbwzS68UKdlnafDm4T/DkO/JrA/YIneP/rKv96SxYPVXeh3FP4i/SXfShrYftKLtciJAIlw==",
+      "path": "tmds.dbus.protocol/0.21.3",
+      "hashPath": "tmds.dbus.protocol.0.21.3.nupkg.sha512"
+    },
+    "XstReader.Api/1.0.6": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-zfb/sOUvaQdA7QO0dJqw/SeH5O52H8llJacOyf6seAucDPiBLEnn0Jt79Uyy+ESHMh4d3hO5FGGQHoVcKS8ahg==",
+      "path": "xstreader.api/1.0.6",
+      "hashPath": "xstreader.api.1.0.6.nupkg.sha512"
+    },
+    "MailVault.Adapters.Libpff/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "MailVault.Adapters.XstReader/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "MailVault.Audit/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "MailVault.Core/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "MailVault.Domain/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "MailVault.Exporters.Eml/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "MailVault.Exporters.Mbox/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "MailVault.Indexing/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "MailVault.Validation/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

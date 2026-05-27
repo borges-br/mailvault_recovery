@@ -41,28 +41,52 @@ public class DesktopValidationService
 
         try
         {
-            var engine = new ValidationEngine();
-            string finalOutDir = outDir ?? caseFolderPath;
+            var orchestrator = new WorkerProcessOrchestrator();
+            var jobConfig = new WorkerJobConfig(
+                EvidencePath: "",
+                CasePath: caseFolderPath,
+                CaseId: "",
+                OperatorId: Environment.UserName,
+                EvidenceSha256: "",
+                EvidenceSize: 0,
+                SelectedReaderEngine: ""
+            )
+            {
+                JobKind = "ValidateExport",
+                ExportFormat = format
+            };
 
-            var report = await engine.ValidateAsync(
-                caseFolderPath,
-                exportFolderPath,
-                format,
-                strict,
-                checkEml,
-                checkMbox,
-                checkAtt,
-                sampleSize,
-                finalOutDir,
+            var result = await orchestrator.RunJobAsync(
+                jobConfig,
+                p => { },
                 ct
             );
+
+            if (result.Status == "Failed")
+            {
+                throw new InvalidOperationException(result.ErrorMessage ?? "A validação out-of-process falhou.");
+            }
+
+            // Read the validation-report.json that was saved in the caseFolderPath
+            string reportFile = Path.Combine(caseFolderPath, "validation-report.json");
+            ValidationReport report;
+            if (File.Exists(reportFile))
+            {
+                string json = await File.ReadAllTextAsync(reportFile, ct);
+                report = System.Text.Json.JsonSerializer.Deserialize<ValidationReport>(json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                         ?? CreateFailedReport("Falha ao deserializar o relatório de validação.");
+            }
+            else
+            {
+                report = CreateFailedReport("Relatório de validação não encontrado no disco após execução.");
+            }
 
             await auditWriter.WriteEventAsync(new AuditEvent(
                 EventId: Guid.NewGuid().ToString(),
                 Timestamp: DateTimeOffset.Now,
                 Action: "ValidationCompletedByUI",
                 OperatorName: Environment.UserName,
-                Details: $"Validação técnica concluída. Status do relatório: {report.Status}. Mensagens indexadas: {report.IndexedMessages}, exportadas: {report.ExportedMessages}."
+                Details: $"Validação técnica concluída. Status do relatório: {report.Status}."
             ), ct);
 
             return report;
@@ -78,5 +102,41 @@ public class DesktopValidationService
             ), CancellationToken.None);
             throw;
         }
+    }
+
+    private static ValidationReport CreateFailedReport(string message)
+    {
+        return new ValidationReport(
+            ValidationId: Guid.NewGuid().ToString("N"),
+            CaseId: "",
+            SourceFileMasked: "",
+            SourceSha256: "",
+            AdapterName: "",
+            AdapterVersion: "",
+            ExportId: "",
+            ExportFormat: "",
+            StartedAt: DateTimeOffset.Now,
+            CompletedAt: DateTimeOffset.Now,
+            DurationMs: 0,
+            IndexedMessages: 0,
+            SelectedMessages: 0,
+            ExportedMessages: 0,
+            FailedMessages: 0,
+            IndexedAttachments: 0,
+            ExportedAttachments: 0,
+            FailedAttachments: 0,
+            EmptyExportedFiles: 0,
+            DuplicateOutputNames: 0,
+            MissingExpectedFiles: 0,
+            PathSafetyIssues: 0,
+            FoldersChecked: Array.Empty<string>(),
+            FolderResults: Array.Empty<FolderValidationResult>(),
+            WarningCount: 0,
+            ErrorCount: 1,
+            Status: "Failed",
+            Issues: new[] {
+                new ValidationIssue("MV-ERR-VALIDATION-MISSING", "Error", message, "ValidationEngine")
+            }
+        );
     }
 }

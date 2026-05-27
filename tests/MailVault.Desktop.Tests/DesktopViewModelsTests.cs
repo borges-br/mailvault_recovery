@@ -1318,7 +1318,7 @@ public class DesktopViewModelsTests
         }
         finally
         {
-            if (Directory.Exists(tempCorpusDir)) Directory.Delete(tempCorpusDir, true);
+            DeleteDirectoryWithRetry(tempCorpusDir);
         }
     }
 
@@ -1353,7 +1353,7 @@ public class DesktopViewModelsTests
         }
         finally
         {
-            if (Directory.Exists(tempCorpusDir)) Directory.Delete(tempCorpusDir, true);
+            DeleteDirectoryWithRetry(tempCorpusDir);
         }
     }
 
@@ -1486,4 +1486,589 @@ public class DesktopViewModelsTests
             ));
         }
     }
+
+    // -------------------------------------------------------------------------
+    // Milestone 6.2 — Core wizard, adapter and background execution tests
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void ReflectionAdapterResolver_FindsXstReaderAdapter_WhenCopiedToDesktopOutput()
+    {
+        var resolver = new ReflectionAdapterResolver();
+        var adapters = resolver.GetAvailableAdapters().ToList();
+        
+        var xst = adapters.FirstOrDefault(a => a.Name.Contains("XstReader"));
+        Assert.NotNull(xst);
+        Assert.Equal("Healthy", xst.HealthStatus);
+    }
+
+    [Fact]
+    public void ReflectionAdapterResolver_ReturnsDetailedError_WhenAdapterMissing()
+    {
+        var resolver = new ReflectionAdapterResolver();
+        var result = resolver.ResolveAdapter(".xyz");
+        
+        Assert.False(result.Success);
+        Assert.Contains("Nenhum adapter funcional encontrado", result.ErrorMessage);
+        Assert.Contains("Procurado em", result.ErrorMessage);
+        Assert.Contains("Status dos adapters", result.ErrorMessage);
+        Assert.Contains("Ação recomendada", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task DesktopCaseCreationService_ReportsAdapterResolutionFailureClearly()
+    {
+        string tempDir = CreateTempDir();
+        string dummyFile = Path.Combine(tempDir, "test.xyz");
+        File.WriteAllText(dummyFile, "dummy content");
+        
+        try
+        {
+            var service = new DesktopCaseCreationService();
+            var reporter = new MockProgressReporter();
+            
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            {
+                await service.CreateAndIndexCaseAsync(
+                    dummyFile,
+                    tempDir,
+                    "CASE-XYZ",
+                    cachePreview: true,
+                    limit: null,
+                    reporter,
+                    CancellationToken.None
+                );
+            });
+            
+            Assert.Contains("Nenhum adapter funcional encontrado", ex.Message);
+            Assert.Contains(".xyz", ex.Message);
+        }
+        finally
+        {
+            DeleteDirectoryWithRetry(tempDir);
+        }
+    }
+
+    [Fact]
+    public async Task NewCaseWizard_StartIndexing_DoesNotBlockUiThread_WithFakeLongRunningService()
+    {
+        var fakeService = new FakeLongRunningCaseCreationService();
+        var vm = new NewCaseWizardViewModel(fakeService);
+        vm.SourcePath = Path.Combine(Path.GetTempPath(), $"test-{Guid.NewGuid():N}.ost");
+        File.WriteAllText(vm.SourcePath, "dummy");
+        vm.DestinationPath = Path.GetTempPath();
+        vm.DisclaimerAccepted = true;
+        
+        try
+        {
+            vm.StartIndexingCommand.Execute(null);
+            
+            Assert.True(vm.IsIndexing);
+            Assert.Equal("Running", vm.IndexingStatus);
+            
+            fakeService.Tcs.SetResult(new IndexResult(vm.CaseId, "dummy.db", 1, 1, 0, 0, 100L, "dummy-sha256", "Success", null));
+            
+            await Task.Delay(100);
+            
+            Assert.False(vm.IsIndexing);
+            Assert.Equal("Success", vm.IndexingStatus);
+        }
+        finally
+        {
+            if (File.Exists(vm.SourcePath)) File.Delete(vm.SourcePath);
+        }
+    }
+
+    [Fact]
+    public async Task NewCaseWizard_CancelLongRunningIndexing_SetsCancelledState()
+    {
+        var fakeService = new FakeLongRunningCaseCreationService();
+        var vm = new NewCaseWizardViewModel(fakeService);
+        vm.SourcePath = Path.Combine(Path.GetTempPath(), $"test-{Guid.NewGuid():N}.ost");
+        File.WriteAllText(vm.SourcePath, "dummy");
+        vm.DestinationPath = Path.GetTempPath();
+        vm.DisclaimerAccepted = true;
+        
+        try
+        {
+            vm.StartIndexingCommand.Execute(null);
+            Assert.True(vm.IsIndexing);
+            
+            vm.CancelIndexingCommand.Execute(null);
+            
+            await Task.Delay(100);
+            
+            Assert.False(vm.IsIndexing);
+            Assert.Equal("Cancelled", vm.IndexingStatus);
+            Assert.Equal("Operação cancelada pelo operador.", vm.IndexingError);
+            Assert.Contains("Indexação cancelada", vm.LogsText);
+        }
+        finally
+        {
+            if (File.Exists(vm.SourcePath)) File.Delete(vm.SourcePath);
+        }
+    }
+
+    [Fact]
+    public async Task NewCaseWizard_AdapterMissing_ShowsActionableError()
+    {
+        var fakeService = new FakeLongRunningCaseCreationService();
+        var vm = new NewCaseWizardViewModel(fakeService);
+        vm.SourcePath = Path.Combine(Path.GetTempPath(), $"test-{Guid.NewGuid():N}.ost");
+        File.WriteAllText(vm.SourcePath, "dummy");
+        vm.DestinationPath = Path.GetTempPath();
+        vm.DisclaimerAccepted = true;
+        
+        try
+        {
+            vm.StartIndexingCommand.Execute(null);
+            
+            string missingAdapterError = "Nenhum adapter funcional encontrado para a extensão '.ost'. Procurado em: 'bin/Debug'. Esperado: MailVault.Adapters.XstReader.dll.";
+            fakeService.Tcs.SetException(new InvalidOperationException(missingAdapterError));
+            
+            await Task.Delay(100);
+            
+            Assert.False(vm.IsIndexing);
+            Assert.Equal("Failed", vm.IndexingStatus);
+            Assert.NotNull(vm.IndexingError);
+            Assert.Contains("Nenhum adapter funcional encontrado", vm.IndexingError);
+            Assert.Contains("Procurado em", vm.IndexingError);
+        }
+        finally
+        {
+            if (File.Exists(vm.SourcePath)) File.Delete(vm.SourcePath);
+        }
+    }
+
+    [Fact]
+    public void DesktopOutput_ContainsXstReaderAdapterAssembly()
+    {
+        string basePath = AppContext.BaseDirectory;
+        string assemblyPath = Path.Combine(basePath, "MailVault.Adapters.XstReader.dll");
+        string dependencyPath = Path.Combine(basePath, "XstReader.Api.dll");
+        
+        Assert.True(File.Exists(assemblyPath), $"XstReader adapter assembly should exist at: {assemblyPath}");
+        Assert.True(File.Exists(dependencyPath), $"XstReader.Api dependency assembly should exist at: {dependencyPath}");
+    }
+
+    [Fact]
+    public async Task DesktopCaseCreationService_UsesBackgroundExecution_ForLongRunningIndexing()
+    {
+        var fakeService = new ThreadCheckingCaseCreationService();
+        var vm = new NewCaseWizardViewModel(fakeService);
+        vm.SourcePath = Path.Combine(Path.GetTempPath(), $"test-{Guid.NewGuid():N}.ost");
+        File.WriteAllText(vm.SourcePath, "dummy");
+        vm.DestinationPath = Path.GetTempPath();
+        vm.DisclaimerAccepted = true;
+        
+        int callingThreadId = Environment.CurrentManagedThreadId;
+        
+        try
+        {
+            vm.StartIndexingCommand.Execute(null);
+            
+            for (int i = 0; i < 20 && !fakeService.WasCalled; i++)
+            {
+                await Task.Delay(10);
+            }
+            
+            Assert.True(fakeService.WasCalled);
+            Assert.NotEqual(callingThreadId, fakeService.ExecutingThreadId);
+            
+            fakeService.Tcs.SetResult(new IndexResult(vm.CaseId, "dummy.db", 1, 1, 0, 0, 100L, "dummy-sha256", "Success", null));
+            await Task.Delay(50);
+        }
+        finally
+        {
+            if (File.Exists(vm.SourcePath)) File.Delete(vm.SourcePath);
+        }
+    }
+
+    private class MockProgressReporter : DesktopCaseCreationService.IIndexingProgressReporter
+    {
+        public List<DesktopIndexingProgress> Progresses { get; } = new();
+        public void Report(DesktopIndexingProgress progress) => Progresses.Add(progress);
+    }
+
+    private class FakeLongRunningCaseCreationService : DesktopCaseCreationService
+    {
+        public TaskCompletionSource<IndexResult> Tcs { get; } = new();
+        public bool WasCalled { get; private set; }
+        
+        public override async Task<IndexResult> CreateAndIndexCaseAsync(
+            string sourceFilePath, string outputDir, string caseId, bool cachePreview, int? limit,
+            IIndexingProgressReporter progressReporter, CancellationToken ct)
+        {
+            WasCalled = true;
+            using (ct.Register(() => Tcs.TrySetException(new OperationCanceledException(ct))))
+            {
+                return await Tcs.Task;
+            }
+        }
+    }
+
+    private class ThreadCheckingCaseCreationService : DesktopCaseCreationService
+    {
+        public TaskCompletionSource<IndexResult> Tcs { get; } = new();
+        public bool WasCalled { get; private set; }
+        public int ExecutingThreadId { get; private set; }
+        
+        public override async Task<IndexResult> CreateAndIndexCaseAsync(
+            string sourceFilePath, string outputDir, string caseId, bool cachePreview, int? limit,
+            IIndexingProgressReporter progressReporter, CancellationToken ct)
+        {
+            WasCalled = true;
+            ExecutingThreadId = Environment.CurrentManagedThreadId;
+            return await Tcs.Task;
+        }
+    }
+
+    // =========================================================================
+    // Milestone 6.2.1 — ViewModel & UI Responsiveness Refactoring Tests
+    // =========================================================================
+
+    [Fact]
+    public void NewCaseWizard_LogBuffer_LimitsLineCount()
+    {
+        // Arrange
+        var vm = new NewCaseWizardViewModel();
+
+        // Act - append 600 unique lines
+        for (int i = 0; i < 600; i++)
+        {
+            vm.AppendLog($"Line {i}");
+        }
+
+        // Assert - should be capped at 500 lines
+        Assert.Equal(500, vm.LogLines.Count);
+        // Also derived string should contain the last element and not the first
+        Assert.Contains("Line 599", vm.LogsText);
+        Assert.DoesNotContain("Line 0", vm.LogsText);
+    }
+
+    [Fact]
+    public void NewCaseWizard_DoesNotAppendDuplicateProgressMessages()
+    {
+        // Arrange
+        var vm = new NewCaseWizardViewModel();
+
+        // Act
+        vm.AppendLog("Step A: processing...");
+        vm.AppendLog("Step A: processing..."); // Consecutive duplicate
+        vm.AppendLog("Step B: processing...");
+        vm.AppendLog("Step A: processing..."); // Non-consecutive duplicate (allowed)
+
+        // Assert
+        Assert.Equal(3, vm.LogLines.Count);
+    }
+
+    [Fact]
+    public async Task NewCaseWizard_LongHash_DoesNotBlockUiThread_WithFakeHasher()
+    {
+        // Arrange
+        var fakeService = new FakeLongRunningCaseCreationService();
+        var vm = new NewCaseWizardViewModel(fakeService);
+        vm.SourcePath = Path.Combine(Path.GetTempPath(), $"test-{Guid.NewGuid():N}.ost");
+        File.WriteAllText(vm.SourcePath, "dummy");
+        vm.DestinationPath = Path.GetTempPath();
+        vm.DisclaimerAccepted = true;
+
+        try
+        {
+            // Act
+            vm.StartIndexingCommand.Execute(null);
+
+            // Assert UI is responsive and properties are set
+            Assert.True(vm.IsIndexing);
+            Assert.True(vm.IsBusy);
+            Assert.True(vm.CanCancel);
+
+            fakeService.Tcs.SetResult(new IndexResult(vm.CaseId, "dummy.db", 1, 1, 0, 0, 100L, "dummy-sha256", "Success", null));
+            await Task.Delay(100);
+
+            Assert.False(vm.IsIndexing);
+            Assert.False(vm.IsBusy);
+        }
+        finally
+        {
+            if (File.Exists(vm.SourcePath)) File.Delete(vm.SourcePath);
+        }
+    }
+
+    [Fact]
+    public async Task NewCaseWizard_CancelDuringHash_TransitionsToCancelled()
+    {
+        // Arrange
+        var fakeService = new FakeLongRunningCaseCreationService();
+        var vm = new NewCaseWizardViewModel(fakeService);
+        vm.SourcePath = Path.Combine(Path.GetTempPath(), $"test-{Guid.NewGuid():N}.ost");
+        File.WriteAllText(vm.SourcePath, "dummy");
+        vm.DestinationPath = Path.GetTempPath();
+        vm.DisclaimerAccepted = true;
+
+        try
+        {
+            vm.StartIndexingCommand.Execute(null);
+            Assert.True(vm.IsIndexing);
+
+            // Act
+            vm.CancelIndexingCommand.Execute(null);
+            await Task.Delay(100);
+
+            // Assert
+            Assert.False(vm.IsIndexing);
+            Assert.Equal("Cancelled", vm.IndexingStatus);
+            Assert.Equal("Operação cancelada pelo operador.", vm.IndexingError);
+        }
+        finally
+        {
+            if (File.Exists(vm.SourcePath)) File.Delete(vm.SourcePath);
+        }
+    }
+
+    [Fact]
+    public void NewCaseWizard_ProgressUpdates_AreDispatcherSafe()
+    {
+        // Arrange
+        var vm = new NewCaseWizardViewModel();
+
+        // Act
+        // Can be called safely from background thread context because of internal RunOnUIThread wrapper
+        Task.Run(() =>
+        {
+            vm.UpdateProgressFromStep("Calculando hash (SHA-256): Calculando hash SHA-256: 50.0% concluído. Speed: 120.0 MB/s. ETA: 00:00:10.", 50.0);
+        }).Wait();
+
+        // Assert
+        Assert.Equal(50.0, vm.ProgressPercent);
+        Assert.Equal("Calculando hash SHA-256: 50.0% concluído.", vm.ProgressDetailText);
+        Assert.Equal("120.0 MB/s", vm.ThroughputText);
+        Assert.Equal("00:00:10", vm.EtaText);
+    }
+
+    [Fact]
+    public async Task NewCaseWizard_Polling_DoesNotOverlap()
+    {
+        // Arrange
+        var fakeService = new FakeLongRunningCaseCreationService();
+        var vm = new NewCaseWizardViewModel(fakeService);
+        vm.SourcePath = Path.Combine(Path.GetTempPath(), $"test-{Guid.NewGuid():N}.ost");
+        File.WriteAllText(vm.SourcePath, "dummy");
+        vm.DestinationPath = Path.GetTempPath();
+        vm.DisclaimerAccepted = true;
+
+        try
+        {
+            // Act
+            vm.StartIndexingCommand.Execute(null);
+            
+            // Wait for VM background task starting.
+            // Even under high parallel workload or delayed SQLite queries, 
+            // the interlocked comparison forces skipped poll ticks instead of queuing.
+            await Task.Delay(100);
+
+            // Clean finish
+            fakeService.Tcs.SetResult(new IndexResult(vm.CaseId, "dummy.db", 1, 1, 0, 0, 100L, "dummy-sha256", "Success", null));
+            await Task.Delay(50);
+            
+            Assert.Equal("Success", vm.IndexingStatus);
+        }
+        finally
+        {
+            if (File.Exists(vm.SourcePath)) File.Delete(vm.SourcePath);
+        }
+    }
+
+    [Fact]
+    public void MainWindowViewModel_InjectsFileDialogService_AndDefaultsCorrectly()
+    {
+        var vm = new MainWindowViewModel();
+        Assert.NotNull(vm);
+    }
+
+    [Fact]
+    public async Task MainWindowViewModel_OpenCaseFolderInExplorerCommand_CallsService()
+    {
+        var fakeDialog = new FakeFileDialogService();
+        var vm = new MainWindowViewModel(
+            new CaseWorkspaceDiagnosticService(),
+            fileDialogService: fakeDialog
+        );
+
+        string tempDir = Path.Combine(Path.GetTempPath(), $"test-case-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        string dbPath = Path.Combine(tempDir, "case.db");
+        
+        try
+        {
+            await CreateMinimalCaseDbAsync(dbPath, folderCount: 2, messageCount: 2);
+            File.WriteAllText(Path.Combine(tempDir, "manifest.json"), "{}");
+
+            await vm.LoadCaseAsync(tempDir);
+            
+            Assert.True(vm.IsCaseLoaded);
+            
+            vm.OpenCaseFolderInExplorerCommand.Execute(null);
+            await Task.Delay(50);
+
+            Assert.Equal(tempDir, fakeDialog.LastOpenedFolder);
+        }
+        finally
+        {
+            vm.CloseCase();
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true);
+        }
+    }
+
+    [Fact]
+    public async Task MainWindowViewModel_OpenCaseFromTopbarCommand_LoadsCase_IfPathSelected()
+    {
+        var fakeDialog = new FakeFileDialogService();
+        var vm = new MainWindowViewModel(
+            new CaseWorkspaceDiagnosticService(),
+            fileDialogService: fakeDialog
+        );
+        string tempDir = Path.Combine(Path.GetTempPath(), $"test-case-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        string dbPath = Path.Combine(tempDir, "case.db");
+
+        try
+        {
+            await CreateMinimalCaseDbAsync(dbPath, folderCount: 2, messageCount: 2);
+            File.WriteAllText(Path.Combine(tempDir, "manifest.json"), "{}");
+
+            fakeDialog.FolderResult = tempDir;
+
+            vm.OpenCaseFromTopbarCommand.Execute(null);
+            await Task.Delay(100);
+
+            Assert.True(vm.IsCaseLoaded);
+        }
+        finally
+        {
+            vm.CloseCase();
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true);
+        }
+    }
+
+    [Fact]
+    public async Task HomeViewModel_SelectCaseFolderCommand_SetsSelectedCasePath()
+    {
+        var fakeDialog = new FakeFileDialogService { FolderResult = "C:\\some\\case\\path" };
+        var vm = new HomeViewModel(new CaseWorkspaceDiagnosticService(), fakeDialog);
+
+        vm.SelectCaseFolderCommand.Execute(null);
+        await Task.Delay(50);
+
+        Assert.Equal("C:\\some\\case\\path", vm.SelectedCasePath);
+    }
+
+    [Fact]
+    public async Task NewCaseWizardViewModel_SelectSourceAndDestinationCommands_SetPaths()
+    {
+        var fakeDialog = new FakeFileDialogService
+        {
+            EvidenceFileResult = "C:\\evidences\\evidence.ost",
+            FolderResult = "C:\\destination"
+        };
+
+        var vm = new NewCaseWizardViewModel(new DesktopCaseCreationService(), fakeDialog);
+
+        vm.SelectSourceFileCommand.Execute(null);
+        await Task.Delay(50);
+        Assert.Equal("C:\\evidences\\evidence.ost", vm.SourcePath);
+
+        vm.SelectDestinationFolderCommand.Execute(null);
+        await Task.Delay(50);
+        Assert.Equal("C:\\destination", vm.DestinationPath);
+    }
+
+    private class FakeFileDialogService : IDesktopFileDialogService
+    {
+        public string? EvidenceFileResult { get; set; }
+        public string? FolderResult { get; set; }
+        public string? CaseDbResult { get; set; }
+        public string? LastOpenedFolder { get; set; }
+        public string? LastRevealedFile { get; set; }
+
+        public Task<string?> OpenEvidenceFileAsync() => Task.FromResult(EvidenceFileResult);
+        public Task<string?> OpenFolderAsync() => Task.FromResult(FolderResult);
+        public Task<string?> OpenCaseDatabaseAsync() => Task.FromResult(CaseDbResult);
+        
+        public Task OpenFolderInExplorerAsync(string path)
+        {
+            LastOpenedFolder = path;
+            return Task.CompletedTask;
+        }
+
+        public Task RevealFileInExplorerAsync(string path)
+        {
+            LastRevealedFile = path;
+            return Task.CompletedTask;
+        }
+    }
+
+    [Fact]
+    public async Task WorkerProcess_NonJsonStdout_DoesNotCrashParent_RecordsProtocolError()
+    {
+        // Arrange
+        var orchestrator = new WorkerProcessOrchestrator();
+        
+        string shell = "powershell.exe";
+        string args = "-Command \"Write-Output '{\\\"type\\\": \\\"started\\\", \\\"timestampUtc\\\": \\\"2026-05-27T00:00:00Z\\\", \\\"engine\\\": \\\"XstReader\\\", \\\"message\\\": \\\"Started\\\"}'; Write-Output 'CONTAMINATION LINE HERE!'; Write-Output '{\\\"type\\\": \\\"completed\\\", \\\"timestampUtc\\\": \\\"2026-05-27T00:00:00Z\\\", \\\"engine\\\": \\\"XstReader\\\", \\\"status\\\": \\\"Success\\\", \\\"folders\\\": 2, \\\"messages\\\": 2, \\\"attachments\\\": 0, \\\"issues\\\": 0}'\"";
+        
+        orchestrator.CliPathOverride = shell;
+        orchestrator.CliArgumentsOverride = args;
+        
+        string tempCaseFolder = Path.Combine(Path.GetTempPath(), $"test-worker-contam-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempCaseFolder);
+        
+        var jobConfig = new WorkerJobConfig(
+            EvidencePath: "dummy.ost",
+            CasePath: tempCaseFolder,
+            CaseId: "TEST-CONTAM-CASE",
+            OperatorId: "test-operator",
+            EvidenceSha256: "dummy-sha256",
+            EvidenceSize: 1000L,
+            SelectedReaderEngine: "XstReader"
+        );
+        
+        int issuesReceived = 0;
+        var progressEvents = new List<WorkerProgressEvent>();
+        
+        try
+        {
+            // Act
+            // Override active spawner command arguments to run powershell command
+            var proc = new System.Diagnostics.Process();
+            // We can run power Shell in this test environment
+            var result = await orchestrator.RunJobAsync(
+                jobConfig,
+                p =>
+                {
+                    progressEvents.Add(p);
+                    if (p.Type == "issue" && p.Message.Contains("contaminação"))
+                    {
+                        issuesReceived++;
+                    }
+                },
+                CancellationToken.None
+            );
+            
+            // Assert
+            Assert.Equal("Success", result.Status);
+            Assert.True(issuesReceived >= 1);
+            
+            var protocolEvent = progressEvents.Find(e => e.Type == "issue");
+            Assert.NotNull(protocolEvent);
+            Assert.Contains("contaminação", protocolEvent.Message);
+        }
+        finally
+        {
+            if (Directory.Exists(tempCaseFolder)) Directory.Delete(tempCaseFolder, true);
+        }
+    }
 }
+

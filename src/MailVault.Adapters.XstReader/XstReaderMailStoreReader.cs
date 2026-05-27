@@ -11,8 +11,9 @@ using XstReader;
 
 namespace MailVault.Adapters.XstReader;
 
-public sealed class XstReaderMailStoreReader : IMailStoreReader, ISessionAwareMailStoreReader, IExtractionIssueSource
+public sealed class XstReaderMailStoreReader : IMailStoreReader, ISessionAwareMailStoreReader, IExtractionIssueSource, IMetadataOnlyAware
 {
+    public bool MetadataOnly { get; set; } = false;
     private readonly SemaphoreSlim _sessionGate = new(1, 1);
     private readonly List<ExtractionIssue> _issues = new();
     private readonly Dictionary<string, XstFolder> _folderCache = new(StringComparer.OrdinalIgnoreCase);
@@ -138,6 +139,7 @@ public sealed class XstReaderMailStoreReader : IMailStoreReader, ISessionAwareMa
 
     public async IAsyncEnumerable<FolderNode> EnumerateFoldersAsync([EnumeratorCancellation] CancellationToken ct)
     {
+        ct.ThrowIfCancellationRequested();
         var folders = new List<FolderNode>();
 
         try
@@ -155,7 +157,7 @@ public sealed class XstReaderMailStoreReader : IMailStoreReader, ISessionAwareMa
                 foreach (var folder in SafeFolders(root, root.Path))
                 {
                     ct.ThrowIfCancellationRequested();
-                    mapped.Add(MapFolderNode(folder, isRoot: true));
+                    mapped.Add(MapFolderNode(folder, isRoot: true, ct));
                 }
 
                 return mapped;
@@ -175,58 +177,49 @@ public sealed class XstReaderMailStoreReader : IMailStoreReader, ISessionAwareMa
             ct.ThrowIfCancellationRequested();
             yield return folder;
         }
-
-        await Task.CompletedTask;
     }
 
     public async IAsyncEnumerable<MailItem> EnumerateMessagesAsync(FolderId folderId, [EnumeratorCancellation] CancellationToken ct)
     {
-        var messages = new List<MailItem>();
+        ct.ThrowIfCancellationRequested();
+        XstFolder? targetFolder = null;
 
+        await _sessionGate.WaitAsync(ct);
         try
         {
-            messages = RunWithRoot(root =>
-            {
-                var targetFolder = FindFolderByPath(root, folderId.Value);
-                if (targetFolder == null)
-                {
-                    AddIssue("MV-WARN-XST-FOLDER-NOT-FOUND", "Warning", "Pasta não encontrada durante enumeração de mensagens.", folderId.Value, null);
-                    return new List<MailItem>();
-                }
-
-                var mapped = new List<MailItem>();
-                foreach (var msg in SafeMessages(targetFolder, folderId.Value))
-                {
-                    ct.ThrowIfCancellationRequested();
-                    try
-                    {
-                        mapped.Add(MapMailItem(msg, folderId.Value));
-                    }
-                    catch (Exception ex)
-                    {
-                        AddIssue("MV-ERR-XST-MESSAGE-MAP", "Error", "Falha ao mapear mensagem; item ignorado.", SafeObjectId(() => msg.Path, folderId.Value), ex);
-                    }
-                }
-
-                return mapped;
-            }, ct);
+            var root = _sessionRoot ?? (_sessionFile ??= OpenXstFile(_filePath ?? throw new InvalidOperationException("Reader não inicializado."))).RootFolder;
+            targetFolder = FindFolderByPath(root, folderId.Value);
         }
-        catch (OperationCanceledException)
+        finally
         {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            AddIssue("MV-ERR-XST-MESSAGE-ENUM", "Error", "Falha ao enumerar mensagens da pasta.", folderId.Value, ex);
+            _sessionGate.Release();
         }
 
-        foreach (var message in messages)
+        if (targetFolder == null)
+        {
+            AddIssue("MV-WARN-XST-FOLDER-NOT-FOUND", "Warning", "Pasta não encontrada durante enumeração de mensagens.", folderId.Value, null);
+            yield break;
+        }
+
+        var msgList = SafeMessages(targetFolder, folderId.Value);
+        foreach (var msg in msgList)
         {
             ct.ThrowIfCancellationRequested();
-            yield return message;
-        }
+            MailItem? mailItem = null;
+            try
+            {
+                mailItem = MapMailItem(msg, folderId.Value);
+            }
+            catch (Exception ex)
+            {
+                AddIssue("MV-ERR-XST-MESSAGE-MAP", "Error", "Falha ao mapear mensagem; item ignorado.", SafeObjectId(() => msg.Path, folderId.Value), ex);
+            }
 
-        await Task.CompletedTask;
+            if (mailItem != null)
+            {
+                yield return mailItem;
+            }
+        }
     }
 
     public Task<Stream> OpenAttachmentAsync(AttachmentRef attachment, CancellationToken ct)
@@ -344,14 +337,16 @@ public sealed class XstReaderMailStoreReader : IMailStoreReader, ISessionAwareMa
         _sessionFile = null;
     }
 
-    private FolderNode MapFolderNode(XstFolder folder, bool isRoot = false)
+    private FolderNode MapFolderNode(XstFolder folder, bool isRoot, CancellationToken ct)
     {
+        ct.ThrowIfCancellationRequested();
         CacheFolder(folder);
 
         var childrenList = new List<FolderNode>();
         foreach (var sub in SafeFolders(folder, SafeObjectId(() => folder.Path, _rootFolderPath ?? "root")))
         {
-            childrenList.Add(MapFolderNode(sub, isRoot: false));
+            ct.ThrowIfCancellationRequested();
+            childrenList.Add(MapFolderNode(sub, isRoot: false, ct));
         }
 
         FolderId? parentId = null;
@@ -384,32 +379,35 @@ public sealed class XstReaderMailStoreReader : IMailStoreReader, ISessionAwareMa
         var issues = new List<ExtractionIssue>();
 
         var fromRef = CreateAddress(SafeString(() => msg.From), null);
-        var toList = SafeRecipients(() => msg.Recipients?.To, internalId, "To", issues);
-        var ccList = SafeRecipients(() => msg.Recipients?.Cc, internalId, "Cc", issues);
-        var bccList = SafeRecipients(() => msg.Recipients?.Bcc, internalId, "Bcc", issues);
+        var toList = MetadataOnly ? new List<MailAddressRef>() : SafeRecipients(() => msg.Recipients?.To, internalId, "To", issues);
+        var ccList = MetadataOnly ? new List<MailAddressRef>() : SafeRecipients(() => msg.Recipients?.Cc, internalId, "Cc", issues);
+        var bccList = MetadataOnly ? new List<MailAddressRef>() : SafeRecipients(() => msg.Recipients?.Bcc, internalId, "Bcc", issues);
 
         string? plainText = null;
         string? htmlText = null;
-        try
+        if (!MetadataOnly)
         {
-            if (msg.Body != null)
+            try
             {
-                string bodyFormat = msg.Body.Format.ToString();
-                if (bodyFormat.Contains("Html", StringComparison.OrdinalIgnoreCase))
+                if (msg.Body != null)
                 {
-                    htmlText = msg.Body.Text;
-                }
-                else
-                {
-                    plainText = msg.Body.Text;
+                    string bodyFormat = msg.Body.Format.ToString();
+                    if (bodyFormat.Contains("Html", StringComparison.OrdinalIgnoreCase))
+                    {
+                        htmlText = msg.Body.Text;
+                    }
+                    else
+                    {
+                        plainText = msg.Body.Text;
+                    }
                 }
             }
-        }
-        catch (Exception ex)
-        {
-            var issue = CreateIssue("MV-WARN-XST-BODY", "Warning", "Falha ao ler corpo da mensagem; metadados preservados.", internalId, ex);
-            issues.Add(issue);
-            AddIssue(issue);
+            catch (Exception ex)
+            {
+                var issue = CreateIssue("MV-WARN-XST-BODY", "Warning", "Falha ao ler corpo da mensagem; metadados preservados.", internalId, ex);
+                issues.Add(issue);
+                AddIssue(issue);
+            }
         }
 
         var attachList = new List<AttachmentRef>();

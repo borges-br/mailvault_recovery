@@ -46,54 +46,58 @@ public class DesktopExportService
         {
             string finalOutputDir = outDir ?? Path.Combine(caseFolderPath, "exports");
 
-            using var store = new SqliteCaseIndexStore();
-            await store.InitializeAsync(caseFolderPath, ct);
-
-            using var caseReader = store.CreateReader();
-            var caseInfo = await caseReader.GetCaseInfoAsync(ct);
-            if (caseInfo == null)
+            var orchestrator = new WorkerProcessOrchestrator();
+            var jobConfig = new WorkerJobConfig(
+                EvidencePath: "", 
+                CasePath: caseFolderPath,
+                CaseId: "",
+                OperatorId: Environment.UserName,
+                EvidenceSha256: "",
+                EvidenceSize: 0,
+                SelectedReaderEngine: ""
+            )
             {
-                throw new InvalidOperationException("Metadados do caso (case_info) estão ausentes no case.db.");
-            }
+                JobKind = "Export",
+                ExportFormat = format,
+                OutputPath = finalOutputDir,
+                IncludeAttachments = includeAttachments,
+                ExtractAttachments = extractAttachments
+            };
 
-            var adapterResolver = new ReflectionAdapterResolver();
-
-            IMessageExporter innerExporter;
-            if (format.Equals("eml", StringComparison.OrdinalIgnoreCase))
-            {
-                innerExporter = new MailVault.Exporters.Eml.EmlExporter();
-            }
-            else
-            {
-                var emlExporter = new MailVault.Exporters.Eml.EmlExporter();
-                innerExporter = new MailVault.Exporters.Mbox.MboxExporter(emlExporter);
-            }
-
-            var exportRunner = new ExportJobRunner();
-            var options = new ExportJobOptions(
-                CaseFolder: caseFolderPath,
-                Format: format,
-                OutputDir: finalOutputDir,
-                FolderIdOrPath: folder,
-                Limit: limit,
-                Offset: offset,
-                IncludeAttachments: includeAttachments,
-                ExtractAttachments: extractAttachments,
-                Overwrite: overwrite,
-                DryRun: dryRun
+            var result = await orchestrator.RunJobAsync(
+                jobConfig,
+                p => {
+                    progressReporter.ReportProgress(p.FoldersProcessed, p.Message);
+                },
+                ct
             );
 
-            var result = await exportRunner.RunExportJobAsync(options, caseReader, adapterResolver, innerExporter, progressReporter, ct);
+            if (result.Status == "Failed")
+            {
+                throw new InvalidOperationException(result.ErrorMessage ?? "A exportação out-of-process falhou.");
+            }
 
             await auditWriter.WriteEventAsync(new AuditEvent(
                 EventId: Guid.NewGuid().ToString(),
                 Timestamp: DateTimeOffset.Now,
                 Action: "ExportCompletedByUI",
                 OperatorName: Environment.UserName,
-                Details: $"Exportação finalizada. DryRun={dryRun}. Total selecionado: {result.MessagesSelected}, exportado: {result.MessagesExported}."
+                Details: $"Exportação finalizada. DryRun={dryRun}. Total exportado: {result.MessagesIndexed}."
             ), ct);
 
-            return result;
+            return new ExportJobResult(
+                ExportId: Guid.NewGuid().ToString("N"),
+                Format: format,
+                FoldersSelected: 0,
+                MessagesSelected: result.MessagesIndexed,
+                MessagesExported: result.MessagesIndexed,
+                MessagesFailed: 0,
+                AttachmentsExported: 0,
+                AttachmentsFailed: 0,
+                Issues: Array.Empty<ExtractionIssue>(),
+                ExportedFiles: Array.Empty<string>(),
+                DurationMs: 0
+            );
         }
         catch (Exception ex)
         {

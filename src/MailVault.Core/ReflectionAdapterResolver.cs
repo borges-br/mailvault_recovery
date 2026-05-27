@@ -62,10 +62,18 @@ public sealed class ReflectionAdapterResolver : IAdapterResolver
 
         if (candidate == null)
         {
+            string basePath = AppContext.BaseDirectory;
+            var candidatesInfo = string.Join("; ", _descriptors.Select(d => $"{Path.GetFileName(d.AssemblyPath)} ({d.HealthStatus})"));
+            string expected = ext == ".ost" || ext == ".pst" ? "MailVault.Adapters.XstReader.dll ou MailVault.Adapters.Libpff.dll" : "Adaptador desconhecido";
+            string msg = $"Nenhum adapter funcional encontrado para a extensão '{extension}'. " +
+                         $"Procurado em: '{basePath}'. " +
+                         $"Esperado: {expected}. " +
+                         $"Status dos adapters: {candidatesInfo}. " +
+                         $"Ação recomendada: Verifique se o projeto Desktop está copiando os plugins de adapters para a pasta de saída do aplicativo.";
             return new AdapterLoadResult(
                 Success: false,
                 Reader: null,
-                ErrorMessage: $"Nenhum adapter funcional encontrado para a extensão '{extension}'.",
+                ErrorMessage: msg,
                 Exception: null
             );
         }

@@ -49,7 +49,13 @@ public class ValidationPanelViewModel : ViewModelBase
     public ValidationPanelViewModel(DesktopValidationService validationService)
     {
         _validationService = validationService;
-        RunValidationCommand = ReactiveCommand.CreateFromTask(OnRunValidationAsync);
+        var runValidationCmd = ReactiveCommand.CreateFromTask(OnRunValidationAsync);
+        runValidationCmd.ThrownExceptions.Subscribe(ex =>
+        {
+            ValidationStatus = $"❌ Falha inesperada no comando de validação: {ex.Message}";
+            ReportStatus = "Failed";
+        });
+        RunValidationCommand = runValidationCmd;
     }
 
     public void SetCaseFolder(string caseFolderPath)

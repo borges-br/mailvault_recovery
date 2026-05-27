@@ -29,13 +29,13 @@ public sealed class SqliteCaseIndexStore : ICaseIndexStore
         _connection = new SqliteConnection(_connString);
         await _connection.OpenAsync(ct);
 
-        // Run pragma for foreign keys on open
-        using (var cmd = new SqliteCommand("PRAGMA foreign_keys = ON;", _connection))
+        // Run pragma for foreign keys, busy timeout, WAL mode, synchronous FULL on open
+        using (var cmd = new SqliteCommand("PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 10000; PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL;", _connection))
         {
             await cmd.ExecuteNonQueryAsync(ct);
         }
 
-        // Initialize schema v1
+        // Initialize schema
         IndexSchemaInitializer.Initialize(_connection);
     }
 

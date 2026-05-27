@@ -7,6 +7,7 @@ namespace MailVault.Core;
 
 public interface ICaseIndexWriter : System.IDisposable
 {
+    string? ActiveRunId { get; set; }
     Task BeginTransactionAsync(CancellationToken ct);
     Task CommitTransactionAsync(CancellationToken ct);
     Task RollbackTransactionAsync(CancellationToken ct);

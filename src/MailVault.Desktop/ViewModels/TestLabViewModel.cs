@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using MailVault.Desktop.Services;
+using MailVault.Indexing;
 using ReactiveUI;
 
 namespace MailVault.Desktop.ViewModels;
@@ -25,6 +26,29 @@ public sealed class TestLabViewModel : ViewModelBase
     private string _pipelineStatusText = "Pronto para iniciar.";
     private string _pipelineLogsText = "";
     private PipelineSummary? _pipelineSummaryResult;
+
+    // Milestone 6.2.3 Diagnostic Fields
+    private bool _xstAvailable;
+    private string _xstVersion = "";
+    private string? _xstWarning;
+    private bool _pffAvailable;
+    private string _pffVersion = "";
+    private string? _pffWarning;
+    private bool _readPstAvailable;
+    private string _readPstVersion = "";
+    private string? _readPstWarning;
+
+    // Milestone 6.2.3.1 CLI Diagnostics Fields
+    private bool _cliAvailable;
+    private string _cliStatusText = "Não verificado";
+    private string _cliLaunchMode = "N/A";
+    private string _cliResolvedPath = "N/A";
+    private string _cliWorkingDirectory = "N/A";
+    private string _cliAppBaseDir = AppContext.BaseDirectory;
+    private string _cliCurrentDir = Environment.CurrentDirectory;
+    private ObservableCollection<string> _cliProbedPaths = new();
+    private string? _cliWarning;
+    private string? _cliError;
 
     public string CorpusFolderPath
     {
@@ -84,10 +108,112 @@ public sealed class TestLabViewModel : ViewModelBase
         private set => this.RaiseAndSetIfChanged(ref _pipelineSummaryResult, value);
     }
 
+    // Milestone 6.2.3 Diagnostic Getters
+    public bool XstAvailable
+    {
+        get => _xstAvailable;
+        private set => this.RaiseAndSetIfChanged(ref _xstAvailable, value);
+    }
+    public string XstVersion
+    {
+        get => _xstVersion;
+        private set => this.RaiseAndSetIfChanged(ref _xstVersion, value);
+    }
+    public string? XstWarning
+    {
+        get => _xstWarning;
+        private set => this.RaiseAndSetIfChanged(ref _xstWarning, value);
+    }
+
+    public bool PffAvailable
+    {
+        get => _pffAvailable;
+        private set => this.RaiseAndSetIfChanged(ref _pffAvailable, value);
+    }
+    public string PffVersion
+    {
+        get => _pffVersion;
+        private set => this.RaiseAndSetIfChanged(ref _pffVersion, value);
+    }
+    public string? PffWarning
+    {
+        get => _pffWarning;
+        private set => this.RaiseAndSetIfChanged(ref _pffWarning, value);
+    }
+
+    public bool ReadPstAvailable
+    {
+        get => _readPstAvailable;
+        private set => this.RaiseAndSetIfChanged(ref _readPstAvailable, value);
+    }
+    public string ReadPstVersion
+    {
+        get => _readPstVersion;
+        private set => this.RaiseAndSetIfChanged(ref _readPstVersion, value);
+    }
+    public string? ReadPstWarning
+    {
+        get => _readPstWarning;
+        private set => this.RaiseAndSetIfChanged(ref _readPstWarning, value);
+    }
+
+    // Milestone 6.2.3.1 CLI Diagnostics Getters
+    public bool CliAvailable
+    {
+        get => _cliAvailable;
+        private set => this.RaiseAndSetIfChanged(ref _cliAvailable, value);
+    }
+    public string CliStatusText
+    {
+        get => _cliStatusText;
+        private set => this.RaiseAndSetIfChanged(ref _cliStatusText, value);
+    }
+    public string CliLaunchMode
+    {
+        get => _cliLaunchMode;
+        private set => this.RaiseAndSetIfChanged(ref _cliLaunchMode, value);
+    }
+    public string CliResolvedPath
+    {
+        get => _cliResolvedPath;
+        private set => this.RaiseAndSetIfChanged(ref _cliResolvedPath, value);
+    }
+    public string CliWorkingDirectory
+    {
+        get => _cliWorkingDirectory;
+        private set => this.RaiseAndSetIfChanged(ref _cliWorkingDirectory, value);
+    }
+    public string CliAppBaseDir
+    {
+        get => _cliAppBaseDir;
+        private set => this.RaiseAndSetIfChanged(ref _cliAppBaseDir, value);
+    }
+    public string CliCurrentDir
+    {
+        get => _cliCurrentDir;
+        private set => this.RaiseAndSetIfChanged(ref _cliCurrentDir, value);
+    }
+    public ObservableCollection<string> ProbedPaths
+    {
+        get => _cliProbedPaths;
+        private set => this.RaiseAndSetIfChanged(ref _cliProbedPaths, value);
+    }
+    public string? CliWarning
+    {
+        get => _cliWarning;
+        private set => this.RaiseAndSetIfChanged(ref _cliWarning, value);
+    }
+    public string? CliError
+    {
+        get => _cliError;
+        private set => this.RaiseAndSetIfChanged(ref _cliError, value);
+    }
+
     public ICommand SetupStructureCommand { get; }
     public ICommand ScanCorpusCommand { get; }
     public ICommand RunPipelineCommand { get; }
     public ICommand CancelPipelineCommand { get; }
+    public ICommand RefreshEnginesCommand { get; }
 
     public event Action<string>? CaseCreated;
 
@@ -107,6 +233,84 @@ public sealed class TestLabViewModel : ViewModelBase
         ScanCorpusCommand = ReactiveCommand.CreateFromTask(ScanCorpusAsync);
         RunPipelineCommand = ReactiveCommand.CreateFromTask(RunPipelineAsync);
         CancelPipelineCommand = ReactiveCommand.Create(CancelPipeline);
+        RefreshEnginesCommand = ReactiveCommand.CreateFromTask(RefreshEnginesAsync);
+
+        _ = RefreshEnginesAsync();
+    }
+
+    public async Task RefreshEnginesAsync()
+    {
+        // 1. XstReader
+        var xstEngine = new XstReaderEngine();
+        var xstCap = await xstEngine.CheckCapabilityAsync(CancellationToken.None);
+        XstAvailable = xstCap.IsAvailable;
+        XstVersion = xstCap.Version ?? "1.0.6";
+        XstWarning = xstCap.LicenseWarning;
+
+        // 2. Libpff / pffexport
+        var pffCap = await ExternalToolDetector.DetectToolAsync("pffexport", CancellationToken.None);
+        PffAvailable = pffCap.IsAvailable;
+        PffVersion = pffCap.Version ?? "Desconhecido";
+        PffWarning = pffCap.LicenseWarning;
+
+        // 3. readpst
+        var readPstCap = await ExternalToolDetector.DetectToolAsync("readpst", CancellationToken.None);
+        ReadPstAvailable = readPstCap.IsAvailable;
+        ReadPstVersion = readPstCap.Version ?? "Desconhecido";
+        ReadPstWarning = readPstCap.LicenseWarning;
+
+        // 4. CLI Worker resolution check
+        var resolver = new WorkerExecutableResolver();
+        _cliProbedPaths.Clear();
+        try
+        {
+            var info = resolver.Resolve();
+            CliAvailable = true;
+            CliStatusText = "Disponível";
+            CliLaunchMode = info.LaunchMode.ToString();
+            CliResolvedPath = info.FileName;
+            CliWorkingDirectory = info.WorkingDirectory;
+            CliError = null;
+
+            foreach (var path in info.ProbedPaths)
+            {
+                _cliProbedPaths.Add(path);
+            }
+
+            if (info.LaunchMode == WorkerLaunchMode.DotnetRunProject)
+            {
+                CliWarning = "Aviso: Usando fallback de desenvolvimento (dotnet run). A performance e a portabilidade podem ser afetadas.";
+            }
+            else
+            {
+                CliWarning = null;
+            }
+        }
+        catch (WorkerLaunchResolutionException ex)
+        {
+            CliAvailable = false;
+            CliStatusText = "Indisponível";
+            CliLaunchMode = "N/A";
+            CliResolvedPath = "N/A";
+            CliWorkingDirectory = "N/A";
+            CliError = ex.Message;
+            CliWarning = null;
+
+            foreach (var path in ex.ProbedPaths)
+            {
+                _cliProbedPaths.Add(path);
+            }
+        }
+        catch (Exception ex)
+        {
+            CliAvailable = false;
+            CliStatusText = "Erro";
+            CliLaunchMode = "N/A";
+            CliResolvedPath = "N/A";
+            CliWorkingDirectory = "N/A";
+            CliError = $"Falha desconhecida na resolução: {ex.Message}";
+            CliWarning = null;
+        }
     }
 
     private void SetupDefaultStructure()

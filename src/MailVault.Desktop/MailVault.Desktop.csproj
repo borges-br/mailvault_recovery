@@ -26,6 +26,15 @@
     <ProjectReference Include="..\MailVault.Audit\MailVault.Audit.csproj" />
     <ProjectReference Include="..\MailVault.Exporters.Eml\MailVault.Exporters.Eml.csproj" />
     <ProjectReference Include="..\MailVault.Exporters.Mbox\MailVault.Exporters.Mbox.csproj" />
+    <!-- Copy-only plugin dependency to deploy the OST/PST inspection adapter -->
+    <ProjectReference Include="..\MailVault.Adapters.XstReader\MailVault.Adapters.XstReader.csproj">
+      <Private>true</Private>
+      <CopyLocalSatelliteAssemblies>true</CopyLocalSatelliteAssemblies>
+    </ProjectReference>
+    <!-- Copy-only plugin dependency to deploy the Libpff inspection adapter -->
+    <ProjectReference Include="..\MailVault.Adapters.Libpff\MailVault.Adapters.Libpff.csproj">
+      <Private>true</Private>
+      <CopyLocalSatelliteAssemblies>true</CopyLocalSatelliteAssemblies>
+    </ProjectReference>
   </ItemGroup>
-
 </Project>

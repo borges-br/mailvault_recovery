@@ -8,6 +8,8 @@ namespace MailVault.Desktop;
 
 public partial class App : Application
 {
+    public static MainWindowViewModel? MainViewModel { get; private set; }
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
@@ -19,6 +21,7 @@ public partial class App : Application
         {
             var mainWindow = new MainWindow();
             var mainViewModel = new MainWindowViewModel();
+            MainViewModel = mainViewModel;
             mainWindow.DataContext = mainViewModel;
             desktop.MainWindow = mainWindow;
         }

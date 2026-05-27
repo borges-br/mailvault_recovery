@@ -22,6 +22,11 @@ public class MainWindowViewModel : ViewModelBase
     private string _caseStatusText = "Nenhum case";
     private string _statusBarText = "Nenhum case aberto.";
 
+    // Global Unhandled Error Banner
+    private bool _hasGlobalError;
+    private string? _globalErrorText;
+    private string? _globalErrorDetails;
+
     // Sidebar Workspace Card
     private string _caseId = "";
     private string _healthStatus = "Sem Caso";
@@ -56,6 +61,7 @@ public class MainWindowViewModel : ViewModelBase
     private readonly CaseWorkspaceService _workspaceService;
     private readonly RecentCasesService _recentCasesService;
     private readonly LocalSettingsService _settingsService;
+    private readonly IDesktopFileDialogService _fileDialogService;
 
     private SqliteCaseIndexStore? _store;
     private ICaseIndexReader? _reader;
@@ -87,6 +93,24 @@ public class MainWindowViewModel : ViewModelBase
     {
         get => _hasWarningBanner;
         private set => this.RaiseAndSetIfChanged(ref _hasWarningBanner, value);
+    }
+
+    public bool HasGlobalError
+    {
+        get => _hasGlobalError;
+        set => this.RaiseAndSetIfChanged(ref _hasGlobalError, value);
+    }
+
+    public string? GlobalErrorText
+    {
+        get => _globalErrorText;
+        set => this.RaiseAndSetIfChanged(ref _globalErrorText, value);
+    }
+
+    public string? GlobalErrorDetails
+    {
+        get => _globalErrorDetails;
+        set => this.RaiseAndSetIfChanged(ref _globalErrorDetails, value);
     }
 
     public string CaseStatusText
@@ -216,6 +240,11 @@ public class MainWindowViewModel : ViewModelBase
     public ICommand ShowAuditManifestCommand { get; }
     public ICommand ShowTestLabCommand { get; }
     public ICommand OpenCaseFromTopbarCommand { get; }
+    public ICommand OpenCaseFolderInExplorerCommand { get; }
+
+    // Global Error Commands
+    public ICommand CopyGlobalErrorDetailsCommand { get; }
+    public ICommand DismissGlobalErrorCommand { get; }
 
     public MainWindowViewModel()
         : this(new CaseWorkspaceDiagnosticService())
@@ -226,14 +255,16 @@ public class MainWindowViewModel : ViewModelBase
         CaseWorkspaceDiagnosticService diagnosticService,
         CaseWorkspaceService? workspaceService = null,
         RecentCasesService? recentCasesService = null,
-        LocalSettingsService? settingsService = null)
+        LocalSettingsService? settingsService = null,
+        IDesktopFileDialogService? fileDialogService = null)
     {
         _diagnosticService = diagnosticService;
         _workspaceService = workspaceService ?? new CaseWorkspaceService(_diagnosticService);
         _recentCasesService = recentCasesService ?? new RecentCasesService();
         _settingsService = settingsService ?? new LocalSettingsService();
+        _fileDialogService = fileDialogService ?? new DesktopFileDialogService();
 
-        _homeViewModel = new HomeViewModel(_diagnosticService);
+        _homeViewModel = new HomeViewModel(_diagnosticService, _fileDialogService);
         _homeViewModel.CaseSelected += async path => await LoadCaseAsync(path);
         _homeViewModel.RecentCaseRemovalRequested += RemoveRecentCase;
 
@@ -247,7 +278,7 @@ public class MainWindowViewModel : ViewModelBase
         _messageBrowserViewModel = new MessageBrowserViewModel(_folderTreeViewModel, _messageListViewModel, _messagePreviewViewModel);
 
         // Milestone 6.2 VM Init
-        _newCaseWizardViewModel = new NewCaseWizardViewModel();
+        _newCaseWizardViewModel = new NewCaseWizardViewModel(new DesktopCaseCreationService(), _fileDialogService);
         _newCaseWizardViewModel.IndexingCompleted += async path => await LoadCaseAsync(path);
 
         _settingsViewModel = new SettingsViewModel();
@@ -281,12 +312,20 @@ public class MainWindowViewModel : ViewModelBase
         ShowExportCommand = ReactiveCommand.Create(() => CurrentView = _exportPanelViewModel);
         ShowValidationCommand = ReactiveCommand.Create(() => CurrentView = _validationPanelViewModel);
 
-        ShowNewCaseWizardCommand = ReactiveCommand.Create(() => CurrentView = _newCaseWizardViewModel);
+        ShowNewCaseWizardCommand = ReactiveCommand.Create(() => 
+        {
+            _newCaseWizardViewModel.StartNewCaseCommand.Execute(null);
+            CurrentView = _newCaseWizardViewModel;
+        });
         ShowSettingsCommand = ReactiveCommand.Create(() => CurrentView = _settingsViewModel);
         ShowAuditManifestCommand = ReactiveCommand.Create(() => CurrentView = _auditManifestViewModel);
         ShowTestLabCommand = ReactiveCommand.Create(() => CurrentView = _testLabViewModel);
         
         OpenCaseFromTopbarCommand = ReactiveCommand.CreateFromTask(OnOpenCaseFromTopbarAsync);
+        OpenCaseFolderInExplorerCommand = ReactiveCommand.CreateFromTask(OnOpenCaseFolderInExplorerAsync);
+
+        CopyGlobalErrorDetailsCommand = ReactiveCommand.Create(CopyGlobalErrorDetails);
+        DismissGlobalErrorCommand = ReactiveCommand.Create(DismissGlobalError);
 
         RefreshRecentCases();
         CurrentView = _homeViewModel;
@@ -294,11 +333,19 @@ public class MainWindowViewModel : ViewModelBase
 
     private async Task OnOpenCaseFromTopbarAsync()
     {
-        // Simple mock trigger: normally triggers directory selection dialog in View.
-        // For standard UI flow, we route to Home so the user can easily open it.
-        CurrentView = _homeViewModel;
-        _homeViewModel.StatusText = "Selecione a pasta do caso abaixo para abrir.";
-        await Task.CompletedTask;
+        string? path = await _fileDialogService.OpenFolderAsync();
+        if (!string.IsNullOrWhiteSpace(path))
+        {
+            await LoadCaseAsync(path);
+        }
+    }
+
+    private async Task OnOpenCaseFolderInExplorerAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(_caseFolderPath))
+        {
+            await _fileDialogService.OpenFolderInExplorerAsync(_caseFolderPath);
+        }
     }
 
     public async Task LoadCaseAsync(string casePath)
@@ -453,5 +500,34 @@ public class MainWindowViewModel : ViewModelBase
         _recentCasesService.Remove(caseFolderPath);
         RefreshRecentCases();
         _homeViewModel.StatusText = "Case recente removido.";
+    }
+
+    public void ShowGlobalError(Exception ex)
+    {
+        GlobalErrorText = $"Ocorreu um erro crítico inesperado no sistema: {ex.Message}";
+        GlobalErrorDetails = ex.ToString();
+        HasGlobalError = true;
+
+        // Release current operations from IsBusy locks
+        _newCaseWizardViewModel.ReleaseBusyState();
+        _newCaseWizardViewModel.AppendLog($"[ERRO GLOBAL CRÍTICO] {ex.Message}");
+    }
+
+    private void CopyGlobalErrorDetails()
+    {
+        if (string.IsNullOrEmpty(GlobalErrorDetails)) return;
+
+        if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop &&
+            desktop.MainWindow != null)
+        {
+            desktop.MainWindow.Clipboard?.SetTextAsync(GlobalErrorDetails);
+        }
+    }
+
+    private void DismissGlobalError()
+    {
+        HasGlobalError = false;
+        GlobalErrorText = null;
+        GlobalErrorDetails = null;
     }
 }

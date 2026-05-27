@@ -12,6 +12,7 @@ using MailVault.Core;
 using MailVault.Domain;
 using MailVault.Indexing;
 using MailVault.Validation;
+using Microsoft.Data.Sqlite;
 
 namespace MailVault.Cli;
 
@@ -240,6 +241,15 @@ public static class Program
 
         corpusCommand.AddCommand(scanCommand);
 
+        // Command: index-worker
+        var indexWorkerCommand = new Command("index-worker", "Comando interno isolado de processamento para indexação forense.");
+        var jobOpt = new Option<FileInfo>("--job", "Caminho do arquivo job.json contendo as configurações da indexação.") { IsRequired = true };
+        indexWorkerCommand.AddOption(jobOpt);
+        indexWorkerCommand.SetHandler(async (FileInfo job) =>
+        {
+            await HandleIndexWorkerAsync(job);
+        }, jobOpt);
+
         rootCommand.AddCommand(inspectCommand);
         rootCommand.AddCommand(treeCommand);
         rootCommand.AddCommand(listCommand);
@@ -250,6 +260,18 @@ public static class Program
         rootCommand.AddCommand(exportCommand);
         rootCommand.AddCommand(validateCommand);
         rootCommand.AddCommand(corpusCommand);
+        rootCommand.AddCommand(indexWorkerCommand);
+
+        // Command: worker
+        var workerCommand = new Command("worker", "Comando unificado isolado de processamento para operações forenses.");
+        var workerJobOpt = new Option<FileInfo>("--job", "Caminho do arquivo job.json contendo as configurações do job.") { IsRequired = true };
+        workerCommand.AddOption(workerJobOpt);
+        workerCommand.SetHandler(async (FileInfo job) =>
+        {
+            await HandleWorkerJobAsync(job);
+        }, workerJobOpt);
+
+        rootCommand.AddCommand(workerCommand);
 
         int result = await rootCommand.InvokeAsync(args);
         return ExitCode != 0 ? ExitCode : result;
@@ -1646,5 +1668,772 @@ public static class Program
     private sealed class NullProgressReporter : IProgressReporter
     {
         public void ReportProgress(double percentage, string status) { }
+    }
+
+    private class IndexJobConfig
+    {
+        public string? EvidencePath { get; set; }
+        public string? CasePath { get; set; }
+        public string? CaseId { get; set; }
+        public string? OperatorId { get; set; }
+        public string? EvidenceSha256 { get; set; }
+        public long EvidenceSize { get; set; }
+        public string? SelectedReaderEngine { get; set; }
+        public bool NoBodyLogging { get; set; }
+    }
+
+    private static async Task HandleIndexWorkerAsync(FileInfo jobFile)
+    {
+        var realStdout = Console.Out;
+        Console.SetOut(Console.Error); // Redirect all standard console writes to stderr to prevent stdout contamination
+
+        IndexJobConfig? jobConfig = null;
+        try
+        {
+            if (!jobFile.Exists)
+            {
+                throw new FileNotFoundException($"Arquivo de configuração do job não encontrado: {jobFile.FullName}");
+            }
+
+            string jsonContent = await File.ReadAllTextAsync(jobFile.FullName);
+            jobConfig = JsonSerializer.Deserialize<IndexJobConfig>(jsonContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        catch (Exception ex)
+        {
+            var errEvent = new
+            {
+                type = "failed",
+                timestampUtc = DateTime.UtcNow.ToString("o"),
+                engine = "Unknown",
+                status = "Failed",
+                message = $"Erro ao carregar job.json: {ex.Message}"
+            };
+            realStdout.WriteLine(JsonSerializer.Serialize(errEvent));
+            realStdout.Flush();
+            ExitCode = 9;
+            return;
+        }
+
+        if (jobConfig == null || string.IsNullOrEmpty(jobConfig.EvidencePath) || string.IsNullOrEmpty(jobConfig.CasePath) || string.IsNullOrEmpty(jobConfig.CaseId))
+        {
+            var errEvent = new
+            {
+                type = "failed",
+                timestampUtc = DateTime.UtcNow.ToString("o"),
+                engine = "Unknown",
+                status = "Failed",
+                message = "Configuração do job incompleta: campos obrigatórios ausentes."
+            };
+            realStdout.WriteLine(JsonSerializer.Serialize(errEvent));
+            realStdout.Flush();
+            ExitCode = 10;
+            return;
+        }
+
+        string engineName = jobConfig.SelectedReaderEngine ?? "XstReader";
+        var startedEvent = new
+        {
+            type = "started",
+            timestampUtc = DateTime.UtcNow.ToString("o"),
+            engine = engineName,
+            message = $"Processamento do job iniciado. Motor: {engineName}."
+        };
+        realStdout.WriteLine(JsonSerializer.Serialize(startedEvent));
+        realStdout.Flush();
+
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        using var heartbeatCts = new CancellationTokenSource();
+        
+        var heartbeatTask = Task.Run(async () =>
+        {
+            while (!heartbeatCts.Token.IsCancellationRequested)
+            {
+                try
+                {
+                    await Task.Delay(2000, heartbeatCts.Token);
+                    if (heartbeatCts.Token.IsCancellationRequested) break;
+
+                    var hbEvent = new
+                    {
+                        type = "heartbeat",
+                        timestampUtc = DateTime.UtcNow.ToString("o"),
+                        engine = engineName,
+                        phase = "Running",
+                        currentFolderPath = "",
+                        foldersProcessed = 0,
+                        messagesProcessed = 0,
+                        attachmentsProcessed = 0,
+                        issuesCount = 0,
+                        heartbeat = true,
+                        message = "Pulsando heartbeat de atividade técnica..."
+                    };
+                    realStdout.WriteLine(JsonSerializer.Serialize(hbEvent));
+                    realStdout.Flush();
+                }
+                catch
+                {
+                    // Ignore background delay cancellation exceptions
+                }
+            }
+        }, heartbeatCts.Token);
+
+        try
+        {
+            using var store = new SqliteCaseIndexStore();
+            await store.InitializeAsync(jobConfig.CasePath, CancellationToken.None);
+
+            var engineFactory = new ReaderEngineFactory();
+            var engine = engineFactory.CreateEngine(engineName);
+            engine.PrecalculatedSha256 = jobConfig.EvidenceSha256 ?? "";
+
+            var progressReporter = new Progress<IndexingProgress>(p =>
+            {
+                var progressEvent = new
+                {
+                    type = "progress",
+                    timestampUtc = DateTime.UtcNow.ToString("o"),
+                    engine = engineName,
+                    phase = p.Phase,
+                    currentFolderPath = p.CurrentFolderPath,
+                    foldersProcessed = p.FoldersProcessed,
+                    messagesProcessed = p.MessagesProcessed,
+                    attachmentsProcessed = p.AttachmentsProcessed,
+                    issuesCount = p.IssuesCount,
+                    heartbeat = false,
+                    message = p.Message
+                };
+                realStdout.WriteLine(JsonSerializer.Serialize(progressEvent));
+                realStdout.Flush();
+            });
+
+            var result = await engine.IndexAsync(
+                jobConfig.EvidencePath,
+                store,
+                jobConfig.CaseId,
+                jobConfig.OperatorId ?? Environment.UserName,
+                cachePreview: true,
+                limit: null,
+                progress: progressReporter,
+                ct: CancellationToken.None
+            );
+
+            heartbeatCts.Cancel();
+            try { await heartbeatTask; } catch { }
+
+            var completedEvent = new
+            {
+                type = "completed",
+                timestampUtc = DateTime.UtcNow.ToString("o"),
+                engine = engineName,
+                status = result.Status,
+                folders = result.FoldersIndexed,
+                messages = result.MessagesIndexed,
+                attachments = result.AttachmentsIndexed,
+                issues = result.IssuesDetected,
+                elapsedMs = stopwatch.ElapsedMilliseconds
+            };
+            realStdout.WriteLine(JsonSerializer.Serialize(completedEvent));
+            realStdout.Flush();
+            ExitCode = result.Status == "Success" ? 0 : 8;
+        }
+        catch (OperationCanceledException)
+        {
+            heartbeatCts.Cancel();
+            try { await heartbeatTask; } catch { }
+
+            var cancelEvent = new
+            {
+                type = "cancelled",
+                timestampUtc = DateTime.UtcNow.ToString("o"),
+                engine = engineName,
+                status = "Cancelled",
+                message = "Indexação abortada por solicitação de cancelamento."
+            };
+            realStdout.WriteLine(JsonSerializer.Serialize(cancelEvent));
+            realStdout.Flush();
+            ExitCode = 130;
+        }
+        catch (Exception ex)
+        {
+            heartbeatCts.Cancel();
+            try { await heartbeatTask; } catch { }
+
+            var failedEvent = new
+            {
+                type = "failed",
+                timestampUtc = DateTime.UtcNow.ToString("o"),
+                engine = engineName,
+                status = "Failed",
+                message = $"Erro durante execução do motor: {ex.Message}"
+            };
+            realStdout.WriteLine(JsonSerializer.Serialize(failedEvent));
+            realStdout.Flush();
+            ExitCode = 1;
+        }
+    }
+
+    private class WorkerJobConfig
+    {
+        public string? JobKind { get; set; }
+        public string? EvidencePath { get; set; }
+        public string? CasePath { get; set; }
+        public string? CaseId { get; set; }
+        public string? OperatorId { get; set; }
+        public string? EvidenceSha256 { get; set; }
+        public long EvidenceSize { get; set; }
+        public string? SelectedReaderEngine { get; set; }
+        public bool NoBodyLogging { get; set; } = true;
+        public bool IndexingModeMetadataOnly { get; set; } = true;
+
+        // Export / Preview / Attachment parameters
+        public string? OutputPath { get; set; }
+        public string? ExportFormat { get; set; }
+        public List<string>? SelectedMessageIds { get; set; }
+        public bool IncludeAttachments { get; set; } = true;
+        public bool ExtractAttachments { get; set; } = true;
+        public string? MessageId { get; set; }
+        public string? AttachmentId { get; set; }
+
+        // Fallback tool diagnostic parameter
+        public string? FallbackToolName { get; set; }
+    }
+
+    private static async Task HandleWorkerJobAsync(FileInfo jobFile)
+    {
+        var realStdout = Console.Out;
+        Console.SetOut(Console.Error); // Redirect stdout to stderr to avoid log contamination
+
+        WorkerJobConfig? job = null;
+        try
+        {
+            if (!jobFile.Exists)
+            {
+                throw new FileNotFoundException($"Arquivo de configuração do job não encontrado: {jobFile.FullName}");
+            }
+
+            string jsonContent = await File.ReadAllTextAsync(jobFile.FullName);
+            job = JsonSerializer.Deserialize<WorkerJobConfig>(jsonContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        catch (Exception ex)
+        {
+            var err = new { type = "failed", timestampUtc = DateTime.UtcNow.ToString("o"), status = "Failed", message = $"Erro ao carregar job: {ex.Message}" };
+            realStdout.WriteLine(JsonSerializer.Serialize(err));
+            realStdout.Flush();
+            ExitCode = 9;
+            return;
+        }
+
+        if (job == null || string.IsNullOrEmpty(job.JobKind))
+        {
+            var err = new { type = "failed", timestampUtc = DateTime.UtcNow.ToString("o"), status = "Failed", message = "Configuração do job inválida ou JobKind ausente." };
+            realStdout.WriteLine(JsonSerializer.Serialize(err));
+            realStdout.Flush();
+            ExitCode = 10;
+            return;
+        }
+
+        string kind = job.JobKind;
+        if (kind.Equals("IndexMetadata", StringComparison.OrdinalIgnoreCase))
+        {
+            await ExecuteIndexMetadataJobAsync(job, realStdout);
+        }
+        else if (kind.Equals("Export", StringComparison.OrdinalIgnoreCase))
+        {
+            await ExecuteExportJobAsync(job, realStdout);
+        }
+        else if (kind.Equals("PreviewMessage", StringComparison.OrdinalIgnoreCase))
+        {
+            await ExecutePreviewMessageJobAsync(job, realStdout);
+        }
+        else if (kind.Equals("ExtractAttachment", StringComparison.OrdinalIgnoreCase))
+        {
+            await ExecuteExtractAttachmentJobAsync(job, realStdout);
+        }
+        else if (kind.Equals("ValidateExport", StringComparison.OrdinalIgnoreCase))
+        {
+            await ExecuteValidateExportJobAsync(job, realStdout);
+        }
+        else if (kind.Equals("NativeFallbackDiagnostic", StringComparison.OrdinalIgnoreCase))
+        {
+            await ExecuteNativeFallbackDiagnosticJobAsync(job, realStdout);
+        }
+        else
+        {
+            var err = new { type = "failed", timestampUtc = DateTime.UtcNow.ToString("o"), status = "Failed", message = $"JobKind '{kind}' não é suportado." };
+            realStdout.WriteLine(JsonSerializer.Serialize(err));
+            realStdout.Flush();
+            ExitCode = 11;
+        }
+    }
+
+    private static async Task ExecuteIndexMetadataJobAsync(WorkerJobConfig job, TextWriter realStdout)
+    {
+        string engineName = job.SelectedReaderEngine ?? "XstReader";
+        var startedEvent = new { type = "started", timestampUtc = DateTime.UtcNow.ToString("o"), engine = engineName, message = $"Processamento do job IndexMetadata iniciado. Motor: {engineName}." };
+        realStdout.WriteLine(JsonSerializer.Serialize(startedEvent));
+        realStdout.Flush();
+
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        using var heartbeatCts = new CancellationTokenSource();
+        var heartbeatTask = Task.Run(async () =>
+        {
+            while (!heartbeatCts.Token.IsCancellationRequested)
+            {
+                try
+                {
+                    await Task.Delay(2000, heartbeatCts.Token);
+                    if (heartbeatCts.Token.IsCancellationRequested) break;
+
+                    var hb = new { type = "heartbeat", timestampUtc = DateTime.UtcNow.ToString("o"), engine = engineName, phase = "Running", heartbeat = true, message = "Pulsando heartbeat de atividade..." };
+                    realStdout.WriteLine(JsonSerializer.Serialize(hb));
+                    realStdout.Flush();
+                }
+                catch { }
+            }
+        });
+
+        try
+        {
+            using var store = new SqliteCaseIndexStore();
+            await store.InitializeAsync(job.CasePath!, CancellationToken.None);
+
+            var engineFactory = new ReaderEngineFactory();
+            var engine = engineFactory.CreateEngine(engineName);
+            engine.PrecalculatedSha256 = job.EvidenceSha256 ?? "";
+
+            if (engine is IMetadataOnlyEngine metadataEngine)
+            {
+                metadataEngine.MetadataOnly = job.IndexingModeMetadataOnly;
+            }
+
+            var progressReporter = new Progress<IndexingProgress>(p =>
+            {
+                var pr = new
+                {
+                    type = "progress",
+                    timestampUtc = DateTime.UtcNow.ToString("o"),
+                    engine = engineName,
+                    phase = p.Phase,
+                    currentFolderPath = p.CurrentFolderPath,
+                    foldersProcessed = p.FoldersProcessed,
+                    messagesProcessed = p.MessagesProcessed,
+                    attachmentsProcessed = p.AttachmentsProcessed,
+                    issuesCount = p.IssuesCount,
+                    heartbeat = false,
+                    message = p.Message
+                };
+                realStdout.WriteLine(JsonSerializer.Serialize(pr));
+                realStdout.Flush();
+            });
+
+            var result = await engine.IndexAsync(
+                job.EvidencePath!,
+                store,
+                job.CaseId!,
+                job.OperatorId ?? Environment.UserName,
+                cachePreview: !job.IndexingModeMetadataOnly,
+                limit: null,
+                progress: progressReporter,
+                ct: CancellationToken.None
+            );
+
+            heartbeatCts.Cancel();
+            try { await heartbeatTask; } catch { }
+
+            // Write Manifest & Audit Log inside the worker itself for clean completion!
+            var warnings = new List<ExtractionIssue>();
+            if (result.IssuesDetected > 0)
+            {
+                warnings.Add(new ExtractionIssue(
+                    Code: "MV-WARN-WORKER-ISSUES",
+                    Severity: "Warning",
+                    Message: $"Indexação concluída com {result.IssuesDetected} avisos técnicos detectados.",
+                    ObjectId: job.CaseId!,
+                    TechnicalDetails: $"Avisos acumulados durante o processamento do worker."
+                ));
+            }
+
+            var manifest = new RecoveryManifest(
+                CaseId: job.CaseId!,
+                SourceFile: job.EvidencePath!,
+                SourceSizeBytes: job.EvidenceSize,
+                SourceSha256: job.EvidenceSha256 ?? "",
+                OperatorName: job.OperatorId ?? Environment.UserName,
+                StartedAt: DateTimeOffset.UtcNow,
+                CompletedAt: DateTimeOffset.UtcNow,
+                ToolVersion: typeof(Program).Assembly.GetName().Version?.ToString() ?? "1.0.0.0",
+                Actions: new List<string> { $"Executed out-of-process indexer ({engineName})" },
+                Warnings: warnings
+            );
+
+            string caseDirBase = Path.GetDirectoryName(job.CasePath!)!;
+            await ManifestService.SaveManifestAsync(caseDirBase, manifest, CancellationToken.None);
+
+            string auditLogFilePath = Path.Combine(job.CasePath!, "audit.log");
+            var auditWriter = new FileAuditTrailWriter(auditLogFilePath);
+            await auditWriter.WriteEventAsync(new AuditEvent(
+                EventId: Guid.NewGuid().ToString(),
+                Timestamp: DateTimeOffset.UtcNow,
+                Action: "IndexCompletedByWorker",
+                OperatorName: job.OperatorId ?? Environment.UserName,
+                Details: $"Indexação concluída pelo worker process. Pastas: {result.FoldersIndexed}, E-mails: {result.MessagesIndexed}."
+            ), CancellationToken.None);
+
+            // Close store cleanly
+            store.Dispose();
+
+            // Checkpoint-truncate WAL after connections are completely closed!
+            try
+            {
+                string dbPath = Path.Combine(job.CasePath!, "case.db");
+                if (File.Exists(dbPath))
+                {
+                    Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+                    using var checkpointConn = new SqliteConnection($"Data Source={dbPath};Pooling=False;");
+                    await checkpointConn.OpenAsync();
+                    using var checkpointCmd = new SqliteCommand("PRAGMA wal_checkpoint(TRUNCATE);", checkpointConn);
+                    await checkpointCmd.ExecuteNonQueryAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[WAL Checkpoint Warning] {ex.Message}");
+            }
+
+            var completedEvent = new
+            {
+                type = "completed",
+                timestampUtc = DateTime.UtcNow.ToString("o"),
+                engine = engineName,
+                status = result.Status,
+                folders = result.FoldersIndexed,
+                messages = result.MessagesIndexed,
+                attachments = result.AttachmentsIndexed,
+                issues = result.IssuesDetected,
+                elapsedMs = stopwatch.ElapsedMilliseconds
+            };
+            realStdout.WriteLine(JsonSerializer.Serialize(completedEvent));
+            realStdout.Flush();
+            ExitCode = result.Status == "Success" ? 0 : 8;
+        }
+        catch (OperationCanceledException)
+        {
+            heartbeatCts.Cancel();
+            try { await heartbeatTask; } catch { }
+
+            var cancelEvent = new { type = "cancelled", timestampUtc = DateTime.UtcNow.ToString("o"), engine = engineName, status = "Cancelled", message = "Indexação cancelada por solicitação." };
+            realStdout.WriteLine(JsonSerializer.Serialize(cancelEvent));
+            realStdout.Flush();
+            ExitCode = 130;
+        }
+        catch (Exception ex)
+        {
+            heartbeatCts.Cancel();
+            try { await heartbeatTask; } catch { }
+
+            // Write diagnostic report
+            try
+            {
+                string reportPath = Path.Combine(job.CasePath!, "reader-diagnostic-report.json");
+                var report = new
+                {
+                    lastPhase = "Failed",
+                    lastFolder = "",
+                    workerPid = System.Environment.ProcessId,
+                    heartbeatAge = stopwatch.ElapsedMilliseconds,
+                    exitCode = 1,
+                    exceptionSummary = ex.Message,
+                    issueCodes = new[] { "MV-ERR-INDEX-FATAL" }
+                };
+                File.WriteAllText(reportPath, JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
+            }
+            catch { }
+
+            var failedEvent = new { type = "failed", timestampUtc = DateTime.UtcNow.ToString("o"), engine = engineName, status = "Failed", message = $"Erro durante execução do motor: {ex.Message}" };
+            realStdout.WriteLine(JsonSerializer.Serialize(failedEvent));
+            realStdout.Flush();
+            ExitCode = 1;
+        }
+    }
+
+    private static async Task ExecuteExportJobAsync(WorkerJobConfig job, TextWriter realStdout)
+    {
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        try
+        {
+            string finalOutputDir = job.OutputPath ?? Path.Combine(job.CasePath!, "exports");
+
+            using var store = new SqliteCaseIndexStore();
+            await store.InitializeAsync(job.CasePath!, CancellationToken.None);
+
+            using var caseReader = store.CreateReader();
+            var adapterResolver = new ReflectionAdapterResolver();
+
+            IMessageExporter innerExporter;
+            if (job.ExportFormat != null && job.ExportFormat.Equals("mbox", StringComparison.OrdinalIgnoreCase))
+            {
+                var emlExporter = new MailVault.Exporters.Eml.EmlExporter();
+                innerExporter = new MailVault.Exporters.Mbox.MboxExporter(emlExporter);
+            }
+            else
+            {
+                innerExporter = new MailVault.Exporters.Eml.EmlExporter();
+            }
+
+            var exportRunner = new ExportJobRunner();
+            var options = new ExportJobOptions(
+                CaseFolder: job.CasePath!,
+                Format: job.ExportFormat ?? "eml",
+                OutputDir: finalOutputDir,
+                FolderIdOrPath: null,
+                Limit: null,
+                Offset: null,
+                IncludeAttachments: job.IncludeAttachments,
+                ExtractAttachments: job.ExtractAttachments,
+                Overwrite: true,
+                DryRun: false
+            );
+
+            var progressReporter = new WorkerProgressReporter(realStdout);
+
+            var result = await exportRunner.RunExportJobAsync(options, caseReader, adapterResolver, innerExporter, progressReporter, CancellationToken.None);
+
+            // Save export manifest
+            var completedEvent = new
+            {
+                type = "completed",
+                timestampUtc = DateTime.UtcNow.ToString("o"),
+                status = "Success",
+                messages = result.MessagesExported,
+                folders = 0,
+                attachments = 0,
+                issues = 0,
+                elapsedMs = stopwatch.ElapsedMilliseconds
+            };
+            realStdout.WriteLine(JsonSerializer.Serialize(completedEvent));
+            realStdout.Flush();
+            ExitCode = 0;
+        }
+        catch (Exception ex)
+        {
+            var failedEvent = new { type = "failed", timestampUtc = DateTime.UtcNow.ToString("o"), status = "Failed", message = $"Erro durante exportação: {ex.Message}" };
+            realStdout.WriteLine(JsonSerializer.Serialize(failedEvent));
+            realStdout.Flush();
+            ExitCode = 1;
+        }
+    }
+
+    private sealed class WorkerProgressReporter : IProgressReporter
+    {
+        private readonly TextWriter _realStdout;
+
+        public WorkerProgressReporter(TextWriter realStdout)
+        {
+            _realStdout = realStdout;
+        }
+
+        public void ReportProgress(double percentage, string status)
+        {
+            var pr = new
+            {
+                type = "progress",
+                timestampUtc = DateTime.UtcNow.ToString("o"),
+                phase = "Exporting",
+                message = $"Exportando mensagens... {percentage:N0}% completo."
+            };
+            _realStdout.WriteLine(JsonSerializer.Serialize(pr));
+            _realStdout.Flush();
+        }
+    }
+
+    private static async Task ExecutePreviewMessageJobAsync(WorkerJobConfig job, TextWriter realStdout)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(job.MessageId) || string.IsNullOrEmpty(job.EvidencePath))
+            {
+                throw new ArgumentException("MessageId e EvidencePath são obrigatórios para PreviewMessage.");
+            }
+
+            string extension = Path.GetExtension(job.EvidencePath);
+            var resolver = new ReflectionAdapterResolver();
+            var res = resolver.ResolveAdapter(extension);
+            if (!res.Success || res.Reader == null)
+            {
+                throw new InvalidOperationException($"Não foi possível carregar o leitor para {extension}");
+            }
+
+            if (res.Reader is IMetadataOnlyAware metadataAware)
+            {
+                metadataAware.MetadataOnly = false; // We want full body for preview!
+            }
+
+            if (res.Reader is ISessionAwareMailStoreReader sessionReader)
+            {
+                await sessionReader.BeginReadSessionAsync(job.EvidencePath, CancellationToken.None);
+            }
+
+            var msgResult = await res.Reader.GetMessageAsync(new MessageId(job.MessageId), CancellationToken.None);
+
+            if (res.Reader is ISessionAwareMailStoreReader sessionReaderEnd)
+            {
+                await sessionReaderEnd.EndReadSessionAsync(CancellationToken.None);
+            }
+
+            if (!msgResult.Success || msgResult.Value == null)
+            {
+                throw new InvalidOperationException($"Mensagem não encontrada ou inacessível: {(msgResult.Issues.Count > 0 ? msgResult.Issues[0].Message : "Erro desconhecido")}");
+            }
+
+            var message = msgResult.Value;
+
+            var result = new
+            {
+                type = "preview_result",
+                messageId = message.InternalId,
+                subject = message.Subject ?? "",
+                body = message.PlainTextBody ?? "",
+                htmlBody = message.HtmlBody ?? "",
+                headers = message.RawProperties.TryGetValue("PR_TRANSPORT_MESSAGE_HEADERS", out var headers) ? headers : "",
+                from = message.From != null ? $"{message.From.Name} <{message.From.Address}>" : "",
+                to = string.Join("; ", message.To.Select(r => r.Address)),
+                cc = string.Join("; ", message.Cc.Select(r => r.Address)),
+                bcc = string.Join("; ", message.Bcc.Select(r => r.Address)),
+                sentAt = message.SentAt?.ToString("o") ?? "",
+                receivedAt = message.ReceivedAt?.ToString("o") ?? "",
+                attachments = message.Attachments.Select(a => new { fileName = a.FileName, sizeBytes = a.SizeBytes }).ToList()
+            };
+
+            realStdout.WriteLine(JsonSerializer.Serialize(result));
+            realStdout.Flush();
+            ExitCode = 0;
+        }
+        catch (Exception ex)
+        {
+            var failedEvent = new { type = "failed", timestampUtc = DateTime.UtcNow.ToString("o"), status = "Failed", message = $"Erro ao gerar preview da mensagem: {ex.Message}" };
+            realStdout.WriteLine(JsonSerializer.Serialize(failedEvent));
+            realStdout.Flush();
+            ExitCode = 1;
+        }
+    }
+
+    private static async Task ExecuteExtractAttachmentJobAsync(WorkerJobConfig job, TextWriter realStdout)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(job.EvidencePath) || string.IsNullOrEmpty(job.MessageId) || string.IsNullOrEmpty(job.AttachmentId) || string.IsNullOrEmpty(job.OutputPath))
+            {
+                throw new ArgumentException("EvidencePath, MessageId, AttachmentId e OutputPath são obrigatórios para ExtractAttachment.");
+            }
+
+            string extension = Path.GetExtension(job.EvidencePath);
+            var resolver = new ReflectionAdapterResolver();
+            var res = resolver.ResolveAdapter(extension);
+            if (!res.Success || res.Reader == null)
+            {
+                throw new InvalidOperationException($"Não foi possível carregar o leitor para {extension}");
+            }
+
+            if (res.Reader is ISessionAwareMailStoreReader sessionReader)
+            {
+                await sessionReader.BeginReadSessionAsync(job.EvidencePath, CancellationToken.None);
+            }
+
+            using var stream = await res.Reader.OpenAttachmentStreamAsync(new MessageId(job.MessageId), new AttachmentId(job.AttachmentId), CancellationToken.None);
+            
+            string? dir = Path.GetDirectoryName(job.OutputPath);
+            if (!string.IsNullOrEmpty(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+
+            using (var outStream = File.Create(job.OutputPath))
+            {
+                await stream.CopyToAsync(outStream);
+            }
+
+            if (res.Reader is ISessionAwareMailStoreReader sessionReaderEnd)
+            {
+                await sessionReaderEnd.EndReadSessionAsync(CancellationToken.None);
+            }
+
+            var completedEvent = new { type = "completed", timestampUtc = DateTime.UtcNow.ToString("o"), status = "Success", message = $"Anexo extraído com sucesso para: {job.OutputPath}" };
+            realStdout.WriteLine(JsonSerializer.Serialize(completedEvent));
+            realStdout.Flush();
+            ExitCode = 0;
+        }
+        catch (Exception ex)
+        {
+            var failedEvent = new { type = "failed", timestampUtc = DateTime.UtcNow.ToString("o"), status = "Failed", message = $"Erro ao extrair anexo: {ex.Message}" };
+            realStdout.WriteLine(JsonSerializer.Serialize(failedEvent));
+            realStdout.Flush();
+            ExitCode = 1;
+        }
+    }
+
+    private static async Task ExecuteValidateExportJobAsync(WorkerJobConfig job, TextWriter realStdout)
+    {
+        try
+        {
+            var validationService = new MailVault.Validation.ValidationEngine();
+            var report = await validationService.ValidateAsync(
+                job.CasePath!,
+                exportFolderOverride: null,
+                formatOverride: job.ExportFormat ?? "eml",
+                strict: true,
+                checkEmlParse: true,
+                checkMboxStructure: false,
+                checkAttachments: true,
+                sampleSize: null,
+                outDir: job.CasePath!,
+                CancellationToken.None
+            );
+
+            var completedEvent = new { type = "completed", timestampUtc = DateTime.UtcNow.ToString("o"), status = "Success", message = $"Validação concluída. Status: {report.Status}" };
+            realStdout.WriteLine(JsonSerializer.Serialize(completedEvent));
+            realStdout.Flush();
+            ExitCode = 0;
+        }
+        catch (Exception ex)
+        {
+            var failedEvent = new { type = "failed", timestampUtc = DateTime.UtcNow.ToString("o"), status = "Failed", message = $"Erro ao validar exportação: {ex.Message}" };
+            realStdout.WriteLine(JsonSerializer.Serialize(failedEvent));
+            realStdout.Flush();
+            ExitCode = 1;
+        }
+    }
+
+    private static async Task ExecuteNativeFallbackDiagnosticJobAsync(WorkerJobConfig job, TextWriter realStdout)
+    {
+        try
+        {
+            string toolName = job.FallbackToolName ?? "pffexport";
+            var capability = await ExternalToolDetector.DetectToolAsync(toolName, CancellationToken.None);
+            
+            var report = new
+            {
+                toolName = toolName,
+                isAvailable = capability.IsAvailable,
+                executablePath = capability.ExecutablePath,
+                version = capability.Version ?? "Unknown",
+                licenseWarning = capability.LicenseWarning ?? "N/A",
+                timestampUtc = DateTime.UtcNow.ToString("o")
+            };
+
+            string diagPath = Path.Combine(job.CasePath!, "native-tool-diagnostic-report.json");
+            File.WriteAllText(diagPath, JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
+
+            var completedEvent = new { type = "completed", timestampUtc = DateTime.UtcNow.ToString("o"), status = "Success", message = $"Diagnóstico técnico de {toolName} salvo em native-tool-diagnostic-report.json" };
+            realStdout.WriteLine(JsonSerializer.Serialize(completedEvent));
+            realStdout.Flush();
+            ExitCode = 0;
+        }
+        catch (Exception ex)
+        {
+            var failedEvent = new { type = "failed", timestampUtc = DateTime.UtcNow.ToString("o"), status = "Failed", message = $"Erro ao executar diagnóstico de ferramentas nativas: {ex.Message}" };
+            realStdout.WriteLine(JsonSerializer.Serialize(failedEvent));
+            realStdout.Flush();
+            ExitCode = 1;
+        }
     }
 }

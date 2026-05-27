@@ -12,7 +12,9 @@ namespace MailVault.Indexing;
 
 public sealed class IndexingService : IIndexingService
 {
-    public async Task<IndexResult> RunIndexAsync(
+    public string? PrecalculatedSha256 { get; set; }
+
+    public Task<IndexResult> RunIndexAsync(
         string filePath,
         ICaseIndexStore store,
         IMailStoreReader reader,
@@ -22,6 +24,20 @@ public sealed class IndexingService : IIndexingService
         int? limit,
         CancellationToken ct)
     {
+        return RunIndexAsync(filePath, store, reader, caseId, operatorName, cachePreview, limit, null, ct);
+    }
+
+    public async Task<IndexResult> RunIndexAsync(
+        string filePath,
+        ICaseIndexStore store,
+        IMailStoreReader reader,
+        string caseId,
+        string operatorName,
+        bool cachePreview,
+        int? limit,
+        IProgress<IndexingProgress>? progress,
+        CancellationToken ct)
+    {
         var stopwatch = Stopwatch.StartNew();
         var counters = new IndexingCounters();
         string? errorMessage = null;
@@ -29,13 +45,58 @@ public sealed class IndexingService : IIndexingService
         var fileInfo = new FileInfo(filePath);
         long size = fileInfo.Length;
 
-        var hashService = new HashService();
-        string sha256 = await hashService.CalculateSha256Async(filePath, new NullProgressReporter(), ct);
+        ct.ThrowIfCancellationRequested();
+        progress?.Report(new IndexingProgress(
+            phase: "Preparing",
+            currentFolderPath: "",
+            foldersProcessed: 0,
+            messagesProcessed: 0,
+            attachmentsProcessed: 0,
+            issuesCount: 0,
+            percent: 0.0,
+            elapsed: stopwatch.Elapsed,
+            message: "Iniciando pipeline de indexação...",
+            isCancellable: true
+        ));
+
+        // Step 1: Calculate SHA-256 if not precalculated
+        string sha256 = PrecalculatedSha256;
+        if (string.IsNullOrEmpty(sha256))
+        {
+            progress?.Report(new IndexingProgress(
+                phase: "Preparing",
+                currentFolderPath: "",
+                foldersProcessed: 0,
+                messagesProcessed: 0,
+                attachmentsProcessed: 0,
+                issuesCount: 0,
+                percent: 5.0,
+                elapsed: stopwatch.Elapsed,
+                message: "Calculando hash (SHA-256) da evidência...",
+                isCancellable: true
+            ));
+            var hashService = new HashService();
+            sha256 = await hashService.CalculateSha256Async(filePath, new NullProgressReporter(), ct);
+        }
 
         string adapterName = reader.ReaderName;
         string adapterVersion = reader.GetType().Assembly.GetName().Version?.ToString() ?? "1.0.0.0";
 
         using var writer = store.CreateWriter();
+
+        ct.ThrowIfCancellationRequested();
+        progress?.Report(new IndexingProgress(
+            phase: "Preparing",
+            currentFolderPath: "",
+            foldersProcessed: 0,
+            messagesProcessed: 0,
+            attachmentsProcessed: 0,
+            issuesCount: 0,
+            percent: 10.0,
+            elapsed: stopwatch.Elapsed,
+            message: "Registrando metadados do caso...",
+            isCancellable: true
+        ));
 
         await CommitAsync(writer, async () =>
         {
@@ -45,10 +106,38 @@ public sealed class IndexingService : IIndexingService
 
         try
         {
+            ct.ThrowIfCancellationRequested();
+            progress?.Report(new IndexingProgress(
+                phase: "Preparing",
+                currentFolderPath: "",
+                foldersProcessed: 0,
+                messagesProcessed: 0,
+                attachmentsProcessed: 0,
+                issuesCount: 0,
+                percent: 15.0,
+                elapsed: stopwatch.Elapsed,
+                message: "Abrindo arquivo OST/PST...",
+                isCancellable: true
+            ));
+
             if (reader is ISessionAwareMailStoreReader sessionReader)
             {
                 await sessionReader.BeginReadSessionAsync(filePath, ct);
             }
+
+            ct.ThrowIfCancellationRequested();
+            progress?.Report(new IndexingProgress(
+                phase: "Preparing",
+                currentFolderPath: "",
+                foldersProcessed: 0,
+                messagesProcessed: 0,
+                attachmentsProcessed: 0,
+                issuesCount: 0,
+                percent: 20.0,
+                elapsed: stopwatch.Elapsed,
+                message: "Enumerando pastas...",
+                isCancellable: true
+            ));
 
             var metadata = await reader.InspectAsync(filePath, ct);
             await SaveIssuesAsync(writer, metadata.Issues, counters, ct);
@@ -57,7 +146,7 @@ public sealed class IndexingService : IIndexingService
             await foreach (var rootFolder in reader.EnumerateFoldersAsync(ct))
             {
                 ct.ThrowIfCancellationRequested();
-                await IndexFolderRecursiveAsync(rootFolder, writer, reader, counters, cachePreview, limit, ct);
+                await IndexFolderRecursiveAsync(rootFolder, writer, reader, counters, cachePreview, limit, progress, stopwatch, ct);
                 await DrainReaderIssuesAsync(writer, reader, counters, ct);
             }
 
@@ -66,14 +155,31 @@ public sealed class IndexingService : IIndexingService
         catch (OperationCanceledException)
         {
             counters.FatalError = true;
-            errorMessage = "Indexação cancelada.";
-            await SaveFatalIssueAsync(writer, caseId, "MV-ERR-INDEX-CANCELLED", errorMessage, filePath, null, counters, ct);
+            counters.IsCancelled = true;
+            errorMessage = "Operação cancelada pelo operador.";
+            
+            // Try to write cancellation issue safely to DB
+            try
+            {
+                await SaveFatalIssueAsync(writer, caseId, "MV-ERR-INDEX-CANCELLED", errorMessage, filePath, null, counters, CancellationToken.None);
+            }
+            catch
+            {
+                // Best-effort database write on cancellation
+            }
         }
         catch (Exception ex)
         {
             counters.FatalError = true;
             errorMessage = ex.Message;
-            await SaveFatalIssueAsync(writer, caseId, "MV-ERR-INDEX-FATAL", "Falha fatal controlada durante indexação.", filePath, ex, counters, ct);
+            try
+            {
+                await SaveFatalIssueAsync(writer, caseId, "MV-ERR-INDEX-FATAL", "Falha fatal controlada durante indexação.", filePath, ex, counters, CancellationToken.None);
+            }
+            catch
+            {
+                // Best-effort database write on fatal crash
+            }
         }
         finally
         {
@@ -87,42 +193,83 @@ public sealed class IndexingService : IIndexingService
                 {
                     counters.HadRecoverableErrors = true;
                     errorMessage ??= ex.Message;
-                    await SaveFatalIssueAsync(writer, caseId, "MV-ERR-INDEX-SESSION-END", "Falha ao encerrar sessão de leitura.", filePath, ex, counters, CancellationToken.None);
+                    try
+                    {
+                        await SaveFatalIssueAsync(writer, caseId, "MV-ERR-INDEX-SESSION-END", "Falha ao encerrar sessão de leitura.", filePath, ex, counters, CancellationToken.None);
+                    }
+                    catch
+                    {
+                        // Best-effort database write
+                    }
                 }
             }
         }
 
-        if (counters.MessagesIndexed == 0)
+        if (counters.MessagesIndexed == 0 && !counters.IsCancelled)
         {
             string severity = counters.FoldersIndexed == 0 ? "Error" : "Warning";
-            await SaveIssuesAsync(writer, new[]
+            try
             {
-                new ExtractionIssue(
-                    Code: "MV-WARN-INDEX-NO-MESSAGES",
-                    Severity: severity,
-                    Message: "Indexação terminou sem mensagens gravadas no case.db.",
-                    ObjectId: caseId,
-                    TechnicalDetails: null)
-            }, counters, ct);
+                await SaveIssuesAsync(writer, new[]
+                {
+                    new ExtractionIssue(
+                        Code: "MV-WARN-INDEX-NO-MESSAGES",
+                        Severity: severity,
+                        Message: "Indexação terminou sem mensagens gravadas no case.db.",
+                        ObjectId: caseId,
+                        TechnicalDetails: null)
+                }, counters, CancellationToken.None);
+            }
+            catch
+            {
+                // Best-effort database write
+            }
         }
 
         stopwatch.Stop();
         string status = DetermineStatus(counters);
 
-        await CommitAsync(writer, async () =>
+        // Finalize index_run in DB
+        try
         {
-            await writer.SaveIndexRunAsync(
-                Guid.NewGuid().ToString("N"),
-                caseId,
-                DateTime.UtcNow,
-                status,
-                stopwatch.ElapsedMilliseconds,
-                counters.FoldersIndexed,
-                counters.MessagesIndexed,
-                counters.AttachmentsIndexed,
-                counters.IssuesDetected,
-                ct);
-        }, ct);
+            await CommitAsync(writer, async () =>
+            {
+                await writer.SaveIndexRunAsync(
+                    Guid.NewGuid().ToString("N"),
+                    caseId,
+                    DateTime.UtcNow,
+                    status,
+                    stopwatch.ElapsedMilliseconds,
+                    counters.FoldersIndexed,
+                    counters.MessagesIndexed,
+                    counters.AttachmentsIndexed,
+                    counters.IssuesDetected,
+                    CancellationToken.None);
+            }, CancellationToken.None);
+        }
+        catch
+        {
+            // Best-effort database write
+        }
+
+        // Send final progress report
+        progress?.Report(new IndexingProgress(
+            phase: status == "Cancelled" ? "Cancelled" : "Completed",
+            currentFolderPath: "",
+            foldersProcessed: counters.FoldersIndexed,
+            messagesProcessed: counters.MessagesIndexed,
+            attachmentsProcessed: counters.AttachmentsIndexed,
+            issuesCount: counters.IssuesDetected,
+            percent: 100.0,
+            elapsed: stopwatch.Elapsed,
+            message: status == "Cancelled" ? "Cancelamento solicitado, finalizando estado seguro..." : "Indexação concluída!",
+            isCancellable: false
+        ));
+
+        if (counters.IsCancelled)
+        {
+            throw new OperationCanceledException("Indexação cancelada.");
+        }
 
         return new IndexResult(
             CaseId: caseId,
@@ -144,11 +291,13 @@ public sealed class IndexingService : IIndexingService
         IndexingCounters counters,
         bool cachePreview,
         int? limit,
+        IProgress<IndexingProgress>? progress,
+        Stopwatch stopwatch,
         CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
 
-        bool folderCommitted = await TryIndexSingleFolderAsync(folder, writer, reader, counters, cachePreview, limit, ct);
+        bool folderCommitted = await TryIndexSingleFolderAsync(folder, writer, reader, counters, cachePreview, limit, progress, stopwatch, ct);
         if (!folderCommitted)
         {
             return;
@@ -156,7 +305,8 @@ public sealed class IndexingService : IIndexingService
 
         foreach (var sub in folder.Children)
         {
-            await IndexFolderRecursiveAsync(sub, writer, reader, counters, cachePreview, limit, ct);
+            ct.ThrowIfCancellationRequested();
+            await IndexFolderRecursiveAsync(sub, writer, reader, counters, cachePreview, limit, progress, stopwatch, ct);
         }
     }
 
@@ -167,6 +317,8 @@ public sealed class IndexingService : IIndexingService
         IndexingCounters counters,
         bool cachePreview,
         int? limit,
+        IProgress<IndexingProgress>? progress,
+        Stopwatch stopwatch,
         CancellationToken ct)
     {
         string cleanPath = FolderPathNormalizer.Normalize(folder.FullPath);
@@ -178,13 +330,35 @@ public sealed class IndexingService : IIndexingService
             MessageCount: folder.MessageCount,
             Children: folder.Children);
 
-        await writer.BeginTransactionAsync(ct);
-        try
+        // Report beginning of folder enumeration
+        progress?.Report(new IndexingProgress(
+            phase: "Indexing",
+            currentFolderPath: cleanPath,
+            foldersProcessed: counters.FoldersIndexed,
+            messagesProcessed: counters.MessagesIndexed,
+            attachmentsProcessed: counters.AttachmentsIndexed,
+            issuesCount: counters.IssuesDetected,
+            percent: null,
+            elapsed: stopwatch.Elapsed,
+            message: $"Enumerando pasta: {normalizedFolder.DisplayName}",
+            isCancellable: true
+        ));
+
+        // Save folder metadata first
+        await CommitAsync(writer, async () =>
         {
             await writer.SaveFolderAsync(normalizedFolder, ct);
             counters.FoldersIndexed++;
+        }, ct);
 
+        try
+        {
             int count = 0;
+            int batchCount = 0;
+            const int BatchSize = 200;
+
+            await writer.BeginTransactionAsync(ct);
+
             await foreach (var msg in reader.EnumerateMessagesAsync(folder.Id, ct))
             {
                 if (limit.HasValue && count >= limit.Value)
@@ -205,14 +379,51 @@ public sealed class IndexingService : IIndexingService
                 }
 
                 count++;
+                batchCount++;
+
+                // Commit batch periodically to prevent database write locks and allow UI polling
+                if (batchCount >= BatchSize)
+                {
+                    await writer.CommitTransactionAsync(CancellationToken.None);
+                    batchCount = 0;
+
+                    // Report batch progress metrics
+                    progress?.Report(new IndexingProgress(
+                        phase: "Indexing",
+                        currentFolderPath: cleanPath,
+                        foldersProcessed: counters.FoldersIndexed,
+                        messagesProcessed: counters.MessagesIndexed,
+                        attachmentsProcessed: counters.AttachmentsIndexed,
+                        issuesCount: counters.IssuesDetected,
+                        percent: null,
+                        elapsed: stopwatch.Elapsed,
+                        message: $"Indexando pasta: {normalizedFolder.DisplayName} ({counters.MessagesIndexed} emails)",
+                        isCancellable: true
+                    ));
+
+                    ct.ThrowIfCancellationRequested();
+                    await writer.BeginTransactionAsync(ct);
+                }
+            }
+
+            // Commit final remaining messages in current transaction
+            if (batchCount > 0)
+            {
+                await writer.CommitTransactionAsync(CancellationToken.None);
+            }
+            else
+            {
+                await writer.RollbackTransactionAsync(CancellationToken.None);
             }
 
             if (reader is IExtractionIssueSource issueSource)
             {
-                await SaveIssuesInCurrentTransactionAsync(writer, issueSource.DrainIssues(), counters, ct);
+                await CommitAsync(writer, async () =>
+                {
+                    await SaveIssuesInCurrentTransactionAsync(writer, issueSource.DrainIssues(), counters, ct);
+                }, ct);
             }
 
-            await writer.CommitTransactionAsync(ct);
             return true;
         }
         catch (OperationCanceledException)
@@ -232,7 +443,7 @@ public sealed class IndexingService : IIndexingService
                     Message: "Falha ao indexar pasta; pasta ignorada.",
                     ObjectId: folder.Id.Value,
                     TechnicalDetails: $"{ex.GetType().Name}: {ex.Message}")
-            }, counters, ct);
+            }, counters, CancellationToken.None);
             return false;
         }
     }
@@ -298,7 +509,7 @@ public sealed class IndexingService : IIndexingService
         try
         {
             await action();
-            await writer.CommitTransactionAsync(ct);
+            await writer.CommitTransactionAsync(CancellationToken.None);
         }
         catch
         {
@@ -309,6 +520,11 @@ public sealed class IndexingService : IIndexingService
 
     private static string DetermineStatus(IndexingCounters counters)
     {
+        if (counters.IsCancelled)
+        {
+            return "Cancelled";
+        }
+
         if (counters.FatalError)
         {
             return counters.FoldersIndexed > 0 || counters.MessagesIndexed > 0 ? "Partial" : "Failed";
@@ -336,6 +552,7 @@ public sealed class IndexingService : IIndexingService
         public int IssuesDetected { get; set; }
         public bool FatalError { get; set; }
         public bool HadRecoverableErrors { get; set; }
+        public bool IsCancelled { get; set; }
     }
 
     private sealed class NullProgressReporter : IProgressReporter

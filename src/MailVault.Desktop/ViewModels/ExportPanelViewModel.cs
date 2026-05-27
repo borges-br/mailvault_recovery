@@ -79,7 +79,12 @@ public class ExportPanelViewModel : ViewModelBase
     public ExportPanelViewModel(DesktopExportService exportService)
     {
         _exportService = exportService;
-        RunExportCommand = ReactiveCommand.CreateFromTask(OnRunExportAsync);
+        var runExportCmd = ReactiveCommand.CreateFromTask(OnRunExportAsync);
+        runExportCmd.ThrownExceptions.Subscribe(ex =>
+        {
+            ExportStatus = $"❌ Falha inesperada no comando de exportação: {ex.Message}";
+        });
+        RunExportCommand = runExportCmd;
     }
 
     public void SetCaseFolder(string caseFolderPath)
