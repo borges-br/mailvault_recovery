@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300" viewBox="0 0 1200 300" role="img" aria-labelledby="title desc">
+  <title id="title">MailVault Recovery</title>
+  <desc id="desc">Banner for MailVault Recovery, a local email recovery, indexing and export toolkit.</desc>
+  <rect width="1200" height="300" rx="24" fill="#111827"/>
+  <rect x="28" y="28" width="1144" height="244" rx="18" fill="#172033" stroke="#2f405f" stroke-width="2"/>
+  <g transform="translate(88 64)">
+    <rect x="0" y="32" width="164" height="118" rx="18" fill="#0f172a" stroke="#6ee7b7" stroke-width="5"/>
+    <path d="M18 54 L82 100 L146 54" fill="none" stroke="#6ee7b7" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M44 146 L44 174 L122 174 L122 146" fill="none" stroke="#93c5fd" stroke-width="7" stroke-linecap="round"/>
+    <path d="M82 100 V158" fill="none" stroke="#93c5fd" stroke-width="7" stroke-linecap="round"/>
+    <circle cx="82" cy="180" r="16" fill="#93c5fd"/>
+    <path d="M214 48 C250 36 290 36 326 48 C362 60 362 86 326 98 C290 110 250 110 214 98 C178 86 178 60 214 48 Z" fill="#0f172a" stroke="#fbbf24" stroke-width="5"/>
+    <path d="M187 74 V144 C187 166 353 166 353 144 V74" fill="none" stroke="#fbbf24" stroke-width="5"/>
+    <path d="M187 110 C187 132 353 132 353 110" fill="none" stroke="#fbbf24" stroke-width="5"/>
+    <path d="M187 144 C187 166 353 166 353 144" fill="none" stroke="#fbbf24" stroke-width="5"/>
+  </g>
+  <g transform="translate(500 86)">
+    <text x="0" y="0" fill="#f8fafc" font-family="Segoe UI, Arial, sans-serif" font-size="56" font-weight="700" letter-spacing="1">MailVault Recovery</text>
+    <text x="2" y="52" fill="#cbd5e1" font-family="Segoe UI, Arial, sans-serif" font-size="24">Local email recovery, indexing, export and validation</text>
+    <g transform="translate(0 92)">
+      <rect x="0" y="0" width="122" height="38" rx="10" fill="#064e3b"/>
+      <text x="20" y="25" fill="#bbf7d0" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="600">PST/OST</text>
+      <rect x="138" y="0" width="126" height="38" rx="10" fill="#1e3a8a"/>
+      <text x="158" y="25" fill="#bfdbfe" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="600">SQLite</text>
+      <rect x="280" y="0" width="126" height="38" rx="10" fill="#713f12"/>
+      <text x="300" y="25" fill="#fde68a" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="600">EML/MBOX</text>
+      <rect x="422" y="0" width="156" height="38" rx="10" fill="#312e81"/>
+      <text x="442" y="25" fill="#ddd6fe" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="600">Avalonia UI</text>
+    </g>
+  </g>
+  <path d="M80 244 H1120" stroke="#334155" stroke-width="2" stroke-linecap="round"/>
+  <text x="88" y="265" fill="#94a3b8" font-family="Segoe UI, Arial, sans-serif" font-size="15">Technical recovery toolkit. Preserve originals, index copies, export verifiable artifacts.</text>
+</svg>
