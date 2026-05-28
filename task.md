@@ -54,15 +54,15 @@ Legenda: ✅ Done · 🔄 In Progress · ⬜ Todo · ❌ Blocked
 - ⬜ MimeSerializer_SanitizesFileName
 - ⬜ MimeSerializer_AtomicWrite_DoesNotLeaveTmpOnSuccess
 - ⬜ MimeSerializer_DeletesTmpOnFailure
-- ⬜ MboxWriter_EscapesFromLines
-- ⬜ MboxWriter_AppendsMessagesStreaming
+- ✅ MboxWriter_EscapesFromLines
+- ✅ MboxWriter_AppendsMessagesStreaming
 
 ## Tests — Thunderbird/MBOX
 
 - ✅ ThunderbirdMboxEngine_DiscoversMboxFiles_AndIndexesThem
 - ✅ ThunderbirdMboxEngine_ResolvesProfileFromProfilesIni
 - ⬜ Thunderbird_DiscoverMboxFiles_HandlesSbd
-- ⬜ Thunderbird_BadMessage_SkipsAndContinues
+- ✅ Thunderbird_BadMessage_SkipsAndContinues
 - ⬜ Thunderbird_ExportMessage_ToEml
 
 ## Tests — Maildir
@@ -72,7 +72,7 @@ Legenda: ✅ Done · 🔄 In Progress · ⬜ Todo · ❌ Blocked
 ## Tests — EML Folder
 
 - ✅ EmlFolderEngine_IndexesEmlFilesRecursively
-- ⬜ EmlFolder_MalformedEml_SkipsAndContinues
+- ✅ EmlFolder_MalformedEml_SkipsAndContinues
 - ⬜ EmlFolder_ExportCopy_PreservesStructure
 
 ## Tests — Recovery Export Runner
@@ -92,8 +92,14 @@ Legenda: ✅ Done · 🔄 In Progress · ⬜ Todo · ❌ Blocked
 - ✅ Progress com: mensagens exportadas, falhas, anexos, timer, cancelar
 - ✅ Abrir relatório de exportação (open folder)
 - ✅ Indexação: elapsed timer + throughput (emails/s) + ETA na Step 4
-- ⬜ Botão "Abrir OST/PST" rápido (sem wizard, apenas abre e expõe o arquivo)
+- ✅ Botão "Abrir OST/PST" rápido (QuickRecoveryViewModel — sem wizard, sem indexação)
 - ⬜ Exportar pasta selecionada (pasta específica, não tudo)
+
+## Packaging
+
+- ✅ publish.ps1 — Desktop (framework-dependent) + CLI (single-file) para dist\
+- ✅ AssemblyName=mailvault no MailVault.Cli.csproj (produz mailvault.exe)
+- ✅ DISTRIBUTING.md — guia de build, estrutura de pastas, requisitos, exemplos CLI
 
 ## Validation Manual
 
