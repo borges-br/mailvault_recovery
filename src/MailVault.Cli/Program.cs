@@ -12,6 +12,7 @@ using MailVault.Core;
 using MailVault.Domain;
 using MailVault.Indexing;
 using MailVault.Validation;
+using MimeKit;
 using Microsoft.Data.Sqlite;
 
 namespace MailVault.Cli;
@@ -250,6 +251,38 @@ public static class Program
             await HandleIndexWorkerAsync(job);
         }, jobOpt);
 
+        // Command: recover-eml — direct recovery from OST/PST/MBOX to individual .eml files
+        var recoverEmlCommand = new Command("recover-eml", "Recupera e-mails diretamente de um OST/PST para arquivos .eml sem indexação prévia.");
+        var fileArgRecoverEml = new Argument<FileInfo>("file", "Caminho do arquivo .ost ou .pst a recuperar.") { Arity = ArgumentArity.ExactlyOne };
+        var outOptRecoverEml = new Option<string>("--out", "Diretório de saída para os arquivos .eml exportados.") { IsRequired = true };
+        var folderOptRecoverEml = new Option<string?>("--folder", "Exportar apenas esta pasta (caminho lógico).");
+        recoverEmlCommand.AddArgument(fileArgRecoverEml);
+        recoverEmlCommand.AddOption(outOptRecoverEml);
+        recoverEmlCommand.AddOption(folderOptRecoverEml);
+        recoverEmlCommand.SetHandler(async (context) =>
+        {
+            var file = context.ParseResult.GetValueForArgument(fileArgRecoverEml);
+            var outDir = context.ParseResult.GetValueForOption(outOptRecoverEml)!;
+            var folder = context.ParseResult.GetValueForOption(folderOptRecoverEml);
+            context.ExitCode = await HandleRecoverEmlAsync(file, outDir, folder);
+        });
+
+        // Command: recover-mbox — direct recovery from OST/PST to .mbox files
+        var recoverMboxCommand = new Command("recover-mbox", "Recupera e-mails diretamente de um OST/PST para arquivos .mbox sem indexação prévia.");
+        var fileArgRecoverMbox = new Argument<FileInfo>("file", "Caminho do arquivo .ost ou .pst a recuperar.") { Arity = ArgumentArity.ExactlyOne };
+        var outOptRecoverMbox = new Option<string>("--out", "Diretório de saída para os arquivos .mbox exportados.") { IsRequired = true };
+        var folderOptRecoverMbox = new Option<string?>("--folder", "Exportar apenas esta pasta (caminho lógico).");
+        recoverMboxCommand.AddArgument(fileArgRecoverMbox);
+        recoverMboxCommand.AddOption(outOptRecoverMbox);
+        recoverMboxCommand.AddOption(folderOptRecoverMbox);
+        recoverMboxCommand.SetHandler(async (context) =>
+        {
+            var file = context.ParseResult.GetValueForArgument(fileArgRecoverMbox);
+            var outDir = context.ParseResult.GetValueForOption(outOptRecoverMbox)!;
+            var folder = context.ParseResult.GetValueForOption(folderOptRecoverMbox);
+            context.ExitCode = await HandleRecoverMboxAsync(file, outDir, folder);
+        });
+
         rootCommand.AddCommand(inspectCommand);
         rootCommand.AddCommand(treeCommand);
         rootCommand.AddCommand(listCommand);
@@ -261,6 +294,8 @@ public static class Program
         rootCommand.AddCommand(validateCommand);
         rootCommand.AddCommand(corpusCommand);
         rootCommand.AddCommand(indexWorkerCommand);
+        rootCommand.AddCommand(recoverEmlCommand);
+        rootCommand.AddCommand(recoverMboxCommand);
 
         // Command: worker
         var workerCommand = new Command("worker", "Comando unificado isolado de processamento para operações forenses.");
@@ -2268,6 +2303,83 @@ public static class Program
         }
     }
 
+    private static async Task<MimeMessage> LoadMimeMessageForPreviewAsync(string evidencePath, string messageId, string engine, CancellationToken ct)
+    {
+        if (engine.Equals("EmlFolder", StringComparison.OrdinalIgnoreCase))
+        {
+            string fullPath = Path.Combine(evidencePath, messageId.Replace('/', '\\'));
+            if (!File.Exists(fullPath))
+            {
+                string filename = Path.GetFileName(messageId);
+                fullPath = Path.Combine(evidencePath, filename);
+            }
+            if (!File.Exists(fullPath))
+            {
+                throw new FileNotFoundException($"Arquivo EML não encontrado para preview: '{fullPath}'");
+            }
+            using var fs = File.OpenRead(fullPath);
+            return await MimeMessage.LoadAsync(fs, ct);
+        }
+        else if (engine.Equals("Maildir", StringComparison.OrdinalIgnoreCase))
+        {
+            string logicalPath = Path.GetDirectoryName(messageId) ?? "";
+            string filename = Path.GetFileName(messageId);
+            
+            string curPath = Path.Combine(evidencePath, logicalPath.Replace('/', '\\'), "cur", filename);
+            string newPath = Path.Combine(evidencePath, logicalPath.Replace('/', '\\'), "new", filename);
+            
+            string fullPath = File.Exists(curPath) ? curPath : (File.Exists(newPath) ? newPath : "");
+            if (string.IsNullOrEmpty(fullPath))
+            {
+                string curDirect = Path.Combine(evidencePath, "cur", filename);
+                string newDirect = Path.Combine(evidencePath, "new", filename);
+                fullPath = File.Exists(curDirect) ? curDirect : (File.Exists(newDirect) ? newDirect : "");
+            }
+
+            if (string.IsNullOrEmpty(fullPath) || !File.Exists(fullPath))
+            {
+                throw new FileNotFoundException($"Mensagem Maildir não encontrada para preview: '{filename}'");
+            }
+
+            using var fs = File.OpenRead(fullPath);
+            return await MimeMessage.LoadAsync(fs, ct);
+        }
+        else if (engine.Equals("ThunderbirdMbox", StringComparison.OrdinalIgnoreCase))
+        {
+            int idx = messageId.LastIndexOf("/offset-");
+            if (idx < 0)
+            {
+                throw new ArgumentException($"ID de mensagem inválido para preview MBOX: '{messageId}'");
+            }
+
+            string logicalPath = messageId.Substring(0, idx);
+            string offsetStr = messageId.Substring(idx + 8);
+            if (!long.TryParse(offsetStr, out long offset))
+            {
+                throw new ArgumentException($"Offset inválido no ID de mensagem MBOX: '{messageId}'");
+            }
+
+            string mboxPath = Path.Combine(evidencePath, logicalPath.Replace('/', '\\'));
+            if (!File.Exists(mboxPath))
+            {
+                string filename = Path.GetFileName(logicalPath);
+                mboxPath = Path.Combine(evidencePath, filename);
+            }
+
+            if (!File.Exists(mboxPath))
+            {
+                throw new FileNotFoundException($"Arquivo MBOX não encontrado para preview: '{mboxPath}'");
+            }
+
+            using var fs = File.OpenRead(mboxPath);
+            fs.Position = offset;
+            var parser = new MimeParser(fs, MimeFormat.Mbox);
+            return await parser.ParseMessageAsync(ct);
+        }
+
+        throw new NotSupportedException($"Motor '{engine}' não suportado para preview direto.");
+    }
+
     private static async Task ExecutePreviewMessageJobAsync(WorkerJobConfig job, TextWriter realStdout)
     {
         try
@@ -2277,54 +2389,90 @@ public static class Program
                 throw new ArgumentException("MessageId e EvidencePath são obrigatórios para PreviewMessage.");
             }
 
-            string extension = Path.GetExtension(job.EvidencePath);
-            var resolver = new ReflectionAdapterResolver();
-            var res = resolver.ResolveAdapter(extension);
-            if (!res.Success || res.Reader == null)
+            MimeMessage? mimeMsg = null;
+            MailItem? message = null;
+
+            if (job.SelectedReaderEngine != null && 
+                (job.SelectedReaderEngine.Equals("ThunderbirdMbox", StringComparison.OrdinalIgnoreCase) ||
+                 job.SelectedReaderEngine.Equals("Maildir", StringComparison.OrdinalIgnoreCase) ||
+                 job.SelectedReaderEngine.Equals("EmlFolder", StringComparison.OrdinalIgnoreCase)))
             {
-                throw new InvalidOperationException($"Não foi possível carregar o leitor para {extension}");
+                mimeMsg = await LoadMimeMessageForPreviewAsync(job.EvidencePath, job.MessageId, job.SelectedReaderEngine, CancellationToken.None);
+            }
+            else
+            {
+                string extension = Path.GetExtension(job.EvidencePath);
+                var resolver = new ReflectionAdapterResolver();
+                var res = resolver.ResolveAdapter(extension);
+                if (!res.Success || res.Reader == null)
+                {
+                    throw new InvalidOperationException($"Não foi possível carregar o leitor para {extension}");
+                }
+
+                if (res.Reader is IMetadataOnlyAware metadataAware)
+                {
+                    metadataAware.MetadataOnly = false; // We want full body for preview!
+                }
+
+                if (res.Reader is ISessionAwareMailStoreReader sessionReader)
+                {
+                    await sessionReader.BeginReadSessionAsync(job.EvidencePath, CancellationToken.None);
+                }
+
+                var msgResult = await res.Reader.GetMessageAsync(new MessageId(job.MessageId), CancellationToken.None);
+
+                if (res.Reader is ISessionAwareMailStoreReader sessionReaderEnd)
+                {
+                    await sessionReaderEnd.EndReadSessionAsync(CancellationToken.None);
+                }
+
+                if (!msgResult.Success || msgResult.Value == null)
+                {
+                    throw new InvalidOperationException($"Mensagem não encontrada ou inacessível: {(msgResult.Issues.Count > 0 ? msgResult.Issues[0].Message : "Erro desconhecido")}");
+                }
+
+                message = msgResult.Value;
             }
 
-            if (res.Reader is IMetadataOnlyAware metadataAware)
+            object result;
+            if (mimeMsg != null)
             {
-                metadataAware.MetadataOnly = false; // We want full body for preview!
+                result = new
+                {
+                    type = "preview_result",
+                    messageId = job.MessageId,
+                    subject = mimeMsg.Subject ?? "",
+                    body = mimeMsg.TextBody ?? "",
+                    htmlBody = mimeMsg.HtmlBody ?? "",
+                    headers = string.Join("\r\n", mimeMsg.Headers.Select(h => $"{h.Field}: {h.Value}")),
+                    from = mimeMsg.From.Mailboxes.Select(m => $"{m.Name} <{m.Address}>").FirstOrDefault() ?? "",
+                    to = string.Join("; ", mimeMsg.To.Mailboxes.Select(m => m.Address)),
+                    cc = string.Join("; ", mimeMsg.Cc.Mailboxes.Select(m => m.Address)),
+                    bcc = string.Join("; ", mimeMsg.Bcc.Mailboxes.Select(m => m.Address)),
+                    sentAt = mimeMsg.Date.ToString("o"),
+                    receivedAt = mimeMsg.Date.ToString("o"),
+                    attachments = mimeMsg.BodyParts.Where(b => b.IsAttachment).Select((b, i) => new { fileName = b.ContentType.Name ?? $"anexo-{i+1}", sizeBytes = b is MimePart p && p.Content != null ? p.Content.Stream.Length : 0 }).ToList()
+                };
             }
-
-            if (res.Reader is ISessionAwareMailStoreReader sessionReader)
+            else
             {
-                await sessionReader.BeginReadSessionAsync(job.EvidencePath, CancellationToken.None);
+                result = new
+                {
+                    type = "preview_result",
+                    messageId = message!.InternalId,
+                    subject = message.Subject ?? "",
+                    body = message.PlainTextBody ?? "",
+                    htmlBody = message.HtmlBody ?? "",
+                    headers = message.RawProperties.TryGetValue("PR_TRANSPORT_MESSAGE_HEADERS", out var headers) ? headers : "",
+                    from = message.From != null ? $"{message.From.Name} <{message.From.Address}>" : "",
+                    to = string.Join("; ", message.To.Select(r => r.Address)),
+                    cc = string.Join("; ", message.Cc.Select(r => r.Address)),
+                    bcc = string.Join("; ", message.Bcc.Select(r => r.Address)),
+                    sentAt = message.SentAt?.ToString("o") ?? "",
+                    receivedAt = message.ReceivedAt?.ToString("o") ?? "",
+                    attachments = message.Attachments.Select(a => new { fileName = a.FileName, sizeBytes = a.SizeBytes }).ToList()
+                };
             }
-
-            var msgResult = await res.Reader.GetMessageAsync(new MessageId(job.MessageId), CancellationToken.None);
-
-            if (res.Reader is ISessionAwareMailStoreReader sessionReaderEnd)
-            {
-                await sessionReaderEnd.EndReadSessionAsync(CancellationToken.None);
-            }
-
-            if (!msgResult.Success || msgResult.Value == null)
-            {
-                throw new InvalidOperationException($"Mensagem não encontrada ou inacessível: {(msgResult.Issues.Count > 0 ? msgResult.Issues[0].Message : "Erro desconhecido")}");
-            }
-
-            var message = msgResult.Value;
-
-            var result = new
-            {
-                type = "preview_result",
-                messageId = message.InternalId,
-                subject = message.Subject ?? "",
-                body = message.PlainTextBody ?? "",
-                htmlBody = message.HtmlBody ?? "",
-                headers = message.RawProperties.TryGetValue("PR_TRANSPORT_MESSAGE_HEADERS", out var headers) ? headers : "",
-                from = message.From != null ? $"{message.From.Name} <{message.From.Address}>" : "",
-                to = string.Join("; ", message.To.Select(r => r.Address)),
-                cc = string.Join("; ", message.Cc.Select(r => r.Address)),
-                bcc = string.Join("; ", message.Bcc.Select(r => r.Address)),
-                sentAt = message.SentAt?.ToString("o") ?? "",
-                receivedAt = message.ReceivedAt?.ToString("o") ?? "",
-                attachments = message.Attachments.Select(a => new { fileName = a.FileName, sizeBytes = a.SizeBytes }).ToList()
-            };
 
             realStdout.WriteLine(JsonSerializer.Serialize(result));
             realStdout.Flush();
@@ -2457,5 +2605,168 @@ public static class Program
             realStdout.Flush();
             ExitCode = 1;
         }
+    }
+
+    private static async Task<int> HandleRecoverEmlAsync(FileInfo file, string outputDir, string? folderPath)
+    {
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine("================================================================================");
+        Console.WriteLine("            MailVault Recovery — Recuperação Direta para EML                   ");
+        Console.WriteLine("================================================================================");
+        Console.ResetColor();
+
+        if (!file.Exists)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"[ERRO] Arquivo não encontrado: '{file.FullName}'");
+            Console.ResetColor();
+            return 1;
+        }
+
+        Console.WriteLine($"[*] Fonte  : {file.FullName}");
+        Console.WriteLine($"[*] Saída  : {outputDir}");
+        if (!string.IsNullOrEmpty(folderPath))
+            Console.WriteLine($"[*] Pasta  : {folderPath}");
+        Console.WriteLine();
+
+        IMailStoreReader reader;
+        try
+        {
+            reader = GetMailStoreReader(file.Extension);
+        }
+        catch (Exception ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"[ERRO] Motor de leitura não disponível: {ex.Message}");
+            Console.ResetColor();
+            return 2;
+        }
+
+        var runner = new MailVault.Core.RecoveryExportRunner();
+        var exporter = new MailVault.Exporters.Eml.EmlExporter();
+
+        var progress = new Progress<MailVault.Core.RecoveryExportProgress>(p =>
+        {
+            Console.WriteLine($"  [{p.FoldersProcessed}] {p.CurrentFolder} — {p.MessagesExported} exportados, {p.MessagesFailed} falhas");
+        });
+
+        RecoveryExportResult result;
+        try
+        {
+            result = await runner.ExportToEmlAsync(
+                reader, exporter, file.FullName, outputDir, folderPath, null, progress, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"[ERRO FATAL] {ex.Message}");
+            Console.ResetColor();
+            return 3;
+        }
+
+        Console.WriteLine();
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine("================================================================================");
+        Console.WriteLine("                          RELATÓRIO DE RECUPERAÇÃO                              ");
+        Console.WriteLine("================================================================================");
+        Console.ResetColor();
+        Console.WriteLine($"  Motor           : {result.Engine}");
+        Console.WriteLine($"  Total Mensagens : {result.TotalMessages}");
+        Console.WriteLine($"  Exportadas      : {result.ExportedMessages}");
+        Console.WriteLine($"  Falhas          : {result.FailedMessages}");
+        Console.WriteLine($"  Anexos OK       : {result.ExportedAttachments}");
+        Console.WriteLine($"  Anexos Falhos   : {result.FailedAttachments}");
+        Console.WriteLine($"  Duração         : {(result.FinishedAt - result.StartedAt).TotalSeconds:F1}s");
+        Console.WriteLine($"  Relatório       : {System.IO.Path.Combine(outputDir, "_mailvault-export-report.json")}");
+
+        if (result.FailedMessages > 0)
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine($"\n  AVISO: {result.FailedMessages} mensagem(ns) falharam. Ver _mailvault-export-errors.csv.");
+            Console.ResetColor();
+        }
+
+        return result.ExportedMessages > 0 ? 0 : 4;
+    }
+
+    private static async Task<int> HandleRecoverMboxAsync(FileInfo file, string outputDir, string? folderPath)
+    {
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine("================================================================================");
+        Console.WriteLine("            MailVault Recovery — Recuperação Direta para MBOX                  ");
+        Console.WriteLine("================================================================================");
+        Console.ResetColor();
+
+        if (!file.Exists)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"[ERRO] Arquivo não encontrado: '{file.FullName}'");
+            Console.ResetColor();
+            return 1;
+        }
+
+        Console.WriteLine($"[*] Fonte  : {file.FullName}");
+        Console.WriteLine($"[*] Saída  : {outputDir}");
+        if (!string.IsNullOrEmpty(folderPath))
+            Console.WriteLine($"[*] Pasta  : {folderPath}");
+        Console.WriteLine();
+
+        IMailStoreReader reader;
+        try
+        {
+            reader = GetMailStoreReader(file.Extension);
+        }
+        catch (Exception ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"[ERRO] Motor de leitura não disponível: {ex.Message}");
+            Console.ResetColor();
+            return 2;
+        }
+
+        var runner = new MailVault.Core.RecoveryExportRunner();
+        var emlExporter = new MailVault.Exporters.Eml.EmlExporter();
+        var mboxExporter = new MailVault.Exporters.Mbox.MboxExporter(emlExporter);
+
+        var progress = new Progress<MailVault.Core.RecoveryExportProgress>(p =>
+        {
+            Console.WriteLine($"  [{p.FoldersProcessed}] {p.CurrentFolder} — {p.MessagesExported} exportados, {p.MessagesFailed} falhas");
+        });
+
+        RecoveryExportResult result;
+        try
+        {
+            result = await runner.ExportToMboxAsync(
+                reader, mboxExporter, file.FullName, outputDir, folderPath, progress, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"[ERRO FATAL] {ex.Message}");
+            Console.ResetColor();
+            return 3;
+        }
+
+        Console.WriteLine();
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine("================================================================================");
+        Console.WriteLine("                          RELATÓRIO DE RECUPERAÇÃO                              ");
+        Console.WriteLine("================================================================================");
+        Console.ResetColor();
+        Console.WriteLine($"  Motor           : {result.Engine}");
+        Console.WriteLine($"  Total Mensagens : {result.TotalMessages}");
+        Console.WriteLine($"  Exportadas      : {result.ExportedMessages}");
+        Console.WriteLine($"  Falhas          : {result.FailedMessages}");
+        Console.WriteLine($"  Duração         : {(result.FinishedAt - result.StartedAt).TotalSeconds:F1}s");
+        Console.WriteLine($"  Relatório       : {System.IO.Path.Combine(outputDir, "_mailvault-export-report.json")}");
+
+        if (result.FailedMessages > 0)
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine($"\n  AVISO: {result.FailedMessages} mensagem(ns) falharam. Ver _mailvault-export-errors.csv.");
+            Console.ResetColor();
+        }
+
+        return result.ExportedMessages > 0 ? 0 : 4;
     }
 }

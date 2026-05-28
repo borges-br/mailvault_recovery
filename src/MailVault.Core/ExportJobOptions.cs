@@ -13,5 +13,6 @@ public sealed record ExportJobOptions(
     bool ExtractAttachments = false,
     bool PreserveFolderStructure = true,
     bool Overwrite = false,
-    bool DryRun = false
+    bool DryRun = false,
+    bool SkipIntegrityCheck = false
 );

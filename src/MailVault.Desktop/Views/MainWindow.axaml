@@ -177,6 +177,7 @@
 
                             <TextBlock Text="UTILITÁRIOS LOCAIS" FontSize="9" FontWeight="Black" Foreground="#475569" Margin="10,2,0,8" LetterSpacing="1.2"/>
                             
+                            <Button Classes="nav" Content="⚡ Recuperação Rápida" Command="{Binding ShowQuickRecoveryCommand}"/>
                             <Button Classes="nav" Content="🧪 Test Lab &amp; Pipelines" Command="{Binding ShowTestLabCommand}"/>
                             <Button Classes="nav" Content="⚙️ Configurações" Command="{Binding ShowSettingsCommand}"/>
                             <Button Classes="nav" Content="❌ Fechar Caso" Command="{Binding CloseCaseCommand}" IsVisible="{Binding IsCaseLoaded}" Foreground="#EF4444"/>
@@ -235,9 +236,9 @@
 
                                     <Border Grid.Column="1" Background="#111827" CornerRadius="12" BorderBrush="#1F2937" BorderThickness="1" Padding="20" Margin="8,0,0,0">
                                         <StackPanel Spacing="12">
-                                            <TextBlock Text="📦 MBOX / THUNDERBIRD" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="O MBOX como origem direta ainda não é indexável nesta versão. A validação estrutural profunda e o inventário de teste estão ativos pelo Test Lab." FontSize="12" Foreground="#94A3B8" Height="50"/>
-                                            <Button Content="Ir para o Test Lab" Command="{Binding $parent[Window].DataContext.ShowTestLabCommand}"
+                                            <TextBlock Text="📦 MBOX / THUNDERBIRD / MAILDIR / EML" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Indexe e recupere perfis Thunderbird, caixas de correio MBOX, diretórios Maildir ou pastas EML recursivamente no assistente de indexação." FontSize="12" Foreground="#94A3B8" Height="50"/>
+                                            <Button Content="Iniciar Assistente de Indexação" Command="{Binding $parent[Window].DataContext.ShowNewCaseWizardCommand}"
                                                     Background="#1E293B" Foreground="#00E5FF" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Padding="12" CornerRadius="6"/>
                                         </StackPanel>
                                     </Border>
@@ -316,10 +317,11 @@
                                     <TextBlock Text="1. Selecione a mídia forense original" FontSize="20" FontWeight="Black" Foreground="#FFFFFF"/>
                                     <TextBlock Text="O MailVault Recovery trata arquivos OST e PST como evidências read-only locais. Nenhuma alteração é gravada na origem." FontSize="13" Foreground="#94A3B8"/>
                                     
-                                    <Grid ColumnDefinitions="*, Auto">
-                                        <TextBox Grid.Column="0" Text="{Binding SourcePath, Mode=TwoWay}" Watermark="Ex: C:\evidences\backup.ost" 
+                                    <Grid ColumnDefinitions="*, Auto, Auto">
+                                        <TextBox Grid.Column="0" Text="{Binding SourcePath, Mode=TwoWay}" Watermark="Ex: C:\evidences\backup.ost ou diretório Thunderbird/MBOX/Maildir/EML" 
                                                  Background="#070A0E" Foreground="White" BorderBrush="#1F2937" Padding="14" CornerRadius="6"/>
-                                        <Button Grid.Column="1" Content="Procurar..." Command="{Binding SelectSourceFileCommand}" Margin="10,0,0,0" Padding="15,14" Background="#1E293B" Foreground="#00E5FF" CornerRadius="6"/>
+                                        <Button Grid.Column="1" Content="Procurar Arquivo..." Command="{Binding SelectSourceFileCommand}" Margin="10,0,0,0" Padding="15,14" Background="#1E293B" Foreground="#00E5FF" CornerRadius="6"/>
+                                        <Button Grid.Column="2" Content="Procurar Pasta..." Command="{Binding SelectSourceFolderCommand}" Margin="10,0,0,0" Padding="15,14" Background="#1E293B" Foreground="#00E5FF" CornerRadius="6"/>
                                     </Grid>
                                     
                                     <Border Background="#111827" BorderBrush="#1F2937" BorderThickness="1" CornerRadius="8" Padding="15">
@@ -402,10 +404,11 @@
                                       <StackPanel Grid.Row="0" Spacing="8" Margin="0,0,0,15">
                                           <TextBlock Text="4. Processando indexação no SQLite..." FontSize="20" FontWeight="Black" Foreground="#FFFFFF"/>
                                           <ProgressBar Value="{Binding ProgressPercent}" Minimum="0" Maximum="100" Height="20" CornerRadius="10" Foreground="#00E5FF" Background="#111827"/>
-                                          <Grid ColumnDefinitions="*, Auto, Auto" Margin="4,0">
+                                          <Grid ColumnDefinitions="*, Auto, Auto, Auto" Margin="4,0">
                                               <TextBlock Text="{Binding ProgressDetailText}" FontSize="12" Foreground="#00E5FF" VerticalAlignment="Center"/>
-                                              <TextBlock Grid.Column="1" Text="{Binding ThroughputText, StringFormat='Velocidade: \{0\}'}" FontSize="11" Foreground="#10B981" FontWeight="Bold" Margin="15,0,0,0" IsVisible="{Binding ThroughputText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" VerticalAlignment="Center"/>
-                                              <TextBlock Grid.Column="2" Text="{Binding EtaText, StringFormat='ETA: \{0\}'}" FontSize="11" Foreground="#FFE082" FontWeight="Bold" Margin="15,0,0,0" IsVisible="{Binding EtaText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" VerticalAlignment="Center"/>
+                                              <TextBlock Grid.Column="1" Text="{Binding ElapsedText, StringFormat='⏱ \{0\}'}" FontSize="11" Foreground="#94A3B8" FontWeight="Bold" Margin="15,0,0,0" IsVisible="{Binding ElapsedText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" VerticalAlignment="Center"/>
+                                              <TextBlock Grid.Column="2" Text="{Binding ThroughputText, StringFormat='Velocidade: \{0\}'}" FontSize="11" Foreground="#10B981" FontWeight="Bold" Margin="15,0,0,0" IsVisible="{Binding ThroughputText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" VerticalAlignment="Center"/>
+                                              <TextBlock Grid.Column="3" Text="{Binding EtaText, StringFormat='ETA: \{0\}'}" FontSize="11" Foreground="#FFE082" FontWeight="Bold" Margin="15,0,0,0" IsVisible="{Binding EtaText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" VerticalAlignment="Center"/>
                                           </Grid>
 
                                           <!-- Watchdog Warning Card/Banner -->
@@ -1276,6 +1279,101 @@
                                         <TextBlock Text="{Binding ExportStatus}" FontFamily="Consolas" FontSize="12" Foreground="#FFE082" TextWrapping="Wrap" LineHeight="18"/>
                                     </StackPanel>
                                 </Border>
+
+                                <!-- RECOVERY DIRECT EXPORT -->
+                                <Border Background="#111827" CornerRadius="12" Padding="25" BorderBrush="#10B981" BorderThickness="1">
+                                    <StackPanel Spacing="16">
+                                        <StackPanel Orientation="Horizontal" Spacing="10">
+                                            <TextBlock Text="RECUPERAÇÃO DIRETA" FontSize="12" FontWeight="Bold" Foreground="#10B981" LetterSpacing="0.5"/>
+                                            <Border Background="#0D2B1E" CornerRadius="4" Padding="8,3" BorderBrush="#10B981" BorderThickness="1">
+                                                <TextBlock Text="EML / MBOX" FontSize="10" FontWeight="Bold" Foreground="#10B981"/>
+                                            </Border>
+                                        </StackPanel>
+
+                                        <TextBlock Text="Extrai e-mails diretamente do arquivo de origem, sem depender do banco SQLite indexado. Ideal para recuperação rápida."
+                                                   FontSize="12" Foreground="#94A3B8" TextWrapping="Wrap"/>
+
+                                        <!-- Source file -->
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="Arquivo de origem (do caso ativo)" FontSize="11" Foreground="#94A3B8" FontWeight="Bold"/>
+                                            <Border Background="#070A0E" CornerRadius="6" Padding="12,8" BorderBrush="#1F2937" BorderThickness="1">
+                                                <TextBlock Text="{Binding RecoverySourcePath}" FontFamily="Consolas" FontSize="11" Foreground="#00E5FF"
+                                                           TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding RecoverySourcePath}"/>
+                                            </Border>
+                                        </StackPanel>
+
+                                        <!-- Output folder -->
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="Pasta de destino" FontSize="11" Foreground="#94A3B8" FontWeight="Bold"/>
+                                            <TextBox Text="{Binding RecoveryOutputPath, Mode=TwoWay}"
+                                                     Background="#070A0E" Foreground="White" BorderBrush="#1F2937"
+                                                     Padding="12" CornerRadius="6" FontSize="13"/>
+                                        </StackPanel>
+
+                                        <!-- Action buttons -->
+                                        <StackPanel Orientation="Horizontal" Spacing="12">
+                                            <Button Content="⬇ Exportar tudo para EML"
+                                                    Command="{Binding RecoverToEmlCommand}"
+                                                    IsEnabled="{Binding IsRecoveryIdle}"
+                                                    Background="#10B981" Foreground="White" FontWeight="Bold"
+                                                    Padding="14,10" CornerRadius="6" FontSize="13"/>
+                                            <Button Content="⬇ Exportar tudo para MBOX"
+                                                    Command="{Binding RecoverToMboxCommand}"
+                                                    IsEnabled="{Binding IsRecoveryIdle}"
+                                                    Background="#0284C7" Foreground="White" FontWeight="Bold"
+                                                    Padding="14,10" CornerRadius="6" FontSize="13"/>
+                                        </StackPanel>
+
+                                        <!-- Progress counters (visible while running) -->
+                                        <Grid ColumnDefinitions="*, *, *, *" IsVisible="{Binding IsRecoveryRunning}" Margin="0,4,0,0">
+                                            <Border Grid.Column="0" Background="#0D2B1E" CornerRadius="6" Padding="10,8" Margin="0,0,4,0" BorderBrush="#10B981" BorderThickness="1">
+                                                <StackPanel Spacing="2">
+                                                    <TextBlock Text="Exportados" FontSize="10" Foreground="#94A3B8"/>
+                                                    <TextBlock Text="{Binding RecoveryExported}" FontSize="20" FontWeight="Black" Foreground="#10B981"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Grid.Column="1" Background="#2A1010" CornerRadius="6" Padding="10,8" Margin="4,0,4,0" BorderBrush="#EF4444" BorderThickness="1">
+                                                <StackPanel Spacing="2">
+                                                    <TextBlock Text="Falhas" FontSize="10" Foreground="#94A3B8"/>
+                                                    <TextBlock Text="{Binding RecoveryFailed}" FontSize="20" FontWeight="Black" Foreground="#EF4444"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Grid.Column="2" Background="#0A1A2F" CornerRadius="6" Padding="10,8" Margin="4,0,4,0" BorderBrush="#0284C7" BorderThickness="1">
+                                                <StackPanel Spacing="2">
+                                                    <TextBlock Text="Anexos" FontSize="10" Foreground="#94A3B8"/>
+                                                    <TextBlock Text="{Binding RecoveryAttachmentsExported}" FontSize="20" FontWeight="Black" Foreground="#0284C7"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Grid.Column="3" Background="#1A1525" CornerRadius="6" Padding="10,8" Margin="4,0,0,0" BorderBrush="#8B5CF6" BorderThickness="1">
+                                                <StackPanel Spacing="2">
+                                                    <TextBlock Text="Tempo" FontSize="10" Foreground="#94A3B8"/>
+                                                    <TextBlock Text="{Binding RecoveryElapsedText}" FontSize="14" FontWeight="Bold" Foreground="#8B5CF6" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </Grid>
+
+                                        <!-- Status console -->
+                                        <Border Background="#070A0E" CornerRadius="6" Padding="12,8" BorderBrush="#1F2937" BorderThickness="1"
+                                                IsVisible="{Binding RecoveryStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                            <TextBlock Text="{Binding RecoveryStatus}" FontFamily="Consolas" FontSize="12"
+                                                       Foreground="#FFE082" TextWrapping="Wrap" LineHeight="18"/>
+                                        </Border>
+
+                                        <!-- Cancel / open folder -->
+                                        <StackPanel Orientation="Horizontal" Spacing="12">
+                                            <Button Content="⛔ Cancelar"
+                                                    Command="{Binding CancelRecoveryCommand}"
+                                                    IsVisible="{Binding IsRecoveryRunning}"
+                                                    Background="#EF4444" Foreground="White" FontWeight="Bold"
+                                                    Padding="14,8" CornerRadius="6" FontSize="12"/>
+                                            <Button Content="📂 Abrir pasta de exportação"
+                                                    Command="{Binding OpenRecoveryFolderCommand}"
+                                                    IsVisible="{Binding HasRecoveryCompleted}"
+                                                    Background="#1E293B" Foreground="#00E5FF" BorderBrush="#00E5FF" BorderThickness="1"
+                                                    FontWeight="Bold" Padding="14,8" CornerRadius="6" FontSize="12"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
                             </StackPanel>
                         </ScrollViewer>
                     </DataTemplate>
@@ -1333,6 +1431,125 @@
                             </StackPanel>
                         </ScrollViewer>
                     </DataTemplate>
+                    <!-- 12. QUICK RECOVERY VIEW -->
+                    <DataTemplate DataType="{x:Type vm:QuickRecoveryViewModel}">
+                        <ScrollViewer Background="#0F131A" Padding="30">
+                            <StackPanel Spacing="25" MaxWidth="720" HorizontalAlignment="Left">
+
+                                <!-- Header -->
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="Recuperação Rápida" FontSize="28" FontWeight="Black" Foreground="#FFFFFF"/>
+                                    <TextBlock Text="Selecione um arquivo OST/PST/MBOX, escolha a pasta de destino e exporte diretamente — sem indexação." FontSize="13" Foreground="#94A3B8" TextWrapping="Wrap"/>
+                                </StackPanel>
+
+                                <!-- Source file section -->
+                                <Border Background="#111827" CornerRadius="12" BorderBrush="#1F2937" BorderThickness="1" Padding="22">
+                                    <StackPanel Spacing="14">
+                                        <TextBlock Text="ARQUIVO DE ORIGEM" FontSize="11" FontWeight="Bold" Foreground="#00E5FF" LetterSpacing="0.5"/>
+
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="Arquivo OST / PST / MBOX / EML" FontSize="11" Foreground="#94A3B8" FontWeight="Bold"/>
+                                            <Grid ColumnDefinitions="*, Auto">
+                                                <TextBox Grid.Column="0" Text="{Binding SourceFilePath}" IsReadOnly="True"
+                                                         Watermark="Caminho do arquivo de e-mail..."
+                                                         Background="#070A0E" Foreground="White" BorderBrush="#1F2937"
+                                                         Padding="12" CornerRadius="6" FontSize="12" FontFamily="Consolas"/>
+                                                <Button Grid.Column="1" Content="Procurar..." Command="{Binding BrowseSourceFileCommand}"
+                                                        Margin="10,0,0,0" Padding="15,12" Background="#1E293B" Foreground="#00E5FF" CornerRadius="6"/>
+                                            </Grid>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Output folder section -->
+                                <Border Background="#111827" CornerRadius="12" BorderBrush="#1F2937" BorderThickness="1" Padding="22">
+                                    <StackPanel Spacing="14">
+                                        <TextBlock Text="PASTA DE DESTINO" FontSize="11" FontWeight="Bold" Foreground="#00E5FF" LetterSpacing="0.5"/>
+
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="Pasta onde os e-mails exportados serão gravados" FontSize="11" Foreground="#94A3B8" FontWeight="Bold"/>
+                                            <Grid ColumnDefinitions="*, Auto">
+                                                <TextBox Grid.Column="0" Text="{Binding OutputFolderPath, Mode=TwoWay}"
+                                                         Watermark="Ex: C:\recuperacao\saida"
+                                                         Background="#070A0E" Foreground="White" BorderBrush="#1F2937"
+                                                         Padding="12" CornerRadius="6" FontSize="12"/>
+                                                <Button Grid.Column="1" Content="Procurar..." Command="{Binding BrowseOutputFolderCommand}"
+                                                        Margin="10,0,0,0" Padding="15,12" Background="#1E293B" Foreground="#00E5FF" CornerRadius="6"/>
+                                            </Grid>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Export action buttons -->
+                                <StackPanel Orientation="Horizontal" Spacing="12">
+                                    <Button Content="&#x2B07; Exportar para EML"
+                                            Command="{Binding ExportToEmlCommand}"
+                                            IsEnabled="{Binding IsIdle}"
+                                            Background="#10B981" Foreground="White" FontWeight="Bold"
+                                            Padding="18,12" CornerRadius="6" FontSize="14"/>
+                                    <Button Content="&#x2B07; Exportar para MBOX"
+                                            Command="{Binding ExportToMboxCommand}"
+                                            IsEnabled="{Binding IsIdle}"
+                                            Background="#0284C7" Foreground="White" FontWeight="Bold"
+                                            Padding="18,12" CornerRadius="6" FontSize="14"/>
+                                </StackPanel>
+
+                                <!-- Progress counters (visible while running) -->
+                                <Grid ColumnDefinitions="*, *, *, *" IsVisible="{Binding IsRunning}" Margin="0,4,0,0">
+                                    <Border Grid.Column="0" Background="#0D2B1E" CornerRadius="6" Padding="14,10" Margin="0,0,4,0" BorderBrush="#10B981" BorderThickness="1">
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="Exportados" FontSize="10" Foreground="#94A3B8" FontWeight="Bold"/>
+                                            <TextBlock Text="{Binding MessagesExported}" FontSize="26" FontWeight="Black" Foreground="#10B981"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Grid.Column="1" Background="#2A1010" CornerRadius="6" Padding="14,10" Margin="4,0,4,0" BorderBrush="#EF4444" BorderThickness="1">
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="Falhas" FontSize="10" Foreground="#94A3B8" FontWeight="Bold"/>
+                                            <TextBlock Text="{Binding MessagesFailed}" FontSize="26" FontWeight="Black" Foreground="#EF4444"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Grid.Column="2" Background="#0A1A2F" CornerRadius="6" Padding="14,10" Margin="4,0,4,0" BorderBrush="#0284C7" BorderThickness="1">
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="Anexos" FontSize="10" Foreground="#94A3B8" FontWeight="Bold"/>
+                                            <TextBlock Text="{Binding AttachmentsExported}" FontSize="26" FontWeight="Black" Foreground="#0284C7"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Grid.Column="3" Background="#1A1525" CornerRadius="6" Padding="14,10" Margin="4,0,0,0" BorderBrush="#8B5CF6" BorderThickness="1">
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="Tempo" FontSize="10" Foreground="#94A3B8" FontWeight="Bold"/>
+                                            <TextBlock Text="{Binding ElapsedText}" FontSize="18" FontWeight="Bold" Foreground="#8B5CF6" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+
+                                <!-- Status console -->
+                                <Border Background="#070A0E" CornerRadius="8" Padding="14,10" BorderBrush="#1F2937" BorderThickness="1"
+                                        IsVisible="{Binding StatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                    <StackPanel Spacing="5">
+                                        <TextBlock Text="STATUS" FontSize="9" FontWeight="Bold" Foreground="#475569" LetterSpacing="1"/>
+                                        <TextBlock Text="{Binding StatusText}" FontFamily="Consolas" FontSize="12"
+                                                   Foreground="#FFE082" TextWrapping="Wrap" LineHeight="18"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Cancel / open folder -->
+                                <StackPanel Orientation="Horizontal" Spacing="12">
+                                    <Button Content="&#x26D4; Cancelar"
+                                            Command="{Binding CancelCommand}"
+                                            IsVisible="{Binding IsRunning}"
+                                            Background="#EF4444" Foreground="White" FontWeight="Bold"
+                                            Padding="18,10" CornerRadius="6" FontSize="13"/>
+                                    <Button Content="&#x1F4C2; Abrir pasta de exportação"
+                                            Command="{Binding OpenOutputFolderCommand}"
+                                            IsVisible="{Binding HasCompleted}"
+                                            Background="#1E293B" Foreground="#00E5FF" BorderBrush="#00E5FF" BorderThickness="1"
+                                            FontWeight="Bold" Padding="18,10" CornerRadius="6" FontSize="13"/>
+                                </StackPanel>
+
+                            </StackPanel>
+                        </ScrollViewer>
+                    </DataTemplate>
+
                 </ContentControl.DataTemplates>
             </ContentControl>
         </Grid>

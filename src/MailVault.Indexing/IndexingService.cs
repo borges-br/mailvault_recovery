@@ -355,10 +355,11 @@ public sealed class IndexingService : IIndexingService
         {
             int count = 0;
             int batchCount = 0;
-            const int BatchSize = 200;
+            const int BatchSize = 500;
 
             await writer.BeginTransactionAsync(ct);
 
+            var itemWatch = System.Diagnostics.Stopwatch.StartNew();
             await foreach (var msg in reader.EnumerateMessagesAsync(folder.Id, ct))
             {
                 if (limit.HasValue && count >= limit.Value)
@@ -367,15 +368,44 @@ public sealed class IndexingService : IIndexingService
                 }
 
                 ct.ThrowIfCancellationRequested();
+                itemWatch.Restart();
 
-                var normalizedMsg = MailItemNormalizer.Normalize(msg, cachePreview);
-                await writer.SaveMessageAsync(normalizedMsg, folder.Id, ct);
-                counters.MessagesIndexed++;
-                counters.AttachmentsIndexed += normalizedMsg.Attachments.Count;
-                counters.IssuesDetected += normalizedMsg.Issues.Count;
-                if (normalizedMsg.Issues.Any(issue => IsError(issue.Severity)))
+                try
+                {
+                    var normalizedMsg = MailItemNormalizer.Normalize(msg, cachePreview);
+                    await writer.SaveMessageAsync(normalizedMsg, folder.Id, ct);
+                    counters.MessagesIndexed++;
+                    counters.AttachmentsIndexed += normalizedMsg.Attachments.Count;
+                    counters.IssuesDetected += normalizedMsg.Issues.Count;
+                    if (normalizedMsg.Issues.Any(issue => IsError(issue.Severity)))
+                    {
+                        counters.HadRecoverableErrors = true;
+                    }
+
+                    if (itemWatch.Elapsed.TotalSeconds > 30)
+                    {
+                        counters.HadRecoverableErrors = true;
+                        await writer.SaveIssueAsync(new ExtractionIssue(
+                            Code: "MV-WARN-INDEX-SLOW",
+                            Severity: "Warning",
+                            Message: $"Mensagem demorou {itemWatch.Elapsed.TotalSeconds:F1}s para ser indexada (>30s).",
+                            ObjectId: normalizedMsg.InternalId,
+                            TechnicalDetails: null
+                        ), ct);
+                    }
+                }
+                catch (Exception ex)
                 {
                     counters.HadRecoverableErrors = true;
+                    counters.IssuesDetected++;
+                    string msgId = msg?.InternalId ?? $"{folder.Id.Value}/error-{Guid.NewGuid():N}";
+                    await writer.SaveIssueAsync(new ExtractionIssue(
+                        Code: "MV-ERR-INDEX-MSG-FAILED",
+                        Severity: "Error",
+                        Message: $"Falha ao ler mensagem: {ex.Message}",
+                        ObjectId: msgId,
+                        TechnicalDetails: ex.ToString()
+                    ), ct);
                 }
 
                 count++;

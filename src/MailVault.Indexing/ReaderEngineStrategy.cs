@@ -619,7 +619,10 @@ public sealed class ReaderEngineFactory : IReaderEngineFactory
     private readonly Dictionary<string, IReaderEngine> _engines = new(StringComparer.OrdinalIgnoreCase)
     {
         { "XstReader", new XstReaderEngine() },
-        { "LibpffExternal", new LibpffExternalEngine() }
+        { "LibpffExternal", new LibpffExternalEngine() },
+        { "ThunderbirdMbox", new ThunderbirdMboxEngine() },
+        { "Maildir", new MaildirEngine() },
+        { "EmlFolder", new EmlFolderEngine() }
     };
 
     public IEnumerable<ReaderEngineDescriptor> GetAvailableEngines()

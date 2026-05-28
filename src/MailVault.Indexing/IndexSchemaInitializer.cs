@@ -33,27 +33,38 @@ public static class IndexSchemaInitializer
 
         if (currentVersion == 0)
         {
-            // Apply Schema v3
-            ApplySchemaV3(connection);
+            // Apply Schema v4
+            ApplySchemaV4(connection);
 
-            using (var insertVerCmd = new SqliteCommand("INSERT INTO schema_version (version) VALUES (3);", connection))
+            using (var insertVerCmd = new SqliteCommand("INSERT INTO schema_version (version) VALUES (4);", connection))
             {
                 insertVerCmd.ExecuteNonQuery();
             }
         }
         else if (currentVersion == 2)
         {
-            // Migrate from V2 to V3!
+            // Migrate from V2 to V3, then to V4
             MigrateV2ToV3(connection);
+            ApplySchemaV4(connection);
 
-            using (var updateVerCmd = new SqliteCommand("DELETE FROM schema_version; INSERT INTO schema_version (version) VALUES (3);", connection))
+            using (var updateVerCmd = new SqliteCommand("DELETE FROM schema_version; INSERT INTO schema_version (version) VALUES (4);", connection))
             {
                 updateVerCmd.ExecuteNonQuery();
             }
         }
-        else if (currentVersion != 3)
+        else if (currentVersion == 3)
         {
-            throw new InvalidOperationException($"Incompatibilidade de schema detectada. Versão atual do case.db é {currentVersion}, mas a aplicação suporta apenas a versão 3. Por favor, utilize a opção --force para recriar o banco do caso.");
+            // Upgrade V3 to V4
+            ApplySchemaV4(connection);
+
+            using (var updateVerCmd = new SqliteCommand("DELETE FROM schema_version; INSERT INTO schema_version (version) VALUES (4);", connection))
+            {
+                updateVerCmd.ExecuteNonQuery();
+            }
+        }
+        else if (currentVersion != 4)
+        {
+            throw new InvalidOperationException($"Incompatibilidade de schema detectada. Versão atual do case.db é {currentVersion}, mas a aplicação suporta apenas a versão 4. Por favor, utilize a opção --force para recriar o banco do caso.");
         }
     }
 
@@ -155,7 +166,7 @@ public static class IndexSchemaInitializer
     {
         // Table: case_info
         ExecuteDDL(@"
-            CREATE TABLE case_info (
+            CREATE TABLE IF NOT EXISTS case_info (
                 case_id TEXT PRIMARY KEY,
                 source_file TEXT,
                 source_size INTEGER,
@@ -169,7 +180,7 @@ public static class IndexSchemaInitializer
 
         // Table: index_runs
         ExecuteDDL(@"
-            CREATE TABLE index_runs (
+            CREATE TABLE IF NOT EXISTS index_runs (
                 run_id TEXT PRIMARY KEY,
                 case_id TEXT,
                 timestamp TEXT,
@@ -184,7 +195,7 @@ public static class IndexSchemaInitializer
 
         // Table: folders
         ExecuteDDL(@"
-            CREATE TABLE folders (
+            CREATE TABLE IF NOT EXISTS folders (
                 folder_id TEXT PRIMARY KEY,
                 parent_id TEXT,
                 display_name TEXT,
@@ -197,7 +208,7 @@ public static class IndexSchemaInitializer
 
         // Table: messages
         ExecuteDDL(@"
-            CREATE TABLE messages (
+            CREATE TABLE IF NOT EXISTS messages (
                 message_id TEXT PRIMARY KEY,
                 internet_message_id TEXT,
                 folder_id TEXT,
@@ -220,7 +231,7 @@ public static class IndexSchemaInitializer
 
         // Table: attachments
         ExecuteDDL(@"
-            CREATE TABLE attachments (
+            CREATE TABLE IF NOT EXISTS attachments (
                 attachment_id TEXT PRIMARY KEY,
                 message_id TEXT,
                 file_name TEXT,
@@ -235,7 +246,7 @@ public static class IndexSchemaInitializer
 
         // Table: issues
         ExecuteDDL(@"
-            CREATE TABLE issues (
+            CREATE TABLE IF NOT EXISTS issues (
                 issue_code TEXT,
                 severity TEXT,
                 message TEXT,
@@ -252,11 +263,11 @@ public static class IndexSchemaInitializer
             );", connection);
 
         // Required indexes
-        ExecuteDDL("CREATE INDEX idx_messages_folder_id ON messages(folder_id);", connection);
-        ExecuteDDL("CREATE INDEX idx_messages_subject ON messages(subject);", connection);
-        ExecuteDDL("CREATE INDEX idx_messages_sender ON messages(sender);", connection);
-        ExecuteDDL("CREATE INDEX idx_attachments_message_id ON attachments(message_id);", connection);
-        ExecuteDDL("CREATE INDEX idx_issues_object_id ON issues(object_id);", connection);
+        ExecuteDDL("CREATE INDEX IF NOT EXISTS idx_messages_folder_id ON messages(folder_id);", connection);
+        ExecuteDDL("CREATE INDEX IF NOT EXISTS idx_messages_subject ON messages(subject);", connection);
+        ExecuteDDL("CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender);", connection);
+        ExecuteDDL("CREATE INDEX IF NOT EXISTS idx_attachments_message_id ON attachments(message_id);", connection);
+        ExecuteDDL("CREATE INDEX IF NOT EXISTS idx_issues_object_id ON issues(object_id);", connection);
     }
 
     private static bool TableExists(string tableName, SqliteConnection connection)
@@ -366,6 +377,105 @@ public static class IndexSchemaInitializer
             {
                 cmd.ExecuteNonQuery();
             }
+        }
+    }
+
+    private static void ApplySchemaV4(SqliteConnection connection)
+    {
+        // First apply/ensure V3 schema exists
+        ApplySchemaV3(connection);
+
+        // sources
+        ExecuteDDL(@"
+            CREATE TABLE IF NOT EXISTS sources (
+                id TEXT PRIMARY KEY,
+                source_path TEXT,
+                source_type TEXT,
+                engine_type TEXT,
+                file_size INTEGER,
+                status TEXT,
+                created_at TEXT
+            );", connection);
+
+        // folders additional columns
+        SafeAddColumn("folders", "id", "TEXT NULL", connection);
+        SafeAddColumn("folders", "source_id", "TEXT NULL", connection);
+        SafeAddColumn("folders", "folder_name", "TEXT NULL", connection);
+        SafeAddColumn("folders", "logical_path", "TEXT NULL", connection);
+        SafeAddColumn("folders", "status", "TEXT NULL", connection);
+
+        // messages additional columns
+        SafeAddColumn("messages", "id", "TEXT NULL", connection);
+        SafeAddColumn("messages", "source_id", "TEXT NULL", connection);
+        SafeAddColumn("messages", "source_message_id", "TEXT NULL", connection);
+        SafeAddColumn("messages", "sender_name", "TEXT NULL", connection);
+        SafeAddColumn("messages", "sender_email", "TEXT NULL", connection);
+        SafeAddColumn("messages", "sent_date", "TEXT NULL", connection);
+        SafeAddColumn("messages", "received_date", "TEXT NULL", connection);
+        SafeAddColumn("messages", "body_html_avail", "INTEGER NULL DEFAULT 0", connection);
+        SafeAddColumn("messages", "body_text_avail", "INTEGER NULL DEFAULT 0", connection);
+        SafeAddColumn("messages", "body_rtf_avail", "INTEGER NULL DEFAULT 0", connection);
+        SafeAddColumn("messages", "has_attachments", "INTEGER NULL DEFAULT 0", connection);
+        SafeAddColumn("messages", "item_type", "TEXT NULL", connection);
+        SafeAddColumn("messages", "flags", "TEXT NULL", connection);
+        SafeAddColumn("messages", "categories", "TEXT NULL", connection);
+        SafeAddColumn("messages", "error_status", "TEXT NULL", connection);
+        SafeAddColumn("messages", "export_status", "TEXT NULL", connection);
+        SafeAddColumn("messages", "mapi_properties_extra", "TEXT NULL", connection);
+
+        // attachments additional columns
+        SafeAddColumn("attachments", "id", "TEXT NULL", connection);
+        SafeAddColumn("attachments", "filename", "TEXT NULL", connection);
+        SafeAddColumn("attachments", "mime_type", "TEXT NULL", connection);
+        SafeAddColumn("attachments", "size", "INTEGER NULL DEFAULT 0", connection);
+        SafeAddColumn("attachments", "is_embedded_message", "INTEGER NULL DEFAULT 0", connection);
+        SafeAddColumn("attachments", "is_corrupted", "INTEGER NULL DEFAULT 0", connection);
+        SafeAddColumn("attachments", "error_message", "TEXT NULL", connection);
+
+        // recovery_runs
+        ExecuteDDL(@"
+            CREATE TABLE IF NOT EXISTS recovery_runs (
+                id TEXT PRIMARY KEY,
+                source_id TEXT,
+                job_kind TEXT,
+                engine TEXT,
+                started_at TEXT,
+                finished_at TEXT,
+                status TEXT,
+                messages_attempted INTEGER,
+                messages_exported INTEGER,
+                messages_failed INTEGER,
+                attachments_exported INTEGER,
+                attachments_failed INTEGER,
+                output_path TEXT
+            );", connection);
+
+        // recovery_errors
+        ExecuteDDL(@"
+            CREATE TABLE IF NOT EXISTS recovery_errors (
+                id TEXT PRIMARY KEY,
+                run_id TEXT,
+                source_id TEXT,
+                folder_id TEXT,
+                message_id TEXT,
+                attachment_id TEXT,
+                severity TEXT,
+                error_code TEXT,
+                error_message TEXT,
+                phase TEXT,
+                created_at TEXT
+            );", connection);
+    }
+
+    private static void SafeAddColumn(string tableName, string columnName, string columnDefinition, SqliteConnection connection)
+    {
+        try
+        {
+            ExecuteDDL($"ALTER TABLE {tableName} ADD COLUMN {columnName} {columnDefinition};", connection);
+        }
+        catch
+        {
+            // Ignore error if column already exists
         }
     }
 

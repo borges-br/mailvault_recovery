@@ -57,6 +57,9 @@ public class MainWindowViewModel : ViewModelBase
     private readonly AuditManifestViewModel _auditManifestViewModel;
     private readonly TestLabViewModel _testLabViewModel;
 
+    // Quick Recovery
+    private readonly QuickRecoveryViewModel _quickRecoveryViewModel;
+
     private readonly CaseWorkspaceDiagnosticService _diagnosticService;
     private readonly CaseWorkspaceService _workspaceService;
     private readonly RecentCasesService _recentCasesService;
@@ -205,6 +208,7 @@ public class MainWindowViewModel : ViewModelBase
                 TestLabViewModel => "Test Lab",
                 SettingsViewModel => "Configurações",
                 NewCaseWizardViewModel => "Novo Caso",
+                ViewModels.QuickRecoveryViewModel => "Recuperacao Rapida",
                 _ => "Módulo"
             };
             return string.IsNullOrWhiteSpace(CaseId) ? $"Home > {currentModule}" : $"Home > Caso: {CaseId} > {currentModule}";
@@ -227,6 +231,9 @@ public class MainWindowViewModel : ViewModelBase
     public AuditManifestViewModel AuditManifestVm => _auditManifestViewModel;
     public TestLabViewModel TestLabVm => _testLabViewModel;
 
+    // Quick Recovery
+    public QuickRecoveryViewModel QuickRecoveryViewModel => _quickRecoveryViewModel;
+
     public ICommand CloseCaseCommand { get; }
     public ICommand ShowOverviewCommand { get; }
     public ICommand ShowBrowserCommand { get; }
@@ -239,6 +246,7 @@ public class MainWindowViewModel : ViewModelBase
     public ICommand ShowSettingsCommand { get; }
     public ICommand ShowAuditManifestCommand { get; }
     public ICommand ShowTestLabCommand { get; }
+    public ICommand ShowQuickRecoveryCommand { get; }
     public ICommand OpenCaseFromTopbarCommand { get; }
     public ICommand OpenCaseFolderInExplorerCommand { get; }
 
@@ -287,6 +295,8 @@ public class MainWindowViewModel : ViewModelBase
         _testLabViewModel = new TestLabViewModel();
         _testLabViewModel.CaseCreated += async path => await LoadCaseAsync(path);
 
+        _quickRecoveryViewModel = new QuickRecoveryViewModel();
+
         _folderTreeViewModel.FolderSelected += async fId =>
         {
             if (_reader != null)
@@ -320,6 +330,7 @@ public class MainWindowViewModel : ViewModelBase
         ShowSettingsCommand = ReactiveCommand.Create(() => CurrentView = _settingsViewModel);
         ShowAuditManifestCommand = ReactiveCommand.Create(() => CurrentView = _auditManifestViewModel);
         ShowTestLabCommand = ReactiveCommand.Create(() => CurrentView = _testLabViewModel);
+        ShowQuickRecoveryCommand = ReactiveCommand.Create(() => CurrentView = _quickRecoveryViewModel);
         
         OpenCaseFromTopbarCommand = ReactiveCommand.CreateFromTask(OnOpenCaseFromTopbarAsync);
         OpenCaseFolderInExplorerCommand = ReactiveCommand.CreateFromTask(OnOpenCaseFolderInExplorerAsync);

@@ -36,13 +36,21 @@ public sealed class ExportJobRunner : IExportJobRunner
             throw new FileNotFoundException($"Arquivo de evidência original não encontrado em: '{caseInfo.SourceFile}'. A exportação forense exige a presença da mídia original.", caseInfo.SourceFile);
         }
 
-        // 3. Forensically recalculate and validate SHA-256 signature (Gate 2 - No bypass allowed!)
-        progress.ReportProgress(5, "Verificando integridade forense do arquivo de origem...");
-        var hashService = new HashService();
-        string sha256 = await hashService.CalculateSha256Async(caseInfo.SourceFile, progress, ct);
-        if (!string.Equals(sha256, caseInfo.SourceSha256, StringComparison.OrdinalIgnoreCase))
+        // 3. SHA-256 integrity check (skipped in recovery mode)
+        progress.ReportProgress(5, options.SkipIntegrityCheck
+            ? "Modo de recuperação: verificação de integridade ignorada."
+            : "Verificando integridade do arquivo de origem...");
+
+        if (!options.SkipIntegrityCheck)
         {
-            throw new InvalidOperationException($"ASSINATURA DE INTEGRIDADE FALHOU: O hash SHA-256 da mídia atual ('{sha256}') não corresponde ao hash registrado no início do caso ('{caseInfo.SourceSha256}'). A exportação foi abortada para garantir a cadeia de custódia.");
+            var hashService = new HashService();
+            string sha256 = await hashService.CalculateSha256Async(caseInfo.SourceFile, progress, ct);
+            if (!string.Equals(sha256, caseInfo.SourceSha256, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    $"ASSINATURA DE INTEGRIDADE FALHOU: O hash SHA-256 da mídia atual ('{sha256}') não corresponde ao hash registrado no início do caso ('{caseInfo.SourceSha256}'). " +
+                    $"Use --skip-integrity-check para exportar no modo de recuperação.");
+            }
         }
 
         // 4. Resolve and initialize adapter in read-only mode (Gate 11 - Clean Core isolation)
@@ -172,6 +180,22 @@ public sealed class ExportJobRunner : IExportJobRunner
                 string fileBaseName = $"{seq:D6}-{safeSubject}";
                 string targetFilePath = Path.Combine(targetDir, $"{fileBaseName}.eml");
 
+                // MAX_PATH protection (260 characters limit on Windows)
+                if (targetFilePath.Length > 240)
+                {
+                    int maxFilenameLen = 240 - targetDir.Length - 5; // leave space for extension
+                    if (maxFilenameLen > 10)
+                    {
+                        string truncatedSubject = safeSubject;
+                        if (truncatedSubject.Length > maxFilenameLen)
+                        {
+                            truncatedSubject = truncatedSubject.Substring(0, maxFilenameLen);
+                        }
+                        fileBaseName = $"{seq:D6}-{truncatedSubject}";
+                        targetFilePath = Path.Combine(targetDir, $"{fileBaseName}.eml");
+                    }
+                }
+
                 // Security: Ensure no path traversal and we remain inside output directory base (Gate 7)
                 EnsureSafeWritePath(targetFilePath, options.OutputDir);
 
@@ -208,12 +232,19 @@ public sealed class ExportJobRunner : IExportJobRunner
 
                 var fullMail = readResult.Value!;
 
+                string tmpFilePath = targetFilePath + ".tmp";
                 try
                 {
-                    using (var fs = new FileStream(targetFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
+                    using (var fs = new FileStream(tmpFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
                     {
                         await exporter.ExportMessageAsync(fullMail, attachmentProvider, fs, ct);
                     }
+
+                    if (File.Exists(targetFilePath))
+                    {
+                        File.Delete(targetFilePath);
+                    }
+                    File.Move(tmpFilePath, targetFilePath);
 
                     messagesExported++;
                     exportedFilesList.Add(targetFilePath);
@@ -266,6 +297,11 @@ public sealed class ExportJobRunner : IExportJobRunner
                 }
                 catch (Exception ex)
                 {
+                    if (File.Exists(tmpFilePath))
+                    {
+                        try { File.Delete(tmpFilePath); } catch { }
+                    }
+
                     messagesFailed++;
                     issuesList.Add(new ExtractionIssue(
                         Code: "MV-ERR-EXPORT-WRITEEML",
@@ -432,6 +468,45 @@ public sealed class ExportJobRunner : IExportJobRunner
         await File.WriteAllTextAsync(manifestPath, json, ct);
         exportedFilesList.Add(manifestPath);
 
+        // 8. Generate _mailvault-export-report.json
+        var reportPath = Path.Combine(options.OutputDir, "_mailvault-export-report.json");
+        var reportData = new
+        {
+            sourcePath = caseInfo.SourceFile,
+            engine = caseInfo.AdapterName,
+            startedAt = DateTimeOffset.Now.AddMilliseconds(-stopwatch.ElapsedMilliseconds).ToString("o"),
+            finishedAt = DateTimeOffset.Now.ToString("o"),
+            totalMessages = messagesSelected,
+            attemptedMessages = messagesSelected,
+            exportedMessages = messagesExported,
+            failedMessages = messagesFailed,
+            exportedAttachments = attachmentsExported,
+            failedAttachments = attachmentsFailed,
+            outputPath = options.OutputDir,
+            errorsSummary = issuesList.Select(i => i.Message).Distinct().ToList(),
+            failedItems = issuesList.Select(i => new { id = i.ObjectId, code = i.Code, error = i.Message, details = i.TechnicalDetails }).ToList()
+        };
+
+        string reportJson = System.Text.Json.JsonSerializer.Serialize(reportData, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        await File.WriteAllTextAsync(reportPath, reportJson, ct);
+        exportedFilesList.Add(reportPath);
+
+        // Generate _mailvault-export-errors.csv
+        var csvPath = Path.Combine(options.OutputDir, "_mailvault-export-errors.csv");
+        var csvBuilder = new System.Text.StringBuilder();
+        csvBuilder.AppendLine("ItemId,ErrorCode,Severity,Message,TechnicalDetails");
+        foreach (var issue in issuesList)
+        {
+            var itemId = EscapeCsvField(issue.ObjectId ?? string.Empty);
+            var errCode = EscapeCsvField(issue.Code);
+            var severity = EscapeCsvField(issue.Severity);
+            var msgText = EscapeCsvField(issue.Message);
+            var techDetails = EscapeCsvField(issue.TechnicalDetails ?? string.Empty);
+            csvBuilder.AppendLine($"{itemId},{errCode},{severity},{msgText},{techDetails}");
+        }
+        await File.WriteAllTextAsync(csvPath, csvBuilder.ToString(), System.Text.Encoding.UTF8, ct);
+        exportedFilesList.Add(csvPath);
+
         return new ExportJobResult(
             ExportId: exportId,
             Format: options.Format,
@@ -504,6 +579,16 @@ public sealed class ExportJobRunner : IExportJobRunner
     {
         if (input.Length <= maxLen) return input;
         return input.Substring(0, maxLen - 3) + "...";
+    }
+
+    private static string EscapeCsvField(string field)
+    {
+        if (string.IsNullOrEmpty(field)) return string.Empty;
+        if (field.Contains(",") || field.Contains("\"") || field.Contains("\n") || field.Contains("\r"))
+        {
+            return "\"" + field.Replace("\"", "\"\"") + "\"";
+        }
+        return field;
     }
 
     private sealed class AdapterAttachmentContentProvider : IAttachmentContentProvider

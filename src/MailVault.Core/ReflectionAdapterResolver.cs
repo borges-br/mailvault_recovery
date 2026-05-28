@@ -98,6 +98,8 @@ public sealed class ReflectionAdapterResolver : IAdapterResolver
             var assembly = System.Runtime.Loader.AssemblyLoadContext.Default.LoadFromAssemblyPath(assemblyPath);
 
             var type = assembly.GetTypes()
+                .FirstOrDefault(t => t.Name == "XstReaderRecoveryEngine") ??
+                assembly.GetTypes()
                 .FirstOrDefault(t => typeof(IMailStoreReader).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract);
 
             if (type == null)

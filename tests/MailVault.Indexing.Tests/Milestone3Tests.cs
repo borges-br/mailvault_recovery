@@ -109,7 +109,7 @@ public class Milestone3Tests : IDisposable
         // Verify tables and version are successfully set
         using var cmd = new SqliteCommand("SELECT version FROM schema_version LIMIT 1;", connection);
         var version = Convert.ToInt64(cmd.ExecuteScalar());
-        Assert.Equal(3, version);
+        Assert.Equal(4, version);
 
         // Verify case_info columns for adapter metadata
         using var colCmd = new SqliteCommand("PRAGMA table_info(case_info);", connection);

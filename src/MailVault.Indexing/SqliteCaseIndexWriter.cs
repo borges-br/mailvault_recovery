@@ -13,6 +13,10 @@ public sealed class SqliteCaseIndexWriter : ICaseIndexWriter
     private readonly SqliteConnection _connection;
     private SqliteTransaction? _transaction;
 
+    // Reusable prepared statements — compiled once, executed per row
+    private SqliteCommand? _msgInsertCmd;
+    private SqliteCommand? _attInsertCmd;
+
     public string? ActiveRunId { get; set; }
 
     public SqliteCaseIndexWriter(SqliteConnection connection)
@@ -98,68 +102,104 @@ public sealed class SqliteCaseIndexWriter : ICaseIndexWriter
 
     public async Task SaveMessageAsync(MailItem message, FolderId folderId, CancellationToken ct)
     {
-        const string query = @"
-            INSERT OR REPLACE INTO messages (
-                message_id, internet_message_id, folder_id, subject, sender, 
-                recipients_to, recipients_cc, recipients_bcc, sent_at, received_at, 
-                has_text_body, has_html_body, body_preview, attachment_count, mapi_properties_count, run_id
-            )
-            VALUES (
-                $messageId, $internetMessageId, $folderId, $subject, $sender,
-                $to, $cc, $bcc, $sentAt, $receivedAt,
-                $hasText, $hasHtml, $bodyPreview, $attachCount, $mapiCount, $runId
-            );";
-
-        using var cmd = new SqliteCommand(query, _connection, _transaction);
-        cmd.Parameters.AddWithValue("$messageId", message.InternalId);
-        cmd.Parameters.AddWithValue("$internetMessageId", (object?)message.InternetMessageId ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$folderId", folderId.Value);
-        cmd.Parameters.AddWithValue("$subject", (object?)message.Subject ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$sender", (object?)FormatAddress(message.From) ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$to", FormatAddressList(message.To));
-        cmd.Parameters.AddWithValue("$cc", FormatAddressList(message.Cc));
-        cmd.Parameters.AddWithValue("$bcc", FormatAddressList(message.Bcc));
-        cmd.Parameters.AddWithValue("$sentAt", (object?)message.SentAt?.ToString("o") ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$receivedAt", (object?)message.ReceivedAt?.ToString("o") ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$hasText", !string.IsNullOrEmpty(message.PlainTextBody) ? 1 : 0);
-        cmd.Parameters.AddWithValue("$hasHtml", !string.IsNullOrEmpty(message.HtmlBody) ? 1 : 0);
-        cmd.Parameters.AddWithValue("$bodyPreview", (object?)message.PlainTextBody ?? DBNull.Value); // Body preview stored in PlainTextBody
-        cmd.Parameters.AddWithValue("$attachCount", message.Attachments.Count);
-        cmd.Parameters.AddWithValue("$mapiCount", message.RawProperties.Count);
-        cmd.Parameters.AddWithValue("$runId", (object?)ActiveRunId ?? DBNull.Value);
-
+        var cmd = GetOrCreateMsgInsertCmd();
+        cmd.Parameters["$messageId"].Value = message.InternalId;
+        cmd.Parameters["$internetMessageId"].Value = (object?)message.InternetMessageId ?? DBNull.Value;
+        cmd.Parameters["$folderId"].Value = folderId.Value;
+        cmd.Parameters["$subject"].Value = (object?)message.Subject ?? DBNull.Value;
+        cmd.Parameters["$sender"].Value = (object?)FormatAddress(message.From) ?? DBNull.Value;
+        cmd.Parameters["$to"].Value = FormatAddressList(message.To);
+        cmd.Parameters["$cc"].Value = FormatAddressList(message.Cc);
+        cmd.Parameters["$bcc"].Value = FormatAddressList(message.Bcc);
+        cmd.Parameters["$sentAt"].Value = (object?)message.SentAt?.ToString("o") ?? DBNull.Value;
+        cmd.Parameters["$receivedAt"].Value = (object?)message.ReceivedAt?.ToString("o") ?? DBNull.Value;
+        cmd.Parameters["$hasText"].Value = !string.IsNullOrEmpty(message.PlainTextBody) ? 1 : 0;
+        cmd.Parameters["$hasHtml"].Value = !string.IsNullOrEmpty(message.HtmlBody) ? 1 : 0;
+        cmd.Parameters["$bodyPreview"].Value = (object?)message.PlainTextBody ?? DBNull.Value;
+        cmd.Parameters["$attachCount"].Value = message.Attachments.Count;
+        cmd.Parameters["$mapiCount"].Value = message.RawProperties.Count;
+        cmd.Parameters["$runId"].Value = (object?)ActiveRunId ?? DBNull.Value;
         await cmd.ExecuteNonQueryAsync(ct);
 
-        // Save attachments associated
         foreach (var att in message.Attachments)
-        {
             await SaveAttachmentAsync(att, message.InternalId, ct);
-        }
 
-        // Save extraction issues associated
         foreach (var issue in message.Issues)
-        {
             await SaveIssueAsync(issue, ct);
-        }
     }
 
     private async Task SaveAttachmentAsync(AttachmentRef att, string messageId, CancellationToken ct)
     {
-        const string query = @"
-            INSERT OR REPLACE INTO attachments (attachment_id, message_id, file_name, content_type, size_bytes, content_id, is_inline, run_id)
-            VALUES ($attachmentId, $messageId, $fileName, $contentType, $sizeBytes, $contentId, $isInline, $runId);";
-
-        using var cmd = new SqliteCommand(query, _connection, _transaction);
-        cmd.Parameters.AddWithValue("$attachmentId", att.InternalId);
-        cmd.Parameters.AddWithValue("$messageId", messageId);
-        cmd.Parameters.AddWithValue("$fileName", (object?)att.FileName ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$contentType", (object?)att.ContentType ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$sizeBytes", (object?)att.SizeBytes ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$contentId", (object?)att.ContentId ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$isInline", att.IsInline ? 1 : 0);
-        cmd.Parameters.AddWithValue("$runId", (object?)ActiveRunId ?? DBNull.Value);
-
+        var cmd = GetOrCreateAttInsertCmd();
+        cmd.Parameters["$attachmentId"].Value = att.InternalId;
+        cmd.Parameters["$messageId"].Value = messageId;
+        cmd.Parameters["$fileName"].Value = (object?)att.FileName ?? DBNull.Value;
+        cmd.Parameters["$contentType"].Value = (object?)att.ContentType ?? DBNull.Value;
+        cmd.Parameters["$sizeBytes"].Value = (object?)att.SizeBytes ?? DBNull.Value;
+        cmd.Parameters["$contentId"].Value = (object?)att.ContentId ?? DBNull.Value;
+        cmd.Parameters["$isInline"].Value = att.IsInline ? 1 : 0;
+        cmd.Parameters["$runId"].Value = (object?)ActiveRunId ?? DBNull.Value;
         await cmd.ExecuteNonQueryAsync(ct);
+    }
+
+    private SqliteCommand GetOrCreateMsgInsertCmd()
+    {
+        if (_msgInsertCmd == null)
+        {
+            const string query = @"
+                INSERT OR REPLACE INTO messages (
+                    message_id, internet_message_id, folder_id, subject, sender,
+                    recipients_to, recipients_cc, recipients_bcc, sent_at, received_at,
+                    has_text_body, has_html_body, body_preview, attachment_count, mapi_properties_count, run_id
+                )
+                VALUES (
+                    $messageId, $internetMessageId, $folderId, $subject, $sender,
+                    $to, $cc, $bcc, $sentAt, $receivedAt,
+                    $hasText, $hasHtml, $bodyPreview, $attachCount, $mapiCount, $runId
+                );";
+            _msgInsertCmd = new SqliteCommand(query, _connection);
+            _msgInsertCmd.Parameters.Add("$messageId", SqliteType.Text);
+            _msgInsertCmd.Parameters.Add("$internetMessageId", SqliteType.Text);
+            _msgInsertCmd.Parameters.Add("$folderId", SqliteType.Text);
+            _msgInsertCmd.Parameters.Add("$subject", SqliteType.Text);
+            _msgInsertCmd.Parameters.Add("$sender", SqliteType.Text);
+            _msgInsertCmd.Parameters.Add("$to", SqliteType.Text);
+            _msgInsertCmd.Parameters.Add("$cc", SqliteType.Text);
+            _msgInsertCmd.Parameters.Add("$bcc", SqliteType.Text);
+            _msgInsertCmd.Parameters.Add("$sentAt", SqliteType.Text);
+            _msgInsertCmd.Parameters.Add("$receivedAt", SqliteType.Text);
+            _msgInsertCmd.Parameters.Add("$hasText", SqliteType.Integer);
+            _msgInsertCmd.Parameters.Add("$hasHtml", SqliteType.Integer);
+            _msgInsertCmd.Parameters.Add("$bodyPreview", SqliteType.Text);
+            _msgInsertCmd.Parameters.Add("$attachCount", SqliteType.Integer);
+            _msgInsertCmd.Parameters.Add("$mapiCount", SqliteType.Integer);
+            _msgInsertCmd.Parameters.Add("$runId", SqliteType.Text);
+            _msgInsertCmd.Prepare();
+        }
+        _msgInsertCmd.Transaction = _transaction;
+        return _msgInsertCmd;
+    }
+
+    private SqliteCommand GetOrCreateAttInsertCmd()
+    {
+        if (_attInsertCmd == null)
+        {
+            const string query = @"
+                INSERT OR REPLACE INTO attachments (attachment_id, message_id, file_name, content_type, size_bytes, content_id, is_inline, run_id)
+                VALUES ($attachmentId, $messageId, $fileName, $contentType, $sizeBytes, $contentId, $isInline, $runId);";
+            _attInsertCmd = new SqliteCommand(query, _connection);
+            _attInsertCmd.Parameters.Add("$attachmentId", SqliteType.Text);
+            _attInsertCmd.Parameters.Add("$messageId", SqliteType.Text);
+            _attInsertCmd.Parameters.Add("$fileName", SqliteType.Text);
+            _attInsertCmd.Parameters.Add("$contentType", SqliteType.Text);
+            _attInsertCmd.Parameters.Add("$sizeBytes", SqliteType.Integer);
+            _attInsertCmd.Parameters.Add("$contentId", SqliteType.Text);
+            _attInsertCmd.Parameters.Add("$isInline", SqliteType.Integer);
+            _attInsertCmd.Parameters.Add("$runId", SqliteType.Text);
+            _attInsertCmd.Prepare();
+        }
+        _attInsertCmd.Transaction = _transaction;
+        return _attInsertCmd;
     }
 
     public async Task SaveIssueAsync(ExtractionIssue issue, CancellationToken ct)
@@ -322,6 +362,11 @@ public sealed class SqliteCaseIndexWriter : ICaseIndexWriter
 
     public void Dispose()
     {
+        _msgInsertCmd?.Dispose();
+        _msgInsertCmd = null;
+        _attInsertCmd?.Dispose();
+        _attInsertCmd = null;
+
         if (_transaction != null)
         {
             _transaction.Dispose();

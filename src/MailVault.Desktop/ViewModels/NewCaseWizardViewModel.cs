@@ -56,11 +56,16 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
     private string _progressDetailText = "";
     private string _throughputText = "";
     private string _etaText = "";
+    private string _elapsedText = "";
     private bool _canCancel = true;
     private bool _isBusy;
     private string? _lastLogMessage;
     private readonly List<string> _logLinesList = new();
     private DateTime _lastProgressTimestamp;
+
+    // Elapsed timer fields
+    private DateTime _indexingStartTime;
+    private System.Timers.Timer? _elapsedTimer;
 
     // Milestone 6.2.3 Fields
     private string _selectedReaderEngine = "XstReader";
@@ -149,15 +154,21 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
 
     public string SelectedReaderEngineDisplayName => SelectedReaderEngine switch
     {
-        "XstReader" => "XstReader: Leitor C# Nativo (Recomendado)",
-        "LibpffExternal" => "LibpffExternal: Recuperação Nativa Experimental",
+        "XstReader" => "XstReader: Leitor C# Nativo OST/PST",
+        "LibpffExternal" => "LibpffExternal: Recuperação Nativa Experimental OST/PST",
+        "ThunderbirdMbox" => "Thunderbird/MBOX: Leitor Mozilla Thunderbird e MBOX",
+        "Maildir" => "Maildir: Recuperador de Diretórios Maildir",
+        "EmlFolder" => "EmlFolder: Indexador de Pastas com .EML",
         _ => SelectedReaderEngine
     };
 
     public string SelectedReaderEngineDescription => SelectedReaderEngine switch
     {
-        "XstReader" => "Parser 100% C# gerenciado para indexação rápida e isolada. Ideal para análises eficientes com preservação de custódia forense.",
-        "LibpffExternal" => "Executa pffinfo/pffexport fora do processo para diagnóstico e recuperação de arquivos. Não substitui a indexação metadata-only do XstReader.",
+        "XstReader" => "Parser 100% C# gerenciado para indexação rápida e isolada de arquivos OST/PST de forma extremamente robusta.",
+        "LibpffExternal" => "Executa pffinfo/pffexport fora do processo para diagnóstico e recuperação experimental de OST/PST.",
+        "ThunderbirdMbox" => "Indexa e recupera perfis estruturados do Mozilla Thunderbird ou arquivos MBOX Unix em streaming de baixa memória.",
+        "Maildir" => "Recupera e-mails de diretórios Maildir lendo as subpastas cur/ e new/ e preservando status flags dos nomes dos arquivos.",
+        "EmlFolder" => "Indexa e reconstrói de forma recursiva diretórios contendo arquivos no padrão RFC822 (.eml) em disco.",
         _ => "Sem descrição disponível."
     };
 
@@ -232,6 +243,16 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
                 
                 // Auto-generate CaseId based on file name + timestamp
                 string safeName = Path.GetFileNameWithoutExtension(value).Replace(" ", "_");
+                safeName = Regex.Replace(safeName, @"[^a-zA-Z0-9_\-]", "");
+                CaseId = $"CASE-{safeName}-{DateTime.Now:yyyyMMdd-HHmmss}";
+            }
+            else if (Directory.Exists(value))
+            {
+                SourceExtension = "folder";
+                SourceSize = 0;
+                
+                // Auto-generate CaseId based on folder name + timestamp
+                string safeName = Path.GetFileName(value.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)).Replace(" ", "_");
                 safeName = Regex.Replace(safeName, @"[^a-zA-Z0-9_\-]", "");
                 CaseId = $"CASE-{safeName}-{DateTime.Now:yyyyMMdd-HHmmss}";
             }
@@ -385,6 +406,12 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
         private set => this.RaiseAndSetIfChanged(ref _etaText, value);
     }
 
+    public string ElapsedText
+    {
+        get => _elapsedText;
+        private set => this.RaiseAndSetIfChanged(ref _elapsedText, value);
+    }
+
     public bool CanCancel
     {
         get => _canCancel;
@@ -434,9 +461,22 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
         set => this.RaiseAndSetIfChanged(ref _canForceStop, value);
     }
 
-    public List<string> AvailableReaderEngines { get; } = new() { "XstReader", "LibpffExternal" };
+    public List<string> AvailableReaderEngines { get; } = new() { "XstReader", "ThunderbirdMbox", "Maildir", "EmlFolder", "LibpffExternal" };
 
-    public bool CanProceedStep1 => File.Exists(SourcePath) && (SourceExtension == ".ost" || SourceExtension == ".pst");
+    public bool CanProceedStep1
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(SourcePath)) return false;
+            if (Directory.Exists(SourcePath)) return true;
+            if (File.Exists(SourcePath))
+            {
+                var ext = Path.GetExtension(SourcePath).ToLowerInvariant();
+                return ext == ".ost" || ext == ".pst" || ext == ".mbox" || ext == ".eml" || string.IsNullOrEmpty(ext);
+            }
+            return false;
+        }
+    }
     public bool CanProceedStep2 => !string.IsNullOrWhiteSpace(CaseId) && !string.IsNullOrWhiteSpace(DestinationPath);
     public bool CanProceedStep3 => DisclaimerAccepted;
 
@@ -446,6 +486,7 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
     public ICommand StartIndexingCommand { get; }
     public ICommand ForceStopCommand { get; }
     public ICommand SelectSourceFileCommand { get; }
+    public ICommand SelectSourceFolderCommand { get; }
     public ICommand SelectDestinationFolderCommand { get; }
 
     // Milestone 6.2.3.1 Commands
@@ -500,6 +541,10 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
         var selectSourceFileCmd = ReactiveCommand.CreateFromTask(OnSelectSourceFileAsync);
         selectSourceFileCmd.ThrownExceptions.Subscribe(HandleCommandException);
         SelectSourceFileCommand = selectSourceFileCmd;
+
+        var selectSourceFolderCmd = ReactiveCommand.CreateFromTask(OnSelectSourceFolderAsync);
+        selectSourceFolderCmd.ThrownExceptions.Subscribe(HandleCommandException);
+        SelectSourceFolderCommand = selectSourceFolderCmd;
 
         var selectDestinationFolderCmd = ReactiveCommand.CreateFromTask(OnSelectDestinationFolderAsync);
         selectDestinationFolderCmd.ThrownExceptions.Subscribe(HandleCommandException);
@@ -572,6 +617,15 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
         }
     }
 
+    private async Task OnSelectSourceFolderAsync()
+    {
+        string? path = await _fileDialogService.OpenFolderAsync();
+        if (!string.IsNullOrWhiteSpace(path))
+        {
+            SourcePath = path;
+        }
+    }
+
     private async Task OnSelectDestinationFolderAsync()
     {
         string? path = await _fileDialogService.OpenFolderAsync();
@@ -584,7 +638,48 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
     private void OnNext()
     {
         if (CurrentStep == 1 && CanProceedStep1)
+        {
+            if (Directory.Exists(SourcePath))
+            {
+                if (SelectedReaderEngine == "XstReader" || SelectedReaderEngine == "LibpffExternal")
+                {
+                    try
+                    {
+                        // Check if it looks like Thunderbird profiles or has Thunderbird-like profiles config
+                        if (File.Exists(Path.Combine(SourcePath, "profiles.ini")) || 
+                            Directory.Exists(Path.Combine(SourcePath, "Profiles")))
+                        {
+                            SelectedReaderEngine = "ThunderbirdMbox";
+                        }
+                        // Check for cur/new structure which represents Maildir
+                        else if (Directory.GetDirectories(SourcePath, "cur", SearchOption.AllDirectories).Any())
+                        {
+                            SelectedReaderEngine = "Maildir";
+                        }
+                        else
+                        {
+                            SelectedReaderEngine = "EmlFolder";
+                        }
+                    }
+                    catch
+                    {
+                        SelectedReaderEngine = "EmlFolder";
+                    }
+                }
+            }
+            else if (File.Exists(SourcePath))
+            {
+                var ext = Path.GetExtension(SourcePath).ToLowerInvariant();
+                if (ext == ".pst" || ext == ".ost")
+                {
+                    if (SelectedReaderEngine != "XstReader" && SelectedReaderEngine != "LibpffExternal")
+                    {
+                        SelectedReaderEngine = "XstReader";
+                    }
+                }
+            }
             CurrentStep = 2;
+        }
         else if (CurrentStep == 2 && CanProceedStep2)
             CurrentStep = 3;
         else if (CurrentStep == 3 && CanProceedStep3)
@@ -614,10 +709,13 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
         CanForceStop = false;
         ShowWatchdogWarning = false;
         HeartbeatAge = 0;
-        
+        ElapsedText = "";
+
         _logLinesList.Clear();
         LogLines.Clear();
         this.RaisePropertyChanged(nameof(LogsText));
+
+        StartElapsedTimer();
 
         AppendLog($"Preparando caso {CaseId}...");
         ProgressPercentage = 0;
@@ -765,6 +863,7 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
             }
             finally
             {
+                StopElapsedTimer();
                 pollingCts.Cancel();
                 pollingCts.Dispose();
                 reporter.Dispose();
@@ -1091,6 +1190,7 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
         }
         finally
         {
+            StopElapsedTimer();
             if (watchdogCts != null)
             {
                 watchdogCts.Cancel();
@@ -1440,6 +1540,58 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
             ThroughputText = "";
             EtaText = "";
         }
+    }
+
+    private void StartElapsedTimer()
+    {
+        _indexingStartTime = DateTime.Now;
+        ElapsedText = "00:00:00";
+
+        try
+        {
+            _elapsedTimer?.Stop();
+            _elapsedTimer?.Dispose();
+            _elapsedTimer = new System.Timers.Timer(1000) { AutoReset = true };
+            _elapsedTimer.Elapsed += OnElapsedTimerTick;
+            _elapsedTimer.Start();
+        }
+        catch
+        {
+            // Best-effort — timer is cosmetic only
+        }
+    }
+
+    private void StopElapsedTimer()
+    {
+        try
+        {
+            _elapsedTimer?.Stop();
+            _elapsedTimer?.Dispose();
+            _elapsedTimer = null;
+        }
+        catch { }
+    }
+
+    private void OnElapsedTimerTick(object? sender, System.Timers.ElapsedEventArgs e)
+    {
+        if (!IsIndexing)
+        {
+            StopElapsedTimer();
+            return;
+        }
+
+        var elapsed = DateTime.Now - _indexingStartTime;
+        RunOnUIThread(() =>
+        {
+            ElapsedText = elapsed.ToString(@"hh\:mm\:ss");
+
+            // Show email throughput once indexing has started (SHA-256 phase uses its own MB/s display)
+            if (MessagesIndexed > 10 && elapsed.TotalSeconds > 5)
+            {
+                double msgPerSec = MessagesIndexed / elapsed.TotalSeconds;
+                ThroughputText = $"{msgPerSec:F1} emails/s";
+            }
+        });
     }
 
     private static string MaskPath(string path)

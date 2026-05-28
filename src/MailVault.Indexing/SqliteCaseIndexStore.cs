@@ -29,8 +29,16 @@ public sealed class SqliteCaseIndexStore : ICaseIndexStore
         _connection = new SqliteConnection(_connString);
         await _connection.OpenAsync(ct);
 
-        // Run pragma for foreign keys, busy timeout, WAL mode, synchronous FULL on open
-        using (var cmd = new SqliteCommand("PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 10000; PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL;", _connection))
+        // WAL + NORMAL: safe after-crash recovery, significantly faster than FULL for bulk writes
+        // cache_size=-32768 → 32MB page cache; temp_store=MEMORY → avoids temp-file creation
+        using (var cmd = new SqliteCommand(
+            "PRAGMA foreign_keys = ON;" +
+            "PRAGMA busy_timeout = 10000;" +
+            "PRAGMA journal_mode = WAL;" +
+            "PRAGMA synchronous = NORMAL;" +
+            "PRAGMA cache_size = -32768;" +
+            "PRAGMA temp_store = MEMORY;",
+            _connection))
         {
             await cmd.ExecuteNonQueryAsync(ct);
         }
