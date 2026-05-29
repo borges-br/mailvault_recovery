@@ -259,3 +259,50 @@ volume real de conteúdo a ler/escrever. A métrica honesta é a **taxa por mens
 Próxima alavanca (fora deste milestone): **pipeline produtor/consumidor** e leitura por streaming de anexos
 grandes — para arquivos densos baixarem dos ~19 min. A instrumentação entregue torna essa otimização medível,
 não chute.
+
+## 14. Milestone 2 — Corpus real + corrupção controlada `[TESTE]`
+
+Objetivo: **medir onde o motor estrutural atual quebra**, antes de Deep Scan/Carving. Corpus gerado
+sempre a partir de **cópias** (`scripts/make-corrupted-corpus.ps1`), original preservado, manifesto com
+SHA-256. Recuperação rodada contra todos os cenários (`scripts/run-corpus-recovery.ps1`, bounded
+`--max-messages 150`). Detalhe operacional em [CORPUS_TESTING.md](CORPUS_TESTING.md).
+
+**Endurecimento entregue:** `BeginReadSessionAsync` movido para dentro do try do `RecoveryExportRunner`
+⇒ arquivo que não abre agora gera **relatório com status=Failed** (falha controlada), em vez de exceção crua.
+
+### 14.1 Resultados (OST real de 90 MB, 11 cenários, seed de corrupção fixo ⇒ reprodutível)
+
+| Categoria | Cenário | Status | Exportadas | Erro principal (XstReader) | Limite? |
+|---|---|---|---:|---|---|
+| healthy | healthy-copy | PartialCompleted¹ | 150 | — | não |
+| truncated | 10% | PartialCompleted¹ | 150 | — | não |
+| truncated | 30% | **Failed** | 0 | `Node block does not exist` | **sim** |
+| truncated | 60% | **Failed** | 0 | `Node block does not exist` | **sim** |
+| header-damaged | header-zeroed (512B) | **Failed** | 0 | `magic cookie is missing` | **sim** |
+| header-damaged | magic-broken (!BDN) | **Failed** | 0 | `magic cookie is missing` | **sim** |
+| middle-damaged | middle-blocks | Completed | 142 | (glitch de anexo: `stream not expandable`) | parcial |
+| corrupted | random-bytes | Completed | 40 | — (sub-recuperação silenciosa²) | parcial |
+| edge-cases | partial-copy 40% | Failed | 0 | `Node block does not exist` | — |
+| edge-cases | empty (0B) | Failed | 0 | `magic cookie is missing` | — |
+| edge-cases | tiny (8B) | Failed | 0 | `Unrecognised header type` | — |
+
+Resumo: **11 cenários · 4 recuperaram algo · 7 falha-ao-abrir · 11 falhas controladas · 0 crashes.**
+
+¹ `PartialCompleted` aqui = atingiu o cap de `--max-messages 150`, **não** falha (0 falhas). O arquivo íntegro
+exporta 4.139 (ver §13.5). Truncar só 10% da cauda não impede a leitura estrutural.
+
+² **Achado importante (honesto):** em `corrupted` o motor reportou `Completed` com apenas **40** mensagens
+(de 4.139 reais). A corrupção não gera "falhas" contadas — ela faz pastas/mensagens **não serem enumeradas**
+(perda silenciosa). O leitor estrutural recupera o que consegue navegar e ignora o resto sem sinalizar.
+
+### 14.2 Limites conhecidos do motor atual (entrada para o Milestone 3 — Deep Scan/Carving)
+1. **Cabeçalho destruído** (!BDN ausente / primeiros bytes zerados) ⇒ não abre. Carving por assinatura
+   (`IPM.Note`, propriedades MAPI) recuperaria, pois os blocos de dados posteriores seguem intactos.
+2. **Truncamento severo** (≥30%) ⇒ `Node block does not exist`: a NBT/BBT referencia nós na cauda removida.
+   Carving recuperaria as mensagens cujos blocos estão na fração salva.
+3. **Sub-recuperação silenciosa** em corrupção de blocos/bytes: o motor não quantifica o que perdeu.
+   Deep Scan + reconciliação por contagem física daria visibilidade real.
+
+Conclusão do milestone: o motor estrutural é **robusto a danos leves** (truncamento ≤10%, blocos no miolo)
+e **falha de forma controlada e auditável** em danos severos — sem nunca crashar. Os 3 limites acima são o
+escopo objetivo do Deep Scan/Carving.

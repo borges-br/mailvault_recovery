@@ -140,4 +140,19 @@ Sinal amarelo: run real de 90 MB levou **3h03 / 491 msgs / 0,04 msg/s**. Diagnó
 - ✅ Build + testes: 192 aprovados / 1 falha pré-existente dependente de ambiente (Desktop worker-launch).
 - ✅ **Benchmark completo end-to-end**: arquivo inteiro = **4.139 msgs, 0 falhas, 191,7 MB, 19,47 min, 3,54 msg/s, getMsg=0ms** (antes: O(N²) levaria dias). Etapa+lenta=Anexos; pasta+lenta=Caixa de entrada (97%).
 
+## Milestone 2 — Corpus real + corrupção controlada (2026-05-29)
+
+Objetivo: medir onde o motor estrutural quebra (sem Deep Scan/PST writer; sem mascarar falhas).
+
+- ✅ `scripts/make-corrupted-corpus.ps1` reescrito: estrutura source/generated/reports, cenários
+      healthy/truncated(%)/header-damaged/middle-damaged/corrupted(random)/edge-cases, manifesto SHA-256, **só cópias**.
+- ✅ `scripts/run-corpus-recovery.ps1`: roda recover-eml contra todo o corpus, classifica e consolida em JSON/MD/CSV.
+- ✅ Endurecimento: `BeginReadSessionAsync` dentro do try → open-failure gera relatório status=Failed (falha controlada).
+- ✅ Run reprodutível (seed fixo): **11 cenários, 0 crashes, 11 falhas controladas, 4 recuperaram, 7 falha-ao-abrir.**
+- ✅ Robusto a dano leve: truncado 10% e blocos no miolo recuperam; **falha controlada** em header destruído e truncado ≥30%.
+- ✅ Achado honesto: corrupção causa **sub-recuperação silenciosa** (corrupted=40 de 4.139, status Completed).
+- ✅ `docs/CORPUS_TESTING.md` + seção 14 em `docs/RECOVERY_PROTOTYPE.md` com tabela de limites p/ Milestone 3.
+- ✅ Fix `.gitignore`: /test-corpus/, /recovery-runs/, relatórios, progress.json, .tmp_*.
+- ⏭️ Limites p/ Milestone 3 (Deep Scan/Carving): (1) cabeçalho destruído; (2) truncamento ≥30% (Node block); (3) sub-recuperação silenciosa.
+
 Critério de aceite: OST exporta EML real abrível no Thunderbird. Build e testes passam.

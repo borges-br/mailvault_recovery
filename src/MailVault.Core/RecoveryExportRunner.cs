@@ -89,11 +89,13 @@ public sealed class RecoveryExportRunner
 
         var checkpoint = new CheckpointState(options, outputDir, sourcePath, reader.ReaderName);
 
-        if (reader is ISessionAwareMailStoreReader sessionReader)
-            await sessionReader.BeginReadSessionAsync(sourcePath, token);
-
         try
         {
+            // Dentro do try: se a abertura falhar (ex.: cabeçalho destruído), finaliza com
+            // status=Failed e relatório, em vez de lançar exceção não controlada.
+            if (reader is ISessionAwareMailStoreReader sessionReader)
+                await sessionReader.BeginReadSessionAsync(sourcePath, token);
+
             var folders = await CollectAllFoldersAsync(reader, token);
             var targetFolders = FilterFolders(folders, targetFolderPath);
             totalFolders = targetFolders.Count;
