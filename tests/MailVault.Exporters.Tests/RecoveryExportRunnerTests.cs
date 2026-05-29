@@ -44,6 +44,13 @@ public class RecoveryExportRunnerTests : IDisposable
         Assert.Equal(0, result.FailedMessages);
         Assert.Equal(3, result.TotalFolders);
         Assert.True(File.Exists(Path.Combine(outputDir, "_mailvault-export-report.json")));
+        Assert.True(File.Exists(Path.Combine(outputDir, "_mailvault-export-errors.csv")));
+
+        var mdPath = Path.Combine(outputDir, "_mailvault-export-report.md");
+        Assert.True(File.Exists(mdPath));
+        var md = File.ReadAllText(mdPath);
+        Assert.Contains("# Relatório de Recuperação", md);
+        Assert.Contains("Completo", md); // 6 exportadas, 0 falhas
 
         var emlFiles = Directory.GetFiles(outputDir, "*.eml", SearchOption.AllDirectories);
         Assert.Equal(6, emlFiles.Length);
@@ -119,19 +126,40 @@ public class RecoveryExportRunnerTests : IDisposable
     }
 
     [Fact]
-    public async Task RecoveryExportRunner_CancelExport_StopsCleanly()
+    public async Task RecoveryExportRunner_CancelExport_ReturnsCancelledStatus_AndReport()
     {
+        // Comportamento do Milestone 1.5: cancelamento NÃO lança — finaliza com status CancelledByUser
+        // e gera relatório (não perde o que foi feito).
         var runner = new RecoveryExportRunner();
         var outputDir = Path.Combine(_tempDir, "eml-cancel");
 
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
-        await Assert.ThrowsAsync<OperationCanceledException>(() =>
-            runner.ExportToEmlAsync(
-                new FakeMailStoreReader(), new EmlExporter(), "fake.pst", outputDir,
-                targetFolderPath: null, messageIds: null,
-                progress: null, ct: cts.Token));
+        var result = await runner.ExportToEmlAsync(
+            new FakeMailStoreReader(), new EmlExporter(), "fake.pst", outputDir,
+            targetFolderPath: null, messageIds: null,
+            progress: null, ct: cts.Token);
+
+        Assert.Equal(RecoveryExportStatus.CancelledByUser, result.Status);
+        Assert.True(File.Exists(Path.Combine(outputDir, "_mailvault-export-report.json")));
+    }
+
+    [Fact]
+    public async Task RecoveryExportRunner_MaxMessages_LimitsAndReportsPartial()
+    {
+        var runner = new RecoveryExportRunner();
+        var outputDir = Path.Combine(_tempDir, "eml-maxmsg");
+
+        var result = await runner.ExportToEmlAsync(
+            new FakeMailStoreReader(), new EmlExporter(), "fake.pst", outputDir,
+            targetFolderPath: null, messageIds: null,
+            progress: null, ct: CancellationToken.None,
+            options: new RecoveryExportOptions(MaxMessages: 2));
+
+        Assert.Equal(2, result.ExportedMessages);
+        Assert.Equal(RecoveryExportStatus.PartialCompleted, result.Status);
+        Assert.NotNull(result.Metrics);
     }
 
     [Fact]

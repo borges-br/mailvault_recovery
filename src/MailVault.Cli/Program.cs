@@ -251,6 +251,27 @@ public static class Program
             await HandleIndexWorkerAsync(job);
         }, jobOpt);
 
+        // Opções compartilhadas de performance/observabilidade/cancelamento (Milestone 1.5)
+        var maxMessagesOpt = new Option<int?>("--max-messages", "Limite global de mensagens a exportar (escopo/benchmark).");
+        var maxFolderMessagesOpt = new Option<int?>("--max-folder-messages", "Limite de mensagens por pasta.");
+        var timeoutOpt = new Option<string?>("--timeout", "Cancela a sessão após esta duração (ex.: 30m, 90s, 1h).");
+        var checkpointOpt = new Option<int?>("--checkpoint-interval", "Segundos entre checkpoints de relatório parcial (default 30).");
+        var progressJsonOpt = new Option<string?>("--progress-json", "Caminho adicional para escrever progress.json continuamente.");
+        var forceRereadOpt = new Option<bool>("--force-reread", "Diagnóstico: força reler cada mensagem via GetMessageAsync (caminho lento; para benchmark antes/depois).");
+
+        RecoveryExportOptions BuildRecoveryOptions(System.CommandLine.Invocation.InvocationContext ctx)
+        {
+            var pr = ctx.ParseResult;
+            return new RecoveryExportOptions(
+                MaxMessages: pr.GetValueForOption(maxMessagesOpt),
+                MaxFolderMessages: pr.GetValueForOption(maxFolderMessagesOpt),
+                TimeoutSeconds: ParseDurationSeconds(pr.GetValueForOption(timeoutOpt)),
+                CheckpointEveryMessages: 50,
+                CheckpointIntervalSeconds: pr.GetValueForOption(checkpointOpt) ?? 30,
+                ProgressJsonPath: pr.GetValueForOption(progressJsonOpt),
+                ForceFullMessageReRead: pr.GetValueForOption(forceRereadOpt));
+        }
+
         // Command: recover-eml — direct recovery from OST/PST/MBOX to individual .eml files
         var recoverEmlCommand = new Command("recover-eml", "Recupera e-mails diretamente de um OST/PST para arquivos .eml sem indexação prévia.");
         var fileArgRecoverEml = new Argument<FileInfo>("file", "Caminho do arquivo .ost ou .pst a recuperar.") { Arity = ArgumentArity.ExactlyOne };
@@ -259,12 +280,14 @@ public static class Program
         recoverEmlCommand.AddArgument(fileArgRecoverEml);
         recoverEmlCommand.AddOption(outOptRecoverEml);
         recoverEmlCommand.AddOption(folderOptRecoverEml);
+        foreach (var o in new System.CommandLine.Option[] { maxMessagesOpt, maxFolderMessagesOpt, timeoutOpt, checkpointOpt, progressJsonOpt, forceRereadOpt })
+            recoverEmlCommand.AddOption(o);
         recoverEmlCommand.SetHandler(async (context) =>
         {
             var file = context.ParseResult.GetValueForArgument(fileArgRecoverEml);
             var outDir = context.ParseResult.GetValueForOption(outOptRecoverEml)!;
             var folder = context.ParseResult.GetValueForOption(folderOptRecoverEml);
-            context.ExitCode = await HandleRecoverEmlAsync(file, outDir, folder);
+            context.ExitCode = await HandleRecoverEmlAsync(file, outDir, folder, BuildRecoveryOptions(context));
         });
 
         // Command: recover-mbox — direct recovery from OST/PST to .mbox files
@@ -275,12 +298,27 @@ public static class Program
         recoverMboxCommand.AddArgument(fileArgRecoverMbox);
         recoverMboxCommand.AddOption(outOptRecoverMbox);
         recoverMboxCommand.AddOption(folderOptRecoverMbox);
+        foreach (var o in new System.CommandLine.Option[] { maxMessagesOpt, maxFolderMessagesOpt, timeoutOpt, checkpointOpt, progressJsonOpt, forceRereadOpt })
+            recoverMboxCommand.AddOption(o);
         recoverMboxCommand.SetHandler(async (context) =>
         {
             var file = context.ParseResult.GetValueForArgument(fileArgRecoverMbox);
             var outDir = context.ParseResult.GetValueForOption(outOptRecoverMbox)!;
             var folder = context.ParseResult.GetValueForOption(folderOptRecoverMbox);
-            context.ExitCode = await HandleRecoverMboxAsync(file, outDir, folder);
+            context.ExitCode = await HandleRecoverMboxAsync(file, outDir, folder, BuildRecoveryOptions(context));
+        });
+
+        // Command: recover-pst — honesto: declara NÃO-SUPORTADO e explica tecnicamente (sem PST falso)
+        var recoverPstCommand = new Command("recover-pst", "Gera um PST limpo de destino. NÃO SUPORTADO nesta build — explica o porquê e indica EML/MBOX.");
+        var fileArgRecoverPst = new Argument<FileInfo>("file", "Caminho do arquivo .ost ou .pst de origem.") { Arity = ArgumentArity.ExactlyOne };
+        var outOptRecoverPst = new Option<string>("--out", "Caminho do PST de destino (não será criado nesta build).") { IsRequired = false };
+        recoverPstCommand.AddArgument(fileArgRecoverPst);
+        recoverPstCommand.AddOption(outOptRecoverPst);
+        recoverPstCommand.SetHandler(async (context) =>
+        {
+            var file = context.ParseResult.GetValueForArgument(fileArgRecoverPst);
+            var outPath = context.ParseResult.GetValueForOption(outOptRecoverPst);
+            context.ExitCode = await HandleRecoverPstAsync(file, outPath);
         });
 
         rootCommand.AddCommand(inspectCommand);
@@ -296,6 +334,7 @@ public static class Program
         rootCommand.AddCommand(indexWorkerCommand);
         rootCommand.AddCommand(recoverEmlCommand);
         rootCommand.AddCommand(recoverMboxCommand);
+        rootCommand.AddCommand(recoverPstCommand);
 
         // Command: worker
         var workerCommand = new Command("worker", "Comando unificado isolado de processamento para operações forenses.");
@@ -463,6 +502,30 @@ public static class Program
                 Message: $"A extensão do arquivo '{extension}' não é a padrão .ost ou .pst.",
                 ObjectId: file.Name,
                 TechnicalDetails: $"Extensão '{extension}' não reconhecida nativamente."
+            ));
+        }
+
+        // Inspeção de assinatura física do cabeçalho PFF (read-only, baseada em [MS-PST]).
+        var sig = PffSignatureInspector.Inspect(file.FullName);
+        Console.WriteLine("[*] Assinatura física (cabeçalho PFF):");
+        Console.WriteLine($"      Magia !BDN     : {(sig.IsPff ? "PRESENTE" : "AUSENTE")}");
+        Console.WriteLine($"      Família        : {sig.FormatFamily}");
+        Console.WriteLine($"      Arquitetura    : {sig.Architecture}");
+        Console.WriteLine($"      wVer           : {(sig.RawVersion >= 0 ? sig.RawVersion.ToString() : "n/d")}");
+        Console.WriteLine($"      MagicClient    : {sig.MagicClient}");
+        Console.WriteLine($"      Ofuscação      : {sig.Encryption}");
+        Console.WriteLine($"      Nota           : {sig.Notes}");
+        Console.WriteLine();
+
+        if ((extension == ".ost" || extension == ".pst") && !sig.IsPff && file.Length > 0)
+        {
+            preliminaryStatus = "Atenção: Cabeçalho PFF inválido";
+            warnings.Add(new ExtractionIssue(
+                Code: "MV-WARN-PFF-MAGIC",
+                Severity: "Warning",
+                Message: "Extensão indica PST/OST, mas a assinatura mágica !BDN está ausente no cabeçalho.",
+                ObjectId: file.Name,
+                TechnicalDetails: "Cabeçalho possivelmente sobrescrito/corrompido. Leitura estrutural padrão pode falhar; recuperação por carving não está implementada nesta build."
             ));
         }
 
@@ -2607,7 +2670,7 @@ public static class Program
         }
     }
 
-    private static async Task<int> HandleRecoverEmlAsync(FileInfo file, string outputDir, string? folderPath)
+    private static async Task<int> HandleRecoverEmlAsync(FileInfo file, string outputDir, string? folderPath, MailVault.Core.RecoveryExportOptions options)
     {
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine("================================================================================");
@@ -2627,6 +2690,7 @@ public static class Program
         Console.WriteLine($"[*] Saída  : {outputDir}");
         if (!string.IsNullOrEmpty(folderPath))
             Console.WriteLine($"[*] Pasta  : {folderPath}");
+        PrintRecoveryOptions(options);
         Console.WriteLine();
 
         IMailStoreReader reader;
@@ -2650,11 +2714,20 @@ public static class Program
             Console.WriteLine($"  [{p.FoldersProcessed}] {p.CurrentFolder} — {p.MessagesExported} exportados, {p.MessagesFailed} falhas");
         });
 
+        using var cts = new CancellationTokenSource();
+        ConsoleCancelEventHandler onCancel = (s, e) =>
+        {
+            e.Cancel = true;
+            Console.WriteLine("\n[*] Cancelamento solicitado (Ctrl+C). Finalizando com relatório parcial...");
+            cts.Cancel();
+        };
+        Console.CancelKeyPress += onCancel;
+
         RecoveryExportResult result;
         try
         {
             result = await runner.ExportToEmlAsync(
-                reader, exporter, file.FullName, outputDir, folderPath, null, progress, CancellationToken.None);
+                reader, exporter, file.FullName, outputDir, folderPath, null, progress, cts.Token, options);
         }
         catch (Exception ex)
         {
@@ -2663,33 +2736,16 @@ public static class Program
             Console.ResetColor();
             return 3;
         }
-
-        Console.WriteLine();
-        Console.ForegroundColor = ConsoleColor.Green;
-        Console.WriteLine("================================================================================");
-        Console.WriteLine("                          RELATÓRIO DE RECUPERAÇÃO                              ");
-        Console.WriteLine("================================================================================");
-        Console.ResetColor();
-        Console.WriteLine($"  Motor           : {result.Engine}");
-        Console.WriteLine($"  Total Mensagens : {result.TotalMessages}");
-        Console.WriteLine($"  Exportadas      : {result.ExportedMessages}");
-        Console.WriteLine($"  Falhas          : {result.FailedMessages}");
-        Console.WriteLine($"  Anexos OK       : {result.ExportedAttachments}");
-        Console.WriteLine($"  Anexos Falhos   : {result.FailedAttachments}");
-        Console.WriteLine($"  Duração         : {(result.FinishedAt - result.StartedAt).TotalSeconds:F1}s");
-        Console.WriteLine($"  Relatório       : {System.IO.Path.Combine(outputDir, "_mailvault-export-report.json")}");
-
-        if (result.FailedMessages > 0)
+        finally
         {
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine($"\n  AVISO: {result.FailedMessages} mensagem(ns) falharam. Ver _mailvault-export-errors.csv.");
-            Console.ResetColor();
+            Console.CancelKeyPress -= onCancel;
         }
 
-        return result.ExportedMessages > 0 ? 0 : 4;
+        PrintRecoveryReport(result, outputDir, showAttachments: true);
+        return MapRecoveryExitCode(result);
     }
 
-    private static async Task<int> HandleRecoverMboxAsync(FileInfo file, string outputDir, string? folderPath)
+    private static async Task<int> HandleRecoverMboxAsync(FileInfo file, string outputDir, string? folderPath, MailVault.Core.RecoveryExportOptions options)
     {
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine("================================================================================");
@@ -2709,6 +2765,7 @@ public static class Program
         Console.WriteLine($"[*] Saída  : {outputDir}");
         if (!string.IsNullOrEmpty(folderPath))
             Console.WriteLine($"[*] Pasta  : {folderPath}");
+        PrintRecoveryOptions(options);
         Console.WriteLine();
 
         IMailStoreReader reader;
@@ -2733,11 +2790,20 @@ public static class Program
             Console.WriteLine($"  [{p.FoldersProcessed}] {p.CurrentFolder} — {p.MessagesExported} exportados, {p.MessagesFailed} falhas");
         });
 
+        using var cts = new CancellationTokenSource();
+        ConsoleCancelEventHandler onCancel = (s, e) =>
+        {
+            e.Cancel = true;
+            Console.WriteLine("\n[*] Cancelamento solicitado (Ctrl+C). Finalizando com relatório parcial...");
+            cts.Cancel();
+        };
+        Console.CancelKeyPress += onCancel;
+
         RecoveryExportResult result;
         try
         {
             result = await runner.ExportToMboxAsync(
-                reader, mboxExporter, file.FullName, outputDir, folderPath, progress, CancellationToken.None);
+                reader, mboxExporter, file.FullName, outputDir, folderPath, progress, cts.Token, options);
         }
         catch (Exception ex)
         {
@@ -2746,18 +2812,69 @@ public static class Program
             Console.ResetColor();
             return 3;
         }
+        finally
+        {
+            Console.CancelKeyPress -= onCancel;
+        }
 
+        PrintRecoveryReport(result, outputDir, showAttachments: false);
+        return MapRecoveryExitCode(result);
+    }
+
+    private static double? ParseDurationSeconds(string? s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return null;
+        s = s.Trim().ToLowerInvariant();
+        double mult = 1;
+        if (s.EndsWith("ms")) { mult = 0.001; s = s[..^2]; }
+        else if (s.EndsWith("s")) { mult = 1; s = s[..^1]; }
+        else if (s.EndsWith("m")) { mult = 60; s = s[..^1]; }
+        else if (s.EndsWith("h")) { mult = 3600; s = s[..^1]; }
+        return double.TryParse(s, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var v)
+            ? v * mult : (double?)null;
+    }
+
+    private static void PrintRecoveryOptions(MailVault.Core.RecoveryExportOptions o)
+    {
+        var parts = new List<string>();
+        if (o.MaxMessages is int mm) parts.Add($"max-messages={mm}");
+        if (o.MaxFolderMessages is int mfm) parts.Add($"max-folder-messages={mfm}");
+        if (o.TimeoutSeconds is double t) parts.Add($"timeout={t:F0}s");
+        if (o.ForceFullMessageReRead) parts.Add("force-reread=ON");
+        parts.Add($"checkpoint={o.CheckpointIntervalSeconds:F0}s/{o.CheckpointEveryMessages}msgs");
+        if (parts.Count > 0) Console.WriteLine($"[*] Opções : {string.Join(", ", parts)}");
+    }
+
+    private static void PrintRecoveryReport(RecoveryExportResult result, string outputDir, bool showAttachments)
+    {
         Console.WriteLine();
         Console.ForegroundColor = ConsoleColor.Green;
         Console.WriteLine("================================================================================");
         Console.WriteLine("                          RELATÓRIO DE RECUPERAÇÃO                              ");
         Console.WriteLine("================================================================================");
         Console.ResetColor();
+        Console.WriteLine($"  Status          : {result.Status} — {MailVault.Core.RecoveryExportRunner.ClassifyResult(result)}");
         Console.WriteLine($"  Motor           : {result.Engine}");
         Console.WriteLine($"  Total Mensagens : {result.TotalMessages}");
         Console.WriteLine($"  Exportadas      : {result.ExportedMessages}");
         Console.WriteLine($"  Falhas          : {result.FailedMessages}");
+        if (showAttachments)
+        {
+            Console.WriteLine($"  Anexos OK       : {result.ExportedAttachments}");
+            Console.WriteLine($"  Anexos Falhos   : {result.FailedAttachments}");
+        }
         Console.WriteLine($"  Duração         : {(result.FinishedAt - result.StartedAt).TotalSeconds:F1}s");
+
+        if (result.Metrics is { } m)
+        {
+            Console.WriteLine("  --- Performance ---");
+            Console.WriteLine($"  Throughput      : {m.MessagesPerSecond:F2} msg/s · {m.MegabytesPerMinute:F1} MB/min");
+            Console.WriteLine($"  Tempo médio/msg : {m.AvgMillisecondsPerMessage:F0} ms");
+            Console.WriteLine($"  Etapa + lenta   : {m.SlowestStage}  (GetMsg {m.GetMessageMs:F0}ms · Ser+Wr {m.SerializeWriteMs:F0}ms · Anexos {m.AttachmentMs:F0}ms)");
+            if (m.SlowestFolder != null)
+                Console.WriteLine($"  Pasta + lenta   : {m.SlowestFolder} ({m.SlowestFolderSeconds:F1}s)");
+            Console.WriteLine($"  Maior msg/anexo : {m.LargestMessageBytes:N0} / {m.LargestAttachmentBytes:N0} bytes");
+        }
         Console.WriteLine($"  Relatório       : {System.IO.Path.Combine(outputDir, "_mailvault-export-report.json")}");
 
         if (result.FailedMessages > 0)
@@ -2766,7 +2883,47 @@ public static class Program
             Console.WriteLine($"\n  AVISO: {result.FailedMessages} mensagem(ns) falharam. Ver _mailvault-export-errors.csv.");
             Console.ResetColor();
         }
+    }
 
-        return result.ExportedMessages > 0 ? 0 : 4;
+    private static int MapRecoveryExitCode(RecoveryExportResult r) => r.Status switch
+    {
+        RecoveryExportStatus.CancelledByUser => 130,
+        RecoveryExportStatus.CancelledByTimeout => 124,
+        RecoveryExportStatus.Failed => 3,
+        _ => r.ExportedMessages > 0 ? 0 : 4
+    };
+
+    private static async Task<int> HandleRecoverPstAsync(FileInfo file, string? outPath)
+    {
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine("================================================================================");
+        Console.WriteLine("            MailVault Recovery — Geração de PST Limpo (destino)                ");
+        Console.WriteLine("================================================================================");
+        Console.ResetColor();
+
+        if (!file.Exists)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"[ERRO] Arquivo não encontrado: '{file.FullName}'");
+            Console.ResetColor();
+            return 1;
+        }
+
+        var writer = new MailVault.Core.UnsupportedPstExportWriter();
+        var request = new MailVault.Core.PstExportRequest(file.FullName, outPath ?? "(não especificado)");
+        // UnsupportedPstExportWriter ignora o reader por contrato (caminho NÃO-SUPORTADO honesto).
+        var outcome = await writer.WriteAsync(null!, request, null, CancellationToken.None);
+
+        Console.ForegroundColor = ConsoleColor.Yellow;
+        Console.WriteLine($"[STATUS] {outcome.StatusCode}  (Supported={outcome.Supported})");
+        Console.WriteLine($"[WRITER] {writer.WriterName}");
+        Console.ResetColor();
+        Console.WriteLine();
+        Console.WriteLine(outcome.Explanation);
+        Console.WriteLine();
+        Console.ForegroundColor = ConsoleColor.Yellow;
+        Console.WriteLine("Nenhum arquivo PST foi criado (decisão técnica deliberada — sem PST falso).");
+        Console.ResetColor();
+        return 2; // não-suportado: falha controlada e explicada
     }
 }
