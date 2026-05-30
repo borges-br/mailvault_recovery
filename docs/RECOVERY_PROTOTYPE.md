@@ -357,3 +357,36 @@ contra o mesmo corpus, para decidir a rota. **Comparação direta libpff × XstR
 Durante o desenvolvimento, o **Smart App Control (enforce)** do Windows passou a bloquear DLLs recém-compiladas
 não-assinadas (`0x800711C7`), impedindo build/test até ser desativado. Não é defeito do projeto; afeta o ciclo
 de dev de qualquer binário .NET não-assinado. Para distribuição comercial, **assinar os binários** evita isso.
+
+### 15.4 Sweep comparativo Estrutural × Deep Scan `[TESTE]` (decisão sobre Fase 3b)
+`run-corpus-recovery.ps1 -DeepScan` rodou estrutural + libpff em pasta isolada (`_deepscan/`, sem mistura, sem
+converter p/ MailItem) em todo o corpus. **Mensagens-equivalentes do libpff = contagem de `OutlookHeaders.txt`**
+(1 por item; o `pffexport` emite vários arquivos por mensagem, então "arquivos" engana — o que importa é msgs).
+
+| Cenário | XstReader (msgs) | libpff (msgs) | Valor |
+|---|---:|---:|---|
+| middle-damaged | 142 | **142** | **NoValue** (mesmo conjunto) |
+| corrupted (random) | 40 | **40** | **NoValue** (mesmo conjunto) |
+| header-zeroed / magic-broken | 0 (Failed) | 0 (OpenFailed) | **SameFailureAsStructured** → carver C# |
+| truncated 30% / 60% | 0 (Failed) | 0 (OpenFailed) | **SameFailureAsStructured** → carver C# |
+| edge (partial/empty/tiny) | 0 | 0 | **SameFailureAsStructured** |
+| healthy / truncated-10% | 150 (cap)¹ | 4139 | Inconclusive¹ |
+
+Contagem: **AddsValue=0 · NoValue=2 · SameFailureAsStructured=7 · Inconclusive=2.**
+
+¹ Inconclusive = artefato do `--max-messages 150` no estrutural; libpff rodou sem cap de mensagens e pegou 4139.
+**Não** indica libpff superior: o XstReader sem limite também faz 4139 (provado no §13.5, 19,47 min). Onde o
+estrutural **abre**, libpff recupera o **mesmo conjunto de mensagens** — nunca mais.
+
+**Decisão (critério do milestone): NÃO avançar para a Fase 3b (`PffExportParser`).**
+- **AddsValue = 0**: em nenhum cenário o libpff recuperou mensagens que o estrutural não pegasse.
+- Em arquivos que abrem (middle/corrupted), libpff = estrutural (142=142, 40=40) → integrar a saída do libpff
+  no pipeline canônico **não traria ganho de recuperação**, só custo de parser/dedup.
+- Em cabeçalho destruído / truncamento severo, libpff **falha igual** ao estrutural → **só carving por
+  assinatura bruta (Route C, carver C#) resolve** — agora confirmado por dados.
+- **libpff permanece como diagnóstico/fallback honesto** (`--deep-scan`), não como fonte de recuperação incremental.
+
+**Próxima rota técnica:** planejar o **carver C# (Route C)** para `header destruído` (7 cenários
+`NeedsCSharpCarver`) e `truncamento ≥30%`. Observação lateral (não decisiva): o `pffexport` extraiu 4139 itens
+do saudável em ≤3 min (vs 19 min do XstReader) — sinal de **velocidade** de I/O, porém sem ganho de recuperação
+e em formato não-canônico; só relevante se algum dia o gargalo de I/O justificar, exigindo o parser de qualquer modo.

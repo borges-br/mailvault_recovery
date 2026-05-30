@@ -49,6 +49,24 @@ O runner executa `mailvault recover-eml` contra cada cenário (bounded por `--ma
 manter o run rápido — a classificação de comportamento não exige export total) e lê o
 `_mailvault-export-report.json` de cada um.
 
+### 2.1 Sweep comparativo Estrutural × Deep Scan (`-DeepScan`)
+
+```powershell
+./scripts/run-corpus-recovery.ps1 -CorpusRoot "test-corpus" -MaxMessages 150 -PerFileTimeout "3m" -DeepScan
+```
+
+Com `-DeepScan`, para cada cenário o runner roda também o Deep Scan (`recover-eml --deep-scan` → `pffexport`)
+em **pasta isolada** (`reports/<cenário>/_deepscan/`) — **não** mistura com os EMLs canônicos e **não** converte
+para `MailItem`. Conta **mensagens-equivalentes** do libpff por `OutlookHeaders.txt` (1 por item; pffexport emite
+vários arquivos por mensagem, então comparar "arquivos" engana). Gera `corpus-results-with-deepscan.{json,md,csv}`
+com, por cenário: status/exportadas do XstReader, status/mensagens/arquivos/tempo do libpff, **valor do libpff**
+(`AddsValue` / `NoValue` / `SameFailureAsStructured` / `DiagnosticsOnly` / `Inconclusive`) e **recomendação**
+(`UseStructuredOnly` / `UseDeepScanFallback` / `NeedsCSharpCarver` / `DiagnosticsOnly`).
+
+**Resultado medido (2026-05-29):** `AddsValue=0` — o libpff nunca recuperou mais mensagens que o XstReader.
+Por isso a **Fase 3b (PffExportParser) NÃO foi iniciada**; libpff fica como diagnóstico/fallback e a próxima
+rota é o carver C#. Detalhe em [RECOVERY_PROTOTYPE.md §15.4](RECOVERY_PROTOTYPE.md).
+
 ## 3. Saída consolidada (em `test-corpus/reports/`)
 - `corpus-results.json` — registro completo por arquivo + resumo.
 - `corpus-results.md` — tabela + seção "Limites conhecidos (candidatos a Deep Scan/Carving)".
