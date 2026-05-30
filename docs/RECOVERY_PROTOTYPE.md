@@ -306,3 +306,54 @@ exporta 4.139 (ver §13.5). Truncar só 10% da cauda não impede a leitura estru
 Conclusão do milestone: o motor estrutural é **robusto a danos leves** (truncamento ≤10%, blocos no miolo)
 e **falha de forma controlada e auditável** em danos severos — sem nunca crashar. Os 3 limites acima são o
 escopo objetivo do Deep Scan/Carving.
+
+## 15. Milestone 3 — Probe de viabilidade do libpff `[TESTE]` (de-risk R1)
+
+Antes de implementar Deep Scan, probe empírico do `pffexport`/`pffinfo` vendorizado (build 20260526)
+contra o mesmo corpus, para decidir a rota. **Comparação direta libpff × XstReader:**
+
+| Cenário | XstReader | libpff (`pffinfo`/`pffexport`) | libpff ajuda? |
+|---|---|---|---|
+| healthy (wVer 36) | abre, 4.139 | **abre; `pffexport` extraiu 5.466 arquivos em 75s** | sim (extrai) |
+| corrupted / middle-damaged | abre (parcial/silencioso) | **abre** (header íntegro) | **sim** (carving de apagados/órfãos) |
+| header-zeroed / magic-broken | Failed | **Failed** — `invalid file signature` (mesmo `-m recovered`) | **não** |
+| truncated 30%/60% | Failed | **Failed** — `index node at offset 0x534d000` (mesmo `-m recovered`) | **não** |
+
+**Achados decisivos:**
+1. ✅ A nota "libpff falha em OSTs modernos" está **desatualizada**: o build atual lê `64-bit with 4k page`
+   (wVer 36) e **extrai conteúdo real** (5.466 arquivos do saudável em 75s — rápido, em C).
+2. ❌ O modo carving `-m recovered` **NÃO contorna** cabeçalho destruído nem truncamento — falha nos
+   **mesmos offsets** que o XstReader. libpff "recovery" resgata itens **apagados de um arquivo que abre**;
+   não faz carving bruto de arquivo que não abre.
+
+**Reorientação do escopo (baseada em dados):**
+- **Categoria #3 (arquivo abre, perda silenciosa)** → libpff **agrega valor** (resgata apagados/órfãos +
+  tolerância a falha por item). É o alvo do `--deep-scan` (opt-in + auto-fallback). **Esforço médio.**
+- **Categorias #1 (cabeçalho) e #2 (truncamento)** → libpff **não resolve**. Exigem **carving por assinatura
+  bruta** (Route C, carver C# próprio: scan de `IPM.Note`/`PR_*`, decode de bloco). **Esforço muito alto** —
+  agora justificado por dados (libpff descartado para esses casos), não por suposição.
+
+### 15.1 Implementação entregue (Fase 3a) `[TESTE]`
+- **Detector de sub-recuperação silenciosa** (`RecoveryExportRunner`): soma `ContentCount` esperado por pasta,
+  compara com exportado; se cobertura < 90% em run **não-limitado**, emite `MV-WARN-REC-UNDER-RECOVERY`,
+  marca `PartialCompleted` e recomenda `--deep-scan`. Métricas `ExpectedMessages`/`CoveragePercent` no relatório.
+  Fica **fora do hot loop** (acúmulo por pasta + checagem pós-run) → sem impacto no caminho rápido.
+- **`PffDeepScanRunner`** (`MailVault.Indexing`): roda `pffexport -m all` (allocated + orphan + recovered) em
+  **processo separado**, com timeout; distingue honestamente `OpenFailed` × `Extracted`/`PartialExtracted`.
+- **CLI `recover-eml/recover-mbox --deep-scan`**: **opt-in** + **auto-fallback** apenas quando o estrutural
+  `Failed`/0. Grava `_mailvault-deepscan-report.json`. `ExternalToolDetector` agora acha o libpff vendorizado
+  em dev (`MAILVAULT_LIBPFF_DIR` + walk-up por `vendor/native-tools/win-x64/libpff`).
+
+### 15.2 Validação em runtime `[TESTE]`
+- Suíte: **196 aprovados / 1** (falha pré-existente do Desktop worker-launch, dependente de ambiente). +4 testes do detector.
+- `recover-eml` header-zeroed → estrutural `Failed` → auto-fallback Deep Scan → `pffexport` **OpenFailed**
+  (`Error opening file`) → relatório honesto + NOTA "exige carving". (libpff também não abre — confirma §15.)
+- `recover-eml --deep-scan` corrupted/random-bytes → estrutural 20 (cap) → Deep Scan **PartialExtracted: 189
+  arquivos, 695 KB, 376 ms** (com warnings de checksum deflate; tolerante a falha). Categoria #3 = valor real.
+- **Performance preservada**: healthy **sem** `--deep-scan` NÃO invoca Deep Scan; benchmark 80 msgs `getMsg=0ms`,
+  ~7 msg/s (igual ao pré-M3). O fast path não foi tocado.
+
+### 15.3 Limitação de ambiente observada (não-código)
+Durante o desenvolvimento, o **Smart App Control (enforce)** do Windows passou a bloquear DLLs recém-compiladas
+não-assinadas (`0x800711C7`), impedindo build/test até ser desativado. Não é defeito do projeto; afeta o ciclo
+de dev de qualquer binário .NET não-assinado. Para distribuição comercial, **assinar os binários** evita isso.

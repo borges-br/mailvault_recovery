@@ -65,6 +65,7 @@ public sealed class RecoveryExportRunner
         var metrics = new MetricsCollector();
         int totalFolders = 0, exportedMessages = 0, failedMessages = 0;
         int exportedAttachments = 0, failedAttachments = 0;
+        int expectedMessages = 0;
         bool stoppedByLimit = false;
         var status = RecoveryExportStatus.Completed;
 
@@ -105,6 +106,7 @@ public sealed class RecoveryExportRunner
             {
                 token.ThrowIfCancellationRequested();
                 folderIndex++;
+                expectedMessages += Math.Max(0, folder.MessageCount ?? 0);
                 var folderSw = Stopwatch.StartNew();
 
                 string folderDir = BuildFolderOutputDir(outputDir, folder.FullPath);
@@ -280,8 +282,24 @@ public sealed class RecoveryExportRunner
                 status = RecoveryExportStatus.PartialCompleted;
         }
 
+        // Detector de sub-recuperação silenciosa: só em runs NÃO-limitados (limites de escopo
+        // produzem under-export legítimo). Corrupção faz mensagens não serem enumeradas sem
+        // gerar "falha" contada — aqui isso vira sinal explícito + recomendação de --deep-scan.
+        bool unbounded = options.MaxMessages == null && options.MaxFolderMessages == null;
+        double coverage = expectedMessages > 0 ? Math.Min(100.0, 100.0 * exportedMessages / expectedMessages) : 100.0;
+        if (unbounded
+            && status is not RecoveryExportStatus.CancelledByUser and not RecoveryExportStatus.CancelledByTimeout
+            && expectedMessages > 0 && coverage < 90.0)
+        {
+            errors.Add(new RecoveryExportIssue(null, null, "MV-WARN-REC-UNDER-RECOVERY",
+                $"Sub-recuperação possível: {exportedMessages} de {expectedMessages} mensagens esperadas " +
+                $"(cobertura {coverage:F0}%). Pode indicar corrupção silenciosa — reexecute com --deep-scan.", null));
+            if (status == RecoveryExportStatus.Completed)
+                status = RecoveryExportStatus.PartialCompleted;
+        }
+
         wall.Stop();
-        var built = metrics.Build(wall.Elapsed.TotalSeconds, exportedMessages);
+        var built = metrics.Build(wall.Elapsed.TotalSeconds, exportedMessages, expectedMessages);
         var result = new RecoveryExportResult(
             sourcePath, reader.ReaderName, startedAt, DateTimeOffset.UtcNow, outputDir,
             totalFolders, exportedMessages + failedMessages, exportedMessages, failedMessages,
@@ -477,7 +495,9 @@ public sealed class RecoveryExportRunner
                 stageGetMessageMs = Math.Round(m.GetMessageMs, 1),
                 stageSerializeWriteMs = Math.Round(m.SerializeWriteMs, 1),
                 stageAttachmentMs = Math.Round(m.AttachmentMs, 1),
-                slowestStage = m.SlowestStage
+                slowestStage = m.SlowestStage,
+                expectedMessages = m.ExpectedMessages,
+                coveragePercent = m.CoveragePercent
             },
             errorsSummary = r.Errors.Select(e => e.ErrorMessage).Distinct().ToList(),
             failedItems = r.Errors.Select(e => new { id = e.MessageId, folder = e.FolderPath, code = e.ErrorCode, error = e.ErrorMessage, details = e.TechnicalDetails }).ToList()
@@ -528,6 +548,8 @@ public sealed class RecoveryExportRunner
             sb.AppendLine("| Métrica | Valor |");
             sb.AppendLine("|---|---:|");
             sb.AppendLine($"| Tempo total (s) | {m.WallClockSeconds:F2} |");
+            sb.AppendLine($"| Mensagens esperadas (ContentCount) | {m.ExpectedMessages} |");
+            sb.AppendLine($"| Cobertura | {m.CoveragePercent:F0}% |");
             sb.AppendLine($"| Mensagens/segundo | {m.MessagesPerSecond:F3} |");
             sb.AppendLine($"| Tempo médio/mensagem (ms) | {m.AvgMillisecondsPerMessage:F1} |");
             sb.AppendLine($"| MB/minuto | {m.MegabytesPerMinute:F2} |");
@@ -590,11 +612,12 @@ public sealed class RecoveryExportRunner
             if (seconds > SlowestFolderSeconds) { SlowestFolderSeconds = seconds; SlowestFolder = path; }
         }
 
-        public RecoveryExportMetrics Build(double wallSeconds, int exported)
+        public RecoveryExportMetrics Build(double wallSeconds, int exported, int expected = 0)
         {
             double mps = wallSeconds > 0 ? exported / wallSeconds : 0;
             double avgMs = exported > 0 ? (wallSeconds * 1000.0) / exported : 0;
             double mbpm = wallSeconds > 0 ? (BytesWritten / 1048576.0) / (wallSeconds / 60.0) : 0;
+            double coverage = expected > 0 ? Math.Min(100.0, 100.0 * exported / expected) : 100.0;
             var stages = new (string Name, double Ms)[]
             {
                 ("GetMessage", GetMessageMs),
@@ -605,7 +628,8 @@ public sealed class RecoveryExportRunner
             return new RecoveryExportMetrics(
                 Math.Round(wallSeconds, 2), mps, avgMs, mbpm, BytesWritten,
                 LargestMessageBytes, LargestMessageName, LargestAttachmentBytes, LargestAttachmentName,
-                SlowestFolder, SlowestFolderSeconds, GetMessageMs, SerializeWriteMs, AttachmentMs, slowest);
+                SlowestFolder, SlowestFolderSeconds, GetMessageMs, SerializeWriteMs, AttachmentMs, slowest,
+                expected, Math.Round(coverage, 1));
         }
     }
 

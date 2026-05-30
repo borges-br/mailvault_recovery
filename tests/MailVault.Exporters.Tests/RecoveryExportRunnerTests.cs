@@ -268,4 +268,54 @@ public class RecoveryExportRunnerTests : IDisposable
         public Task<Stream> OpenAttachmentStreamAsync(MessageId messageId, AttachmentId attachmentId, CancellationToken ct) =>
             Task.FromResult<Stream>(Stream.Null);
     }
+
+    // Pasta reporta ContentCount=10 mas só enumera 2 mensagens (simula perda silenciosa por corrupção).
+    private sealed class UnderReportingReader : IMailStoreReader
+    {
+        public string ReaderName => "UnderReporting Fake Reader";
+
+        private readonly FolderNode _folder = new FolderNode(
+            Id: new FolderId("Box"), ParentId: null, DisplayName: "Box", FullPath: "Box",
+            MessageCount: 10, Children: new List<FolderNode>());
+
+        private static MailItem Msg(int i) => new MailItem(
+            InternalId: $"u-{i}", InternetMessageId: $"<u{i}@x>", Subject: $"U{i}",
+            From: new MailAddressRef("S", "s@x"), To: new List<MailAddressRef>(), Cc: new List<MailAddressRef>(),
+            Bcc: new List<MailAddressRef>(), SentAt: DateTimeOffset.UtcNow, ReceivedAt: null,
+            PlainTextBody: "body", HtmlBody: null, Attachments: new List<AttachmentRef>(),
+            RawProperties: new Dictionary<string, string>(), Issues: new List<ExtractionIssue>());
+
+        public Task<StoreMetadata> InspectAsync(string filePath, CancellationToken ct) =>
+            Task.FromResult(new StoreMetadata(filePath, 0, string.Empty, "Fake", ReaderName, new List<ExtractionIssue>()));
+
+        public async IAsyncEnumerable<FolderNode> EnumerateFoldersAsync([EnumeratorCancellation] CancellationToken ct)
+        { yield return _folder; await Task.CompletedTask; }
+
+        public async IAsyncEnumerable<MailItem> EnumerateMessagesAsync(FolderId folderId, [EnumeratorCancellation] CancellationToken ct)
+        { yield return Msg(1); yield return Msg(2); await Task.CompletedTask; }
+
+        public Task<OperationResult<MailItem>> GetMessageAsync(MessageId messageId, CancellationToken ct) =>
+            Task.FromResult(OperationResult<MailItem>.Ok(Msg(0)));
+
+        public Task<Stream> OpenAttachmentAsync(AttachmentRef attachment, CancellationToken ct) => Task.FromResult<Stream>(Stream.Null);
+        public Task<Stream> OpenAttachmentStreamAsync(MessageId messageId, AttachmentId attachmentId, CancellationToken ct) => Task.FromResult<Stream>(Stream.Null);
+    }
+
+    [Fact]
+    public async Task RecoveryExportRunner_UnderRecovery_FlaggedOnUnboundedRun()
+    {
+        var runner = new RecoveryExportRunner();
+        var outputDir = Path.Combine(_tempDir, "eml-underrecovery");
+
+        var result = await runner.ExportToEmlAsync(
+            new UnderReportingReader(), new EmlExporter(), "fake.pst", outputDir,
+            targetFolderPath: null, messageIds: null, progress: null, ct: CancellationToken.None);
+
+        Assert.Equal(2, result.ExportedMessages);
+        Assert.Equal(RecoveryExportStatus.PartialCompleted, result.Status);
+        Assert.Contains(result.Errors, e => e.ErrorCode == "MV-WARN-REC-UNDER-RECOVERY");
+        Assert.NotNull(result.Metrics);
+        Assert.Equal(10, result.Metrics!.ExpectedMessages);
+        Assert.True(result.Metrics!.CoveragePercent < 90.0);
+    }
 }

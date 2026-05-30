@@ -258,6 +258,7 @@ public static class Program
         var checkpointOpt = new Option<int?>("--checkpoint-interval", "Segundos entre checkpoints de relatório parcial (default 30).");
         var progressJsonOpt = new Option<string?>("--progress-json", "Caminho adicional para escrever progress.json continuamente.");
         var forceRereadOpt = new Option<bool>("--force-reread", "Diagnóstico: força reler cada mensagem via GetMessageAsync (caminho lento; para benchmark antes/depois).");
+        var deepScanOpt = new Option<bool>("--deep-scan", "Após a leitura estrutural, executa Deep Scan (libpff/pffexport) p/ resgatar itens apagados/órfãos. Aciona automaticamente quando o estrutural falha/0. Processo separado — não afeta o caminho rápido.");
 
         RecoveryExportOptions BuildRecoveryOptions(System.CommandLine.Invocation.InvocationContext ctx)
         {
@@ -280,14 +281,14 @@ public static class Program
         recoverEmlCommand.AddArgument(fileArgRecoverEml);
         recoverEmlCommand.AddOption(outOptRecoverEml);
         recoverEmlCommand.AddOption(folderOptRecoverEml);
-        foreach (var o in new System.CommandLine.Option[] { maxMessagesOpt, maxFolderMessagesOpt, timeoutOpt, checkpointOpt, progressJsonOpt, forceRereadOpt })
+        foreach (var o in new System.CommandLine.Option[] { maxMessagesOpt, maxFolderMessagesOpt, timeoutOpt, checkpointOpt, progressJsonOpt, forceRereadOpt, deepScanOpt })
             recoverEmlCommand.AddOption(o);
         recoverEmlCommand.SetHandler(async (context) =>
         {
             var file = context.ParseResult.GetValueForArgument(fileArgRecoverEml);
             var outDir = context.ParseResult.GetValueForOption(outOptRecoverEml)!;
             var folder = context.ParseResult.GetValueForOption(folderOptRecoverEml);
-            context.ExitCode = await HandleRecoverEmlAsync(file, outDir, folder, BuildRecoveryOptions(context));
+            context.ExitCode = await HandleRecoverEmlAsync(file, outDir, folder, BuildRecoveryOptions(context), context.ParseResult.GetValueForOption(deepScanOpt));
         });
 
         // Command: recover-mbox — direct recovery from OST/PST to .mbox files
@@ -298,14 +299,14 @@ public static class Program
         recoverMboxCommand.AddArgument(fileArgRecoverMbox);
         recoverMboxCommand.AddOption(outOptRecoverMbox);
         recoverMboxCommand.AddOption(folderOptRecoverMbox);
-        foreach (var o in new System.CommandLine.Option[] { maxMessagesOpt, maxFolderMessagesOpt, timeoutOpt, checkpointOpt, progressJsonOpt, forceRereadOpt })
+        foreach (var o in new System.CommandLine.Option[] { maxMessagesOpt, maxFolderMessagesOpt, timeoutOpt, checkpointOpt, progressJsonOpt, forceRereadOpt, deepScanOpt })
             recoverMboxCommand.AddOption(o);
         recoverMboxCommand.SetHandler(async (context) =>
         {
             var file = context.ParseResult.GetValueForArgument(fileArgRecoverMbox);
             var outDir = context.ParseResult.GetValueForOption(outOptRecoverMbox)!;
             var folder = context.ParseResult.GetValueForOption(folderOptRecoverMbox);
-            context.ExitCode = await HandleRecoverMboxAsync(file, outDir, folder, BuildRecoveryOptions(context));
+            context.ExitCode = await HandleRecoverMboxAsync(file, outDir, folder, BuildRecoveryOptions(context), context.ParseResult.GetValueForOption(deepScanOpt));
         });
 
         // Command: recover-pst — honesto: declara NÃO-SUPORTADO e explica tecnicamente (sem PST falso)
@@ -2670,7 +2671,7 @@ public static class Program
         }
     }
 
-    private static async Task<int> HandleRecoverEmlAsync(FileInfo file, string outputDir, string? folderPath, MailVault.Core.RecoveryExportOptions options)
+    private static async Task<int> HandleRecoverEmlAsync(FileInfo file, string outputDir, string? folderPath, MailVault.Core.RecoveryExportOptions options, bool deepScan)
     {
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine("================================================================================");
@@ -2742,10 +2743,11 @@ public static class Program
         }
 
         PrintRecoveryReport(result, outputDir, showAttachments: true);
+        await MaybeRunDeepScanAsync(file, outputDir, options, deepScan, result, cts.Token);
         return MapRecoveryExitCode(result);
     }
 
-    private static async Task<int> HandleRecoverMboxAsync(FileInfo file, string outputDir, string? folderPath, MailVault.Core.RecoveryExportOptions options)
+    private static async Task<int> HandleRecoverMboxAsync(FileInfo file, string outputDir, string? folderPath, MailVault.Core.RecoveryExportOptions options, bool deepScan)
     {
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine("================================================================================");
@@ -2818,6 +2820,7 @@ public static class Program
         }
 
         PrintRecoveryReport(result, outputDir, showAttachments: false);
+        await MaybeRunDeepScanAsync(file, outputDir, options, deepScan, result, cts.Token);
         return MapRecoveryExitCode(result);
     }
 
@@ -2892,6 +2895,74 @@ public static class Program
         RecoveryExportStatus.Failed => 3,
         _ => r.ExportedMessages > 0 ? 0 : 4
     };
+
+    // Deep Scan opt-in / fallback (libpff). NUNCA roda no caminho saudável: só quando solicitado
+    // explicitamente (--deep-scan) OU quando o estrutural falhou / exportou 0. Processo separado.
+    private static async Task MaybeRunDeepScanAsync(
+        FileInfo file, string outputDir, MailVault.Core.RecoveryExportOptions options,
+        bool deepScanRequested, RecoveryExportResult structural, CancellationToken ct)
+    {
+        bool autoFallback = structural.Status == RecoveryExportStatus.Failed || structural.ExportedMessages == 0;
+        if (!deepScanRequested && !autoFallback) return;
+
+        Console.WriteLine();
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine(deepScanRequested
+            ? "[DEEP SCAN] Solicitado (--deep-scan). Executando libpff/pffexport (processo separado)..."
+            : "[DEEP SCAN] Auto-fallback (estrutural falhou/0). Executando libpff/pffexport...");
+        Console.ResetColor();
+
+        int dsTimeoutMs = (int)((options.TimeoutSeconds ?? 600) * 1000);
+        MailVault.Indexing.DeepScanResult ds;
+        try
+        {
+            ds = await MailVault.Indexing.PffDeepScanRunner.RunAsync(file.FullName, outputDir, "all", dsTimeoutMs, ct);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[DEEP SCAN] Erro ao executar: {ex.Message}");
+            return;
+        }
+
+        Console.WriteLine($"  Ferramenta      : {(ds.ToolAvailable ? $"{ds.ToolPath} ({ds.ToolVersion})" : "INDISPONÍVEL")}");
+        Console.WriteLine($"  Status          : {ds.Status}");
+        Console.WriteLine($"  Abriu o arquivo : {(ds.Opened ? "sim" : "NÃO")}");
+        Console.WriteLine($"  Itens extraídos : {ds.ExtractedFiles} ({ds.ExtractedBytes:N0} bytes)");
+        Console.WriteLine($"  Saída           : {ds.OutputDir}");
+        if (!string.IsNullOrEmpty(ds.ErrorSummary))
+            Console.WriteLine($"  Erro            : {ds.ErrorSummary}");
+        if (!ds.ToolAvailable)
+            Console.WriteLine("  (Empacote pffexport via publish para habilitar Deep Scan.)");
+        else if (!ds.Opened)
+            Console.WriteLine("  NOTA: libpff também não abriu o arquivo (cabeçalho/truncamento). Esses casos exigem carving por assinatura — fora desta build.");
+
+        try
+        {
+            var dsReport = new
+            {
+                sourcePath = file.FullName,
+                trigger = deepScanRequested ? "explicit" : "auto-fallback",
+                tool = ds.ToolPath,
+                toolVersion = ds.ToolVersion,
+                mode = "all",
+                status = ds.Status,
+                opened = ds.Opened,
+                extractedFiles = ds.ExtractedFiles,
+                extractedBytes = ds.ExtractedBytes,
+                outputDir = ds.OutputDir,
+                exitCode = ds.ExitCode,
+                elapsedMs = ds.ElapsedMs,
+                errorSummary = ds.ErrorSummary,
+                structuralStatus = structural.Status.ToString(),
+                structuralExported = structural.ExportedMessages
+            };
+            await System.IO.File.WriteAllTextAsync(
+                System.IO.Path.Combine(outputDir, "_mailvault-deepscan-report.json"),
+                System.Text.Json.JsonSerializer.Serialize(dsReport, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }),
+                ct);
+        }
+        catch { /* best-effort */ }
+    }
 
     private static async Task<int> HandleRecoverPstAsync(FileInfo file, string? outPath)
     {

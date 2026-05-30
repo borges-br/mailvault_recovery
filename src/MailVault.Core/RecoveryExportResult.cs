@@ -54,7 +54,9 @@ public sealed record RecoveryExportMetrics(
     double GetMessageMs,
     double SerializeWriteMs,
     double AttachmentMs,
-    string SlowestStage);
+    string SlowestStage,
+    int ExpectedMessages = 0,
+    double CoveragePercent = 100.0);
 
 public sealed record RecoveryExportResult(
     string SourcePath,

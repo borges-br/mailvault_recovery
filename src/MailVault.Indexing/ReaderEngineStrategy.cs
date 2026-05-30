@@ -47,15 +47,30 @@ public static class ExternalToolDetector
 
     private static string[] GetSearchDirectories()
     {
-        return new[]
+        var dirs = new List<string>();
+
+        // Override explícito (CI / instalação custom)
+        var env = Environment.GetEnvironmentVariable("MAILVAULT_LIBPFF_DIR");
+        if (!string.IsNullOrWhiteSpace(env)) dirs.Add(env);
+
+        // Layout do publish (tools/libpff ao lado do executável) e diretórios correntes
+        dirs.Add(Path.Combine(AppContext.BaseDirectory, "tools", "libpff"));
+        dirs.Add(AppContext.BaseDirectory);
+        dirs.Add(Directory.GetCurrentDirectory());
+
+        // Dev: sobe a árvore a partir do bin e do cwd procurando o libpff vendorizado no repo
+        foreach (var start in new[] { AppContext.BaseDirectory, Directory.GetCurrentDirectory() })
         {
-            Path.Combine(AppContext.BaseDirectory, "tools", "libpff"),
-            AppContext.BaseDirectory,
-            Directory.GetCurrentDirectory(),
-            @"C:\Program Files\libpff",
-            @"C:\Program Files (x86)\libpff",
-            @"C:\libpff"
-        };
+            var d = new DirectoryInfo(start);
+            for (int i = 0; i < 8 && d != null; i++, d = d.Parent)
+                dirs.Add(Path.Combine(d.FullName, "vendor", "native-tools", "win-x64", "libpff"));
+        }
+
+        dirs.Add(@"C:\Program Files\libpff");
+        dirs.Add(@"C:\Program Files (x86)\libpff");
+        dirs.Add(@"C:\libpff");
+
+        return dirs.Distinct().ToArray();
     }
 
     public static async Task<ReaderEngineCapability> DetectToolAsync(string toolName, CancellationToken ct)
