@@ -322,6 +322,36 @@ public static class Program
             context.ExitCode = await HandleRecoverPstAsync(file, outPath);
         });
 
+        // Command: carve — Raw Artifact Scanner (Milestone 3c.1, SOMENTE-RELATÓRIO). NUNCA roda no recover-eml padrão.
+        var carveCommand = new Command("carve", "Varredura física (carving) por assinaturas em OST/PST severamente corrompido. SOMENTE-RELATÓRIO: lista candidatos físicos, não exporta EML.");
+        var fileArgCarve = new Argument<FileInfo>("file", "Caminho do arquivo a varrer (read-only).") { Arity = ArgumentArity.ExactlyOne };
+        var outOptCarve = new Option<string>("--out", "Diretório de saída do relatório de carving.") { IsRequired = true };
+        var maxScanOpt = new Option<long>("--max-scan-bytes", () => 0, "Limite de bytes a varrer (0 = arquivo inteiro).");
+        var maxCandOpt = new Option<int>("--max-candidates", () => 200000, "Máximo de candidatos coletados.");
+        var maxCandMbOpt = new Option<int>("--max-candidates-per-mb", () => 0, "Aborta o scan se a densidade exceder isto (0 = ilimitado).");
+        var chunkOpt = new Option<int>("--chunk-size", () => 4 * 1024 * 1024, "Tamanho do chunk de leitura (bytes).");
+        var overlapOpt = new Option<int>("--overlap-size", () => 64 * 1024, "Overlap entre chunks (bytes).");
+        var maxPrevOpt = new Option<int>("--max-preview-bytes", () => 80, "Tamanho máximo do preview por candidato.");
+        var noPrevOpt = new Option<bool>("--no-previews", "Não extrair previews de texto dos candidatos.");
+        var timeoutOptCarve = new Option<string?>("--timeout", "Cancela o scan após esta duração (ex.: 5m, 90s).");
+        carveCommand.AddArgument(fileArgCarve);
+        foreach (var o in new System.CommandLine.Option[] { outOptCarve, maxScanOpt, maxCandOpt, maxCandMbOpt, chunkOpt, overlapOpt, maxPrevOpt, noPrevOpt, timeoutOptCarve })
+            carveCommand.AddOption(o);
+        carveCommand.SetHandler(async (context) =>
+        {
+            var pr = context.ParseResult;
+            var opts = new MailVault.Carving.CarveOptions(
+                MaxScanBytes: pr.GetValueForOption(maxScanOpt),
+                MaxCandidates: pr.GetValueForOption(maxCandOpt),
+                MaxCandidatesPerMb: pr.GetValueForOption(maxCandMbOpt),
+                ChunkSizeBytes: pr.GetValueForOption(chunkOpt),
+                OverlapBytes: pr.GetValueForOption(overlapOpt),
+                TimeoutSeconds: ParseDurationSeconds(pr.GetValueForOption(timeoutOptCarve)),
+                NoPreviews: pr.GetValueForOption(noPrevOpt),
+                MaxPreviewBytes: pr.GetValueForOption(maxPrevOpt));
+            context.ExitCode = await HandleCarveAsync(pr.GetValueForArgument(fileArgCarve), pr.GetValueForOption(outOptCarve)!, opts);
+        });
+
         rootCommand.AddCommand(inspectCommand);
         rootCommand.AddCommand(treeCommand);
         rootCommand.AddCommand(listCommand);
@@ -336,6 +366,7 @@ public static class Program
         rootCommand.AddCommand(recoverEmlCommand);
         rootCommand.AddCommand(recoverMboxCommand);
         rootCommand.AddCommand(recoverPstCommand);
+        rootCommand.AddCommand(carveCommand);
 
         // Command: worker
         var workerCommand = new Command("worker", "Comando unificado isolado de processamento para operações forenses.");
@@ -2996,5 +3027,76 @@ public static class Program
         Console.WriteLine("Nenhum arquivo PST foi criado (decisão técnica deliberada — sem PST falso).");
         Console.ResetColor();
         return 2; // não-suportado: falha controlada e explicada
+    }
+
+    private static async Task<int> HandleCarveAsync(FileInfo file, string outputDir, MailVault.Carving.CarveOptions options)
+    {
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine("================================================================================");
+        Console.WriteLine("      MailVault Recovery — Carving (Raw Artifact Scan · SOMENTE-RELATÓRIO)      ");
+        Console.WriteLine("================================================================================");
+        Console.ResetColor();
+
+        if (!file.Exists)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"[ERRO] Arquivo não encontrado: '{file.FullName}'");
+            Console.ResetColor();
+            return 1;
+        }
+
+        Console.WriteLine($"[*] Fonte : {file.FullName}");
+        Console.WriteLine($"[*] Saída : {outputDir}");
+        Console.WriteLine("[*] Modo  : varredura física por assinaturas (IPM.Note ASCII/UTF-16LE). NÃO exporta EML.");
+        Console.WriteLine();
+
+        using var cts = new CancellationTokenSource();
+        ConsoleCancelEventHandler onCancel = (s, e) =>
+        {
+            e.Cancel = true;
+            Console.WriteLine("\n[*] Cancelamento solicitado (Ctrl+C). Finalizando com relatório parcial...");
+            cts.Cancel();
+        };
+        Console.CancelKeyPress += onCancel;
+
+        MailVault.Carving.CarveResult result;
+        try
+        {
+            var scanner = new MailVault.Carving.RawArtifactScanner();
+            result = await scanner.ScanAsync(file.FullName, options, cts.Token);
+            await MailVault.Carving.CarvingReportWriter.WriteAsync(result, outputDir, 500, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"[ERRO FATAL] {ex.Message}");
+            Console.ResetColor();
+            return 3;
+        }
+        finally
+        {
+            Console.CancelKeyPress -= onCancel;
+        }
+
+        Console.WriteLine();
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine("================================================================================");
+        Console.WriteLine("                          RELATÓRIO DE CARVING                                 ");
+        Console.WriteLine("================================================================================");
+        Console.ResetColor();
+        Console.WriteLine($"  Header          : {result.HeaderSummary} (!BDN: {(result.HeaderIsPff ? "presente" : "AUSENTE")})");
+        Console.WriteLine($"  Bytes varridos  : {result.BytesScanned:N0} / {result.FileSizeBytes:N0}");
+        Console.WriteLine($"  Candidatos      : {result.TotalCandidates}");
+        foreach (var kv in result.CandidatesByKind)
+            Console.WriteLine($"      {kv.Key}: {kv.Value}");
+        Console.WriteLine($"  Status          : {result.Status}");
+        Console.WriteLine($"  Tempo           : {result.ElapsedSeconds:F2}s");
+        Console.WriteLine($"  Relatório       : {System.IO.Path.Combine(outputDir, "_mailvault-carving-report.json")}");
+        Console.WriteLine();
+        Console.ForegroundColor = ConsoleColor.Yellow;
+        Console.WriteLine("  NOTA: candidatos são SINAIS FÍSICOS, não mensagens recuperadas. Nenhum EML foi exportado (3c.1).");
+        Console.ResetColor();
+
+        return result.Status == MailVault.Carving.CarveStatus.Failed ? 3 : (result.TotalCandidates > 0 ? 0 : 4);
     }
 }

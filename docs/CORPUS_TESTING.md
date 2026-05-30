@@ -67,6 +67,23 @@ com, por cenário: status/exportadas do XstReader, status/mensagens/arquivos/tem
 Por isso a **Fase 3b (PffExportParser) NÃO foi iniciada**; libpff fica como diagnóstico/fallback e a próxima
 rota é o carver C#. Detalhe em [RECOVERY_PROTOTYPE.md §15.4](RECOVERY_PROTOTYPE.md).
 
+### 2.2 Carving por assinatura (Milestone 3c.1 — `carve`, somente-relatório)
+
+Para os cenários onde XstReader **e** libpff falham ao abrir (cabeçalho destruído, truncamento severo), o
+carver C# (`MailVault.Carving`) varre o arquivo fisicamente por assinaturas. **Somente-relatório**: lista
+candidatos, **não exporta EML**.
+
+```powershell
+mailvault carve "test-corpus\generated\header-damaged\header-zeroed.ost" --out ".\carved"
+# limites: --max-scan-bytes --max-candidates --max-candidates-per-mb --chunk-size --overlap-size
+#          --max-preview-bytes --timeout --no-previews
+```
+
+Gera `_mailvault-carving-report.json/.md` com offsets/encoding/preview dos candidatos `IPM.Note`. O carver
+**nunca** roda no `recover-eml` padrão. **Resultado medido (3c.1):** acha 121 candidatos em `header-zeroed`,
+79 em `truncated-30%`, 14 em `truncated-60%` — exatamente onde estrutural+libpff retornam 0. Detalhe em
+[RECOVERY_PROTOTYPE.md §16](RECOVERY_PROTOTYPE.md).
+
 ## 3. Saída consolidada (em `test-corpus/reports/`)
 - `corpus-results.json` — registro completo por arquivo + resumo.
 - `corpus-results.md` — tabela + seção "Limites conhecidos (candidatos a Deep Scan/Carving)".

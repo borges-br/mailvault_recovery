@@ -390,3 +390,36 @@ estrutural **abre**, libpff recupera o **mesmo conjunto de mensagens** — nunca
 `NeedsCSharpCarver`) e `truncamento ≥30%`. Observação lateral (não decisiva): o `pffexport` extraiu 4139 itens
 do saudável em ≤3 min (vs 19 min do XstReader) — sinal de **velocidade** de I/O, porém sem ganho de recuperação
 e em formato não-canônico; só relevante se algum dia o gargalo de I/O justificar, exigindo o parser de qualquer modo.
+
+## 16. Milestone 3c.1 — Carver C# (Raw Artifact Scanner, somente-relatório) `[TESTE]`
+
+Projeto novo **`src/MailVault.Carving/`** (referencia só o Core; **isolado** do motor estrutural → fast path
+intocado). `RawArtifactScanner`: leitura **read-only**, **streaming em chunks com overlap**, busca por bytes
+(`IPM.Note` ASCII + UTF-16LE) — **sem regex global, sem carregar o arquivo todo**. **SOMENTE-RELATÓRIO**: lista
+candidatos físicos (offset/encoding/confiança/preview) em `_mailvault-carving-report.json/.md`; **não exporta EML**
+⇒ impossível gerar recuperação falsa nesta fase. Limites: `--max-scan-bytes`/`--max-candidates`/
+`--max-candidates-per-mb`/`--chunk-size`/`--overlap-size`/`--max-preview-bytes`/`--timeout`/`--no-previews`.
+Comando dedicado `carve <file> --out <dir>` (carver **nunca** roda no `recover-eml` padrão).
+
+### 16.1 Prova de viabilidade `[TESTE]` (corpus — cenários onde estrutural+libpff = 0)
+| Cenário | XstReader | libpff | **Carver 3c.1** |
+|---|---:|---:|---:|
+| header-zeroed (512B zerados) | 0 | 0 | **121 candidatos IPM.Note** |
+| magic-broken (!BDN) | 0 | 0 | **121** |
+| truncated-30% | 0 | 0 | **79** |
+| truncated-60% | 0 | 0 | **14** (menos arquivo salvo → menos sinais) |
+
+→ O carver encontra **sinais físicos de mensagem exatamente onde XstReader e libpff falham ao abrir**, sem crash,
+em centésimos de segundo nos truncados. **Viabilidade do carver C# comprovada.** Abre header-destruído sem crash;
+streaming O(chunk); fast path do `recover-eml` confirmado intacto (getMsg=0, ~6 msg/s, nenhuma invocação de carving).
+
+### 16.2 Testes `[TESTE]`
+`MailVault.Carving.Tests` (**7/7**), com buffers sintéticos: acha `IPM.Note` UTF-16LE/ASCII; 0 sem sinal;
+**assinatura na fronteira de chunk é achada exatamente 1×** (valida overlap sem recontagem); respeita
+`--max-scan-bytes`; varre **arquivo sem header** (!BDN ausente); `--no-previews` omite preview.
+Suíte total: **203 aprovados / 1** (Desktop worker-launch, flaky de ambiente, pré-existente).
+
+### 16.3 Próximos submilestones (gate por etapa, não iniciados)
+3c.2 clustering de candidatos · 3c.3 builder de EML **parcial** (headers sintéticos, pasta `Partial/`) ·
+3c.4 `Orphaned Items` + dedup · 3c.5 integração `recover-eml --carve` · 3c.6 benchmark/precisão no corpus.
+O gate de viabilidade (3c.1) passou ⇒ faz sentido seguir para 3c.2/3c.3.

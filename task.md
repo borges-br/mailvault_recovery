@@ -155,4 +155,12 @@ Objetivo: medir onde o motor estrutural quebra (sem Deep Scan/PST writer; sem ma
 - ✅ Fix `.gitignore`: /test-corpus/, /recovery-runs/, relatórios, progress.json, .tmp_*.
 - ⏭️ Limites p/ Milestone 3 (Deep Scan/Carving): (1) cabeçalho destruído; (2) truncamento ≥30% (Node block); (3) sub-recuperação silenciosa.
 
+## Milestone 3 — Deep Scan / Carving (2026-05-29)
+
+- ✅ **3a — libpff Deep Scan**: `--deep-scan` opt-in + auto-fallback (Failed/0); `PffDeepScanRunner`; detector de sub-recuperação. Commit `a052fa1`.
+- ✅ **Sweep comparativo** (`run-corpus-recovery.ps1 -DeepScan`): **AddsValue=0** — libpff nunca recupera mais que o XstReader. Commit `06b7823`, tag `recovery-mvp-3a-libpff-sweep`.
+- ✅ **Decisão**: NÃO fazer Fase 3b (PffExportParser); libpff = diagnóstico/fallback.
+- ✅ **3c.1 — Carver C# (Raw Artifact Scanner, somente-relatório)**: novo projeto `MailVault.Carving` isolado; comando `carve`. **Viabilidade provada**: 121/121/79/14 candidatos `IPM.Note` em header-zeroed/magic-broken/truncated-30/60% (onde estrutural+libpff=0). 7 testes; suíte 203/1. Fast path intacto.
+- ⬜ 3c.2 clustering · 3c.3 EML parcial · 3c.4 órfãos+dedup · 3c.5 `recover-eml --carve` · 3c.6 benchmark/precisão.
+
 Critério de aceite: OST exporta EML real abrível no Thunderbird. Build e testes passam.
