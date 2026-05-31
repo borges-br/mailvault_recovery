@@ -422,4 +422,25 @@ Suíte total: **203 aprovados / 1** (Desktop worker-launch, flaky de ambiente, p
 ### 16.3 Próximos submilestones (gate por etapa, não iniciados)
 3c.2 clustering de candidatos · 3c.3 builder de EML **parcial** (headers sintéticos, pasta `Partial/`) ·
 3c.4 `Orphaned Items` + dedup · 3c.5 integração `recover-eml --carve` · 3c.6 benchmark/precisão no corpus.
-O gate de viabilidade (3c.1) passou ⇒ faz sentido seguir para 3c.2/3c.3.
+O gate de viabilidade (3c.1) passou ⇒ seguiu-se para 3c.2/3c.3 (ver §16.4).
+
+### 16.4 Classificação + builder de EML parcial (3c.2/3c.3) — achado honesto `[TESTE]`
+Implementados: `CarveFieldExtractor` (extrai assunto/email/data/corpo da janela física + classifica
+Mail/Orphan/System/LocateOnly com score 0–100 + denylist de itens de sistema), `CarvedMessageBuilder`
+(EML **parcial** com headers sintéticos `X-MailVault-*` + corpo "NÃO É CÓPIA FIEL", pasta `Recovered/Carved/Partial`
+ou `Orphaned Items`), `RawPffCarver` (orquestra scan→classifica→export). Export é **opt-in** (`--export`,
+`--min-confidence`), default **report-only**. Testes 11/11 (e-mail sintético real → Mail+export; system → System;
+marker-only → LocateOnly; report-only não exporta).
+
+**Régua funciona; o sinal `IPM.Note` é que NÃO basta — medido no corpus:**
+1. **Recall ~3%**: o healthy (4.139 msgs) tem só **121** `IPM.Note` UTF-16LE → o formato **deduplica** a string de
+   classe (não a grava por mensagem). A assinatura localiza uma fração mínima das mensagens.
+2. **Precisão da camada Mail ≈ 0 no corpus**: dos 121, **118 = System** (itens internos do OST) e os **3 "Mail"
+   são falsos positivos** (fragmentos de pasta + endereço do próprio dono da conta), não correspondência real.
+
+**Decisão (critério de parada da régua acionado):** o carver por `IPM.Note` **não entrega recuperação útil** neste
+corpus (recall baixo + Mail = falso positivo). Mantém-se **report-only/diagnóstico por padrão**; `--export` fica
+**opt-in e experimental** (EMLs fortemente disclaimerados, nunca apresentados como completos). **Não** ligar export
+por padrão. O caminho para recuperação real de mensagens em arquivo com cabeçalho/índice destruído seria um
+**parser de bloco/heap MS-PST** (decodificar PC/HN para extrair propriedades por mensagem) — esforço muito alto,
+ROI incerto (depende dos blocos intactos na fração salva), a decidir como milestone próprio antes de investir.

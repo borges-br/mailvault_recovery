@@ -11,15 +11,22 @@ public sealed record CarveOptions(
     int OverlapBytes = 64 * 1024,
     double? TimeoutSeconds = null,
     bool NoPreviews = false,
-    int MaxPreviewBytes = 80);
+    int MaxPreviewBytes = 80,
+    // --- 3c.2/3c.3: classificação + exportação parcial ---
+    bool Export = false,                 // OFF por padrão: report-only. --export habilita EML parcial.
+    int MinConfidence = 50,              // score mínimo para classificar como Mail (exporta em Partial/)
+    bool ExportOrphans = true,           // exporta cluster Orphan (score 20..min) em Orphaned Items/
+    int PreWindowBytes = 8 * 1024,       // janela física antes do marcador
+    int PostWindowBytes = 24 * 1024,     // janela física depois do marcador
+    int MaxBodyChars = 64 * 1024);
 
-/// <summary>Um sinal físico encontrado (não é uma mensagem — é evidência bruta num offset).</summary>
+/// <summary>Sinal físico bruto (Camada A+B / 3c.1) — um marcador num offset, não uma mensagem.</summary>
 public sealed record CarveCandidate(
     long Offset,
     string Kind,        // ex.: "IPM.Note"
     string Encoding,    // "ascii" | "utf16le"
-    int Confidence,     // 0-100 (heurístico)
-    string? Preview);   // trecho curto sanitizado (se previews habilitados)
+    int Confidence,
+    string? Preview);
 
 public enum CarveStatus
 {
@@ -31,7 +38,7 @@ public enum CarveStatus
     Failed
 }
 
-/// <summary>Resultado do scan de artefatos (Camada A+B). Report-only no 3c.1 — sem EML.</summary>
+/// <summary>Resultado do scan bruto (Camada A+B). Phase 1 — apenas sinais físicos.</summary>
 public sealed record CarveResult(
     string SourcePath,
     long FileSizeBytes,
@@ -41,6 +48,46 @@ public sealed record CarveResult(
     int TotalCandidates,
     IReadOnlyDictionary<string, int> CandidatesByKind,
     IReadOnlyList<CarveCandidate> Candidates,
+    double ElapsedSeconds,
+    CarveStatus Status,
+    IReadOnlyList<string> Notes);
+
+/// <summary>Classificação de um cluster após extração de campos (Camada C+D / 3c.2).</summary>
+public enum CarveClass
+{
+    Mail,        // evidência suficiente → exporta em Partial/
+    Orphan,      // alguma evidência, insuficiente → Orphaned Items/ (claramente parcial)
+    System,      // item interno do OST (denylist) → NÃO é e-mail, descartado
+    LocateOnly   // só o marcador, sem campos legíveis → só consta no relatório
+}
+
+/// <summary>Candidato classificado com campos extraídos da janela física (3c.2).</summary>
+public sealed record ClassifiedCandidate(
+    long Offset,
+    string Encoding,
+    CarveClass Classification,
+    int Score,
+    string? Subject,
+    string? FromEmail,
+    string? ToEmail,
+    string? DateText,
+    string? BodySnippet,
+    string Reason,
+    string? ExportedRelativePath);
+
+/// <summary>Resultado do pipeline completo de carving (scan + classificação + exportação opcional).</summary>
+public sealed record CarvePipelineResult(
+    string SourcePath,
+    long FileSizeBytes,
+    long BytesScanned,
+    bool HeaderIsPff,
+    string HeaderSummary,
+    int TotalCandidates,
+    IReadOnlyDictionary<string, int> CandidatesByKind,
+    IReadOnlyDictionary<string, int> ClassificationCounts,
+    int ExportedCount,
+    bool ExportEnabled,
+    IReadOnlyList<ClassifiedCandidate> Candidates,
     double ElapsedSeconds,
     CarveStatus Status,
     IReadOnlyList<string> Notes);

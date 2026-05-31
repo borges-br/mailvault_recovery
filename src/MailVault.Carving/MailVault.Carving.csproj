@@ -7,8 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Reusa PffSignatureInspector (diagnóstico de header) do Core. NÃO referencia o motor estrutural. -->
+    <!-- Reusa PffSignatureInspector (diagnóstico de header) do Core. NÃO referencia o motor estrutural (XstReader). -->
     <ProjectReference Include="..\MailVault.Core\MailVault.Core.csproj" />
+    <!-- Reusa MailVaultMimeSerializer/EmlExporter para escrever EML parcial (mesmo serializer do recover-eml). -->
+    <ProjectReference Include="..\MailVault.Exporters.Eml\MailVault.Exporters.Eml.csproj" />
   </ItemGroup>
 
 </Project>

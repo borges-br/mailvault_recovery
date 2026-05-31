@@ -334,8 +334,10 @@ public static class Program
         var maxPrevOpt = new Option<int>("--max-preview-bytes", () => 80, "Tamanho máximo do preview por candidato.");
         var noPrevOpt = new Option<bool>("--no-previews", "Não extrair previews de texto dos candidatos.");
         var timeoutOptCarve = new Option<string?>("--timeout", "Cancela o scan após esta duração (ex.: 5m, 90s).");
+        var exportOpt = new Option<bool>("--export", "Exporta EML PARCIAL dos clusters classificados como Mail/Orphan (default: report-only, sem exportar).");
+        var minConfOpt = new Option<int>("--min-confidence", () => 50, "Score mínimo (0-100) para classificar como Mail e exportar em Partial/.");
         carveCommand.AddArgument(fileArgCarve);
-        foreach (var o in new System.CommandLine.Option[] { outOptCarve, maxScanOpt, maxCandOpt, maxCandMbOpt, chunkOpt, overlapOpt, maxPrevOpt, noPrevOpt, timeoutOptCarve })
+        foreach (var o in new System.CommandLine.Option[] { outOptCarve, maxScanOpt, maxCandOpt, maxCandMbOpt, chunkOpt, overlapOpt, maxPrevOpt, noPrevOpt, timeoutOptCarve, exportOpt, minConfOpt })
             carveCommand.AddOption(o);
         carveCommand.SetHandler(async (context) =>
         {
@@ -348,7 +350,9 @@ public static class Program
                 OverlapBytes: pr.GetValueForOption(overlapOpt),
                 TimeoutSeconds: ParseDurationSeconds(pr.GetValueForOption(timeoutOptCarve)),
                 NoPreviews: pr.GetValueForOption(noPrevOpt),
-                MaxPreviewBytes: pr.GetValueForOption(maxPrevOpt));
+                MaxPreviewBytes: pr.GetValueForOption(maxPrevOpt),
+                Export: pr.GetValueForOption(exportOpt),
+                MinConfidence: pr.GetValueForOption(minConfOpt));
             context.ExitCode = await HandleCarveAsync(pr.GetValueForArgument(fileArgCarve), pr.GetValueForOption(outOptCarve)!, opts);
         });
 
@@ -3047,7 +3051,9 @@ public static class Program
 
         Console.WriteLine($"[*] Fonte : {file.FullName}");
         Console.WriteLine($"[*] Saída : {outputDir}");
-        Console.WriteLine("[*] Modo  : varredura física por assinaturas (IPM.Note ASCII/UTF-16LE). NÃO exporta EML.");
+        Console.WriteLine(options.Export
+            ? "[*] Modo  : carving + classificação + EXPORT de EML PARCIAL (clusters Mail/Orphan)."
+            : "[*] Modo  : carving + classificação (REPORT-ONLY; use --export p/ gerar EML parcial).");
         Console.WriteLine();
 
         using var cts = new CancellationTokenSource();
@@ -3059,11 +3065,11 @@ public static class Program
         };
         Console.CancelKeyPress += onCancel;
 
-        MailVault.Carving.CarveResult result;
+        MailVault.Carving.CarvePipelineResult result;
         try
         {
-            var scanner = new MailVault.Carving.RawArtifactScanner();
-            result = await scanner.ScanAsync(file.FullName, options, cts.Token);
+            var carver = new MailVault.Carving.RawPffCarver();
+            result = await carver.CarveAsync(file.FullName, outputDir, options, cts.Token);
             await MailVault.Carving.CarvingReportWriter.WriteAsync(result, outputDir, 500, CancellationToken.None);
         }
         catch (Exception ex)
@@ -3087,14 +3093,17 @@ public static class Program
         Console.WriteLine($"  Header          : {result.HeaderSummary} (!BDN: {(result.HeaderIsPff ? "presente" : "AUSENTE")})");
         Console.WriteLine($"  Bytes varridos  : {result.BytesScanned:N0} / {result.FileSizeBytes:N0}");
         Console.WriteLine($"  Candidatos      : {result.TotalCandidates}");
-        foreach (var kv in result.CandidatesByKind)
+        Console.WriteLine("  Classificação   :");
+        foreach (var kv in result.ClassificationCounts)
             Console.WriteLine($"      {kv.Key}: {kv.Value}");
+        Console.WriteLine($"  EMLs parciais   : {result.ExportedCount} (export {(result.ExportEnabled ? "ON" : "OFF")})");
         Console.WriteLine($"  Status          : {result.Status}");
         Console.WriteLine($"  Tempo           : {result.ElapsedSeconds:F2}s");
         Console.WriteLine($"  Relatório       : {System.IO.Path.Combine(outputDir, "_mailvault-carving-report.json")}");
         Console.WriteLine();
         Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine("  NOTA: candidatos são SINAIS FÍSICOS, não mensagens recuperadas. Nenhum EML foi exportado (3c.1).");
+        Console.WriteLine("  NOTA: EMLs exportados são PARCIAIS (headers X-MailVault-*), nunca cópias fiéis.");
+        Console.WriteLine("        System (item interno do OST) e LocateOnly NÃO são exportados.");
         Console.ResetColor();
 
         return result.Status == MailVault.Carving.CarveStatus.Failed ? 3 : (result.TotalCandidates > 0 ? 0 : 4);
