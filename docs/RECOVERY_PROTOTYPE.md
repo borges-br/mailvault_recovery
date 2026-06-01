@@ -444,3 +444,25 @@ corpus (recall baixo + Mail = falso positivo). Mantém-se **report-only/diagnós
 por padrão. O caminho para recuperação real de mensagens em arquivo com cabeçalho/índice destruído seria um
 **parser de bloco/heap MS-PST** (decodificar PC/HN para extrair propriedades por mensagem) — esforço muito alto,
 ROI incerto (depende dos blocos intactos na fração salva), a decidir como milestone próprio antes de investir.
+
+### 16.5 Gate 0 de viabilidade do parser de bloco `[TESTE]` (grátis, antes de qualquer parser)
+Pergunta: o **conteúdo real** (assunto/corpo) existe como **texto UTF-16LE em claro** no OST bruto (o que um carver
+de scan conseguiria pegar)? Método: 30 assuntos reais (ground truth do XstReader) + palavras distintivas, procurados
+nos bytes crus do healthy (Encryption=none).
+
+| Categoria | Presente em claro (UTF-16LE)? |
+|---|---|
+| Assunto/corpo (Steam, Discord, Reserva, Movida, Wacom, Confirmação…) | **0 / 30 — NÃO** |
+| Metadados (Borges 1046×, BitMart 6×, Renata 18×, querebola 15381×, nomes de pasta) | **sim** |
+
+**Verdito (Gate 0 FALHA para conteúdo):** o scan de texto **funciona** (acha o que está em claro), mas
+**assunto/corpo NÃO estão em claro** — só metadados. O conteúdo vive na **heap estruturada/comprimida** que XstReader
+e pffexport **decodificam**, mas scan não alcança. Implicações:
+1. O carver de assinatura/texto (3c.1–3c.3) é **confirmadamente locate/diagnóstico** — não recupera conteúdo.
+2. Recuperar conteúdo de arquivo com cabeçalho/índice destruído exige **decode completo de heap/PC + provável
+   descompressão**, e **localizar blocos válidos sem o índice NBT/BBT** — ou seja, reimplementar o núcleo do
+   XstReader/libpff porém SEM o índice. Esforço enorme, ROI ruim (e blocos podem estar fisicamente perdidos).
+3. **Recomendação:** NÃO investir no parser de bloco como rota de carving. Carving permanece diagnóstico; a
+   recuperação real continua sendo estrutural (XstReader, arquivos que abrem) + libpff fallback. Posição honesta:
+   conteúdo de arquivos com cabeçalho/índice destruído é **largamente irrecuperável** sem reconstrução de bloco de
+   nível comercial (grande projeto à parte, fora do escopo atual).

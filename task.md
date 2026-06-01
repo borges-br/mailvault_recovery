@@ -162,7 +162,9 @@ Objetivo: medir onde o motor estrutural quebra (sem Deep Scan/PST writer; sem ma
 - ✅ **Decisão**: NÃO fazer Fase 3b (PffExportParser); libpff = diagnóstico/fallback.
 - ✅ **3c.1 — Carver C# (Raw Artifact Scanner, somente-relatório)**: novo projeto `MailVault.Carving` isolado; comando `carve`. **Viabilidade provada**: 121/121/79/14 candidatos `IPM.Note` em header-zeroed/magic-broken/truncated-30/60% (onde estrutural+libpff=0). Commit `d27e748`.
 - ✅ **3c.2/3c.3 — Classificação (Mail/Orphan/System/LocateOnly + score) + builder de EML parcial** (`--export` opt-in, `X-MailVault-*`, pasta Partial/Orphaned). 11 testes Carving.
-- 🟡 **Achado honesto (gate)**: assinatura `IPM.Note` tem **recall ~3%** (formato deduplica a classe: healthy 4.139 msgs = só 121 markers) e camada Mail = **falso positivo** no corpus (118/121=System). → carver fica **report-only/diagnóstico**; `--export` opt-in/experimental. Critério de parada da régua acionado.
-- ⏭️ Recuperação real de header/índice destruído exigiria **parser de bloco/heap MS-PST** (PC/HN), esforço muito alto/ROI incerto — decisão à parte. (3c.4 órfãos · 3c.5 `recover-eml --carve` · 3c.6 benchmark pendentes.)
+- 🟡 **Achado honesto (gate)**: assinatura `IPM.Note` tem **recall ~3%** (formato deduplica a classe: healthy 4.139 msgs = só 121 markers) e camada Mail = **falso positivo** no corpus (118/121=System). → carver fica **report-only/diagnóstico**; `--export` opt-in/experimental.
+- ✅ **Gate 0 do parser de bloco (grátis)**: conteúdo (assunto/corpo) **NÃO está em texto claro** no OST (Steam/Discord/Reserva/etc. = 0 UTF-16LE; só metadados em claro). Conteúdo vive na heap estruturada/comprimida.
+- 🛑 **DECISÃO (usuário): NÃO investir no parser de bloco/heap.** Seria reimplementar o XstReader sem índice + descompressão (ROI ruim). **Carver permanece diagnóstico/localizador**; recuperação real = estrutural (XstReader) + libpff fallback. Frente de carving de conteúdo **encerrada**.
+- Posição honesta: conteúdo de arquivos com cabeçalho/índice destruído é **largamente irrecuperável** sem reconstrução de bloco de nível comercial (projeto à parte).
 
 Critério de aceite: OST exporta EML real abrível no Thunderbird. Build e testes passam.
