@@ -38,6 +38,8 @@ public class ExportPanelViewModel : ViewModelBase
     private int _recoveryAttachmentsExported;
     private int _recoveryAttachmentsFailed;
     private string _recoveryElapsedText = "";
+    private string _recoveryMetricsSummary = "";
+    private string? _selectedFolderPath;
     private CancellationTokenSource? _recoveryCts;
     private System.Timers.Timer? _recoveryTimer;
     private DateTime _recoveryStartTime;
@@ -158,12 +160,38 @@ public class ExportPanelViewModel : ViewModelBase
         set => this.RaiseAndSetIfChanged(ref _recoveryElapsedText, value);
     }
 
+    public string RecoveryMetricsSummary
+    {
+        get => _recoveryMetricsSummary;
+        set => this.RaiseAndSetIfChanged(ref _recoveryMetricsSummary, value);
+    }
+
+    /// <summary>Pasta selecionada no FolderTree para exportação seletiva. Null = todas as pastas.</summary>
+    public string? SelectedFolderPath
+    {
+        get => _selectedFolderPath;
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _selectedFolderPath, value);
+            this.RaisePropertyChanged(nameof(HasSelectedFolder));
+            this.RaisePropertyChanged(nameof(SelectedFolderLabel));
+        }
+    }
+
+    public bool HasSelectedFolder => !string.IsNullOrWhiteSpace(_selectedFolderPath);
+    public string SelectedFolderLabel => HasSelectedFolder
+        ? $"Exportar pasta: {_selectedFolderPath}"
+        : "Exportar todas as pastas";
+
     // ── Commands ──────────────────────────────────────────────────────────
     public ICommand RunExportCommand { get; }
     public ICommand RecoverToEmlCommand { get; }
     public ICommand RecoverToMboxCommand { get; }
+    public ICommand RecoverSelectedFolderToEmlCommand { get; }
+    public ICommand RecoverSelectedFolderToMboxCommand { get; }
     public ICommand CancelRecoveryCommand { get; }
     public ICommand OpenRecoveryFolderCommand { get; }
+    public ICommand ClearSelectedFolderCommand { get; }
 
     public ExportPanelViewModel() : this(new DesktopExportService()) { }
 
@@ -184,8 +212,17 @@ public class ExportPanelViewModel : ViewModelBase
         recoverMboxCmd.ThrownExceptions.Subscribe(ex => RecoveryStatus = $"❌ {ex.Message}");
         RecoverToMboxCommand = recoverMboxCmd;
 
+        var recoverFolderEmlCmd = ReactiveCommand.CreateFromTask(() => RunRecoveryExportAsync(eml: true, useSelectedFolder: true));
+        recoverFolderEmlCmd.ThrownExceptions.Subscribe(ex => RecoveryStatus = $"❌ {ex.Message}");
+        RecoverSelectedFolderToEmlCommand = recoverFolderEmlCmd;
+
+        var recoverFolderMboxCmd = ReactiveCommand.CreateFromTask(() => RunRecoveryExportAsync(eml: false, useSelectedFolder: true));
+        recoverFolderMboxCmd.ThrownExceptions.Subscribe(ex => RecoveryStatus = $"❌ {ex.Message}");
+        RecoverSelectedFolderToMboxCommand = recoverFolderMboxCmd;
+
         CancelRecoveryCommand = ReactiveCommand.Create(() => { _recoveryCts?.Cancel(); });
         OpenRecoveryFolderCommand = ReactiveCommand.Create(OpenRecoveryFolder);
+        ClearSelectedFolderCommand = ReactiveCommand.Create(() => { SelectedFolderPath = null; });
     }
 
     public void SetCaseFolder(string caseFolderPath)
@@ -221,7 +258,7 @@ public class ExportPanelViewModel : ViewModelBase
             RecoveryOutputPath = Path.Combine(caseFolderPath, "recovery-export");
     }
 
-    private async Task RunRecoveryExportAsync(bool eml)
+    private async Task RunRecoveryExportAsync(bool eml, bool useSelectedFolder = false)
     {
         if (string.IsNullOrWhiteSpace(RecoverySourcePath) || !File.Exists(RecoverySourcePath))
         {
@@ -235,13 +272,22 @@ public class ExportPanelViewModel : ViewModelBase
             return;
         }
 
+        string? folderFilter = useSelectedFolder ? SelectedFolderPath : null;
+        if (useSelectedFolder && string.IsNullOrWhiteSpace(SelectedFolderPath))
+        {
+            RecoveryStatus = "⚠️ Nenhuma pasta selecionada. Use 'Exportar tudo' ou selecione uma pasta no navegador.";
+            return;
+        }
+
         IsRecoveryRunning = true;
         HasRecoveryCompleted = false;
         RecoveryExported = 0;
         RecoveryFailed = 0;
         RecoveryAttachmentsExported = 0;
         RecoveryAttachmentsFailed = 0;
-        RecoveryStatus = eml ? "Iniciando exportação EML..." : "Iniciando exportação MBOX...";
+        RecoveryMetricsSummary = "";
+        string scopeLabel = folderFilter != null ? $"pasta '{folderFilter}'" : "todas as pastas";
+        RecoveryStatus = eml ? $"Iniciando exportação EML ({scopeLabel})..." : $"Iniciando exportação MBOX ({scopeLabel})...";
 
         _recoveryCts = new CancellationTokenSource();
         StartRecoveryTimer();
@@ -279,7 +325,7 @@ public class ExportPanelViewModel : ViewModelBase
                 result = await Task.Run(() => runner.ExportToEmlAsync(
                     adapterResult.Reader, new EmlExporter(),
                     sourcePath, outputDir,
-                    targetFolderPath: null, messageIds: null,
+                    targetFolderPath: folderFilter, messageIds: null,
                     progress, ct));
             }
             else
@@ -287,7 +333,7 @@ public class ExportPanelViewModel : ViewModelBase
                 result = await Task.Run(() => runner.ExportToMboxAsync(
                     adapterResult.Reader, new MboxExporter(new EmlExporter()),
                     sourcePath, outputDir,
-                    targetFolderPath: null,
+                    targetFolderPath: folderFilter,
                     progress, ct));
             }
 
@@ -297,9 +343,13 @@ public class ExportPanelViewModel : ViewModelBase
             RecoveryAttachmentsFailed = result.FailedAttachments;
 
             string fmt = eml ? "EML" : "MBOX";
+            string scope = folderFilter != null ? $" (pasta '{folderFilter}')" : "";
             RecoveryStatus = result.FailedMessages == 0
-                ? $"✅ Exportação {fmt} concluída. {result.ExportedMessages} e-mails exportados para: {outputDir}"
-                : $"⚠️ Exportação {fmt} com {result.FailedMessages} falhas. {result.ExportedMessages} e-mails exportados para: {outputDir}";
+                ? $"✅ Exportação {fmt} concluída{scope}. {result.ExportedMessages} e-mails exportados para: {outputDir}"
+                : $"⚠️ Exportação {fmt} com {result.FailedMessages} falhas{scope}. {result.ExportedMessages} e-mails exportados para: {outputDir}";
+
+            if (result.Metrics is { } m)
+                RecoveryMetricsSummary = $"{m.MessagesPerSecond:F2} msg/s · {m.AvgMillisecondsPerMessage:F0} ms/msg · getMsg {m.GetMessageMs:F0} ms · etapa+lenta: {m.SlowestStage}";
 
             HasRecoveryCompleted = true;
         }
