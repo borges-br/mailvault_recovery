@@ -663,8 +663,25 @@ public class WorkerResolutionAndUXTests
         finally
         {
             Environment.SetEnvironmentVariable("MAILVAULT_CLI_PATH", null);
-            if (File.Exists(dummyOst)) File.Delete(dummyOst);
-            if (Directory.Exists(tempCasePath)) Directory.Delete(tempCasePath, true);
+            try { if (File.Exists(dummyOst)) File.Delete(dummyOst); } catch { /* best-effort */ }
+            // O processo worker filho pode levar alguns instantes para liberar case.db após o cancelamento.
+            // Limpeza é best-effort com retry — não deve derrubar um teste cujas asserções já passaram.
+            for (int attempt = 0; attempt < 10; attempt++)
+            {
+                try
+                {
+                    if (Directory.Exists(tempCasePath)) Directory.Delete(tempCasePath, true);
+                    break;
+                }
+                catch (IOException)
+                {
+                    await Task.Delay(200);
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    await Task.Delay(200);
+                }
+            }
         }
     }
 

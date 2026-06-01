@@ -111,4 +111,48 @@ Legenda: ✅ Done · 🔄 In Progress · ⬜ Todo · ❌ Blocked
 
 ---
 
+## Milestone 6.3.1 — Hardening & PST/diagnóstico honestos (2026-05-29)
+
+- ✅ **FIX CRÍTICO**: `MailVault.Cli.csproj` agora copia os adapters (plugin fresco no build).
+      Antes, `recover-eml`/`recover-mbox` falhavam em build de dev por DLL de adapter desatualizado.
+- ✅ `IPstExportWriter` + `UnsupportedPstExportWriter` — PST limpo declarado NotSupported (sem PST falso)
+- ✅ CLI `recover-pst` — explica tecnicamente o NotSupported e indica EML/MBOX
+- ✅ `PffSignatureInspector` — detecta `!BDN`, ANSI/Unicode (wVer), ofuscação; exposto no `inspect`
+- ✅ Relatório de recuperação em **Markdown** (`_mailvault-export-report.md`) + classificação Completo/Parcial/Inconclusivo
+- ✅ `scripts/make-corrupted-corpus.ps1` — cenários corrompidos sempre sobre cópia
+- ✅ 15 testes novos em `MailVault.Core.Tests` (inspector, PST não-suportado, classificação)
+- ✅ Fix de teardown (best-effort + retry) no teste Desktop que falhava por lock de `case.db`
+- ✅ **Validação real**: OST de 95 MB exporta `.eml` válidos (MIME parseável, anexo PDF real), 0 falhas
+- ℹ️ `recover-all`: coberto por `recover-eml`/`recover-mbox` **sem** `--folder` (exporta todas as pastas)
+- ℹ️ Doc: ver [docs/RECOVERY_PROTOTYPE.md](docs/RECOVERY_PROTOTYPE.md)
+
+## Milestone 1.5 — Performance, Observabilidade e Cancelamento Seguro (2026-05-29)
+
+Sinal amarelo: run real de 90 MB levou **3h03 / 491 msgs / 0,04 msg/s**. Diagnóstico primeiro, depois otimização medida.
+
+- ✅ **Instrumentação por etapa** (medir antes de otimizar): GetMessage / Serialização+Escrita / Anexos, tempo por pasta, maior msg/anexo, msg/s, MB/min, etapa mais lenta — em `RecoveryExportMetrics`.
+- ✅ **Gargalo medido**: `GetMessageAsync` re-localizava cada item via `FindMessageByPath` (varredura O(N²) da árvore). 73,5s de 88s (83%) num bench de 80 msgs.
+- ✅ **Otimização de baixo risco**: pular a re-leitura redundante quando o reader é `IMetadataOnlyAware` + `MetadataOnly=false` (XstReader recovery). Fakes/tests intactos.
+- ✅ **Benchmark antes/depois** (80 msgs, mesmo OST): 88,2s → **14,4s (6,1×)**; etapa GetMessage 73.467ms → **0ms**.
+- ✅ **Relatório incremental**: `_mailvault-export-report.partial.json/.md` + `progress.json` a cada 50 msgs / 30s / troca de pasta.
+- ✅ **Cancelamento seguro**: Ctrl+C, `--timeout`, `--max-messages` → status `CancelledByUser`/`CancelledByTimeout`/`Completed`/`PartialCompleted`/`Failed` com relatório (não perde o feito).
+- ✅ **Opções CLI**: `--max-messages`, `--max-folder-messages`, `--timeout`, `--checkpoint-interval`, `--progress-json`, `--force-reread` (diagnóstico).
+- ✅ Build + testes: 192 aprovados / 1 falha pré-existente dependente de ambiente (Desktop worker-launch).
+- ✅ **Benchmark completo end-to-end**: arquivo inteiro = **4.139 msgs, 0 falhas, 191,7 MB, 19,47 min, 3,54 msg/s, getMsg=0ms** (antes: O(N²) levaria dias). Etapa+lenta=Anexos; pasta+lenta=Caixa de entrada (97%).
+
+## Milestone 2 — Corpus real + corrupção controlada (2026-05-29)
+
+Objetivo: medir onde o motor estrutural quebra (sem Deep Scan/PST writer; sem mascarar falhas).
+
+- ✅ `scripts/make-corrupted-corpus.ps1` reescrito: estrutura source/generated/reports, cenários
+      healthy/truncated(%)/header-damaged/middle-damaged/corrupted(random)/edge-cases, manifesto SHA-256, **só cópias**.
+- ✅ `scripts/run-corpus-recovery.ps1`: roda recover-eml contra todo o corpus, classifica e consolida em JSON/MD/CSV.
+- ✅ Endurecimento: `BeginReadSessionAsync` dentro do try → open-failure gera relatório status=Failed (falha controlada).
+- ✅ Run reprodutível (seed fixo): **11 cenários, 0 crashes, 11 falhas controladas, 4 recuperaram, 7 falha-ao-abrir.**
+- ✅ Robusto a dano leve: truncado 10% e blocos no miolo recuperam; **falha controlada** em header destruído e truncado ≥30%.
+- ✅ Achado honesto: corrupção causa **sub-recuperação silenciosa** (corrupted=40 de 4.139, status Completed).
+- ✅ `docs/CORPUS_TESTING.md` + seção 14 em `docs/RECOVERY_PROTOTYPE.md` com tabela de limites p/ Milestone 3.
+- ✅ Fix `.gitignore`: /test-corpus/, /recovery-runs/, relatórios, progress.json, .tmp_*.
+- ⏭️ Limites p/ Milestone 3 (Deep Scan/Carving): (1) cabeçalho destruído; (2) truncamento ≥30% (Node block); (3) sub-recuperação silenciosa.
+
 Critério de aceite: OST exporta EML real abrível no Thunderbird. Build e testes passam.

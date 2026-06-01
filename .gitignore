@@ -50,3 +50,16 @@ artifacts/
 /artifacts/
 /scratch/
 scratch/
+
+# Milestone 2 — corpus de teste e saídas de recuperação
+# (*.ost/*.pst/*.eml/*.mbox, exports/ e mailvault-cases/ já cobertos acima)
+/exports/
+/mailvault-cases/
+/recovery-runs/
+/test-corpus/
+_mailvault-export-report*.json
+_mailvault-export-report*.md
+_mailvault-export-report*.csv
+progress.json
+# scratch logs de sessão (ex.: .tmp_recover.log)
+.tmp_*

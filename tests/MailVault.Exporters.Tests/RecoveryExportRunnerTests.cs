@@ -44,6 +44,13 @@ public class RecoveryExportRunnerTests : IDisposable
         Assert.Equal(0, result.FailedMessages);
         Assert.Equal(3, result.TotalFolders);
         Assert.True(File.Exists(Path.Combine(outputDir, "_mailvault-export-report.json")));
+        Assert.True(File.Exists(Path.Combine(outputDir, "_mailvault-export-errors.csv")));
+
+        var mdPath = Path.Combine(outputDir, "_mailvault-export-report.md");
+        Assert.True(File.Exists(mdPath));
+        var md = File.ReadAllText(mdPath);
+        Assert.Contains("# Relatório de Recuperação", md);
+        Assert.Contains("Completo", md); // 6 exportadas, 0 falhas
 
         var emlFiles = Directory.GetFiles(outputDir, "*.eml", SearchOption.AllDirectories);
         Assert.Equal(6, emlFiles.Length);
@@ -119,19 +126,40 @@ public class RecoveryExportRunnerTests : IDisposable
     }
 
     [Fact]
-    public async Task RecoveryExportRunner_CancelExport_StopsCleanly()
+    public async Task RecoveryExportRunner_CancelExport_ReturnsCancelledStatus_AndReport()
     {
+        // Comportamento do Milestone 1.5: cancelamento NÃO lança — finaliza com status CancelledByUser
+        // e gera relatório (não perde o que foi feito).
         var runner = new RecoveryExportRunner();
         var outputDir = Path.Combine(_tempDir, "eml-cancel");
 
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
-        await Assert.ThrowsAsync<OperationCanceledException>(() =>
-            runner.ExportToEmlAsync(
-                new FakeMailStoreReader(), new EmlExporter(), "fake.pst", outputDir,
-                targetFolderPath: null, messageIds: null,
-                progress: null, ct: cts.Token));
+        var result = await runner.ExportToEmlAsync(
+            new FakeMailStoreReader(), new EmlExporter(), "fake.pst", outputDir,
+            targetFolderPath: null, messageIds: null,
+            progress: null, ct: cts.Token);
+
+        Assert.Equal(RecoveryExportStatus.CancelledByUser, result.Status);
+        Assert.True(File.Exists(Path.Combine(outputDir, "_mailvault-export-report.json")));
+    }
+
+    [Fact]
+    public async Task RecoveryExportRunner_MaxMessages_LimitsAndReportsPartial()
+    {
+        var runner = new RecoveryExportRunner();
+        var outputDir = Path.Combine(_tempDir, "eml-maxmsg");
+
+        var result = await runner.ExportToEmlAsync(
+            new FakeMailStoreReader(), new EmlExporter(), "fake.pst", outputDir,
+            targetFolderPath: null, messageIds: null,
+            progress: null, ct: CancellationToken.None,
+            options: new RecoveryExportOptions(MaxMessages: 2));
+
+        Assert.Equal(2, result.ExportedMessages);
+        Assert.Equal(RecoveryExportStatus.PartialCompleted, result.Status);
+        Assert.NotNull(result.Metrics);
     }
 
     [Fact]
@@ -239,5 +267,55 @@ public class RecoveryExportRunnerTests : IDisposable
 
         public Task<Stream> OpenAttachmentStreamAsync(MessageId messageId, AttachmentId attachmentId, CancellationToken ct) =>
             Task.FromResult<Stream>(Stream.Null);
+    }
+
+    // Pasta reporta ContentCount=10 mas só enumera 2 mensagens (simula perda silenciosa por corrupção).
+    private sealed class UnderReportingReader : IMailStoreReader
+    {
+        public string ReaderName => "UnderReporting Fake Reader";
+
+        private readonly FolderNode _folder = new FolderNode(
+            Id: new FolderId("Box"), ParentId: null, DisplayName: "Box", FullPath: "Box",
+            MessageCount: 10, Children: new List<FolderNode>());
+
+        private static MailItem Msg(int i) => new MailItem(
+            InternalId: $"u-{i}", InternetMessageId: $"<u{i}@x>", Subject: $"U{i}",
+            From: new MailAddressRef("S", "s@x"), To: new List<MailAddressRef>(), Cc: new List<MailAddressRef>(),
+            Bcc: new List<MailAddressRef>(), SentAt: DateTimeOffset.UtcNow, ReceivedAt: null,
+            PlainTextBody: "body", HtmlBody: null, Attachments: new List<AttachmentRef>(),
+            RawProperties: new Dictionary<string, string>(), Issues: new List<ExtractionIssue>());
+
+        public Task<StoreMetadata> InspectAsync(string filePath, CancellationToken ct) =>
+            Task.FromResult(new StoreMetadata(filePath, 0, string.Empty, "Fake", ReaderName, new List<ExtractionIssue>()));
+
+        public async IAsyncEnumerable<FolderNode> EnumerateFoldersAsync([EnumeratorCancellation] CancellationToken ct)
+        { yield return _folder; await Task.CompletedTask; }
+
+        public async IAsyncEnumerable<MailItem> EnumerateMessagesAsync(FolderId folderId, [EnumeratorCancellation] CancellationToken ct)
+        { yield return Msg(1); yield return Msg(2); await Task.CompletedTask; }
+
+        public Task<OperationResult<MailItem>> GetMessageAsync(MessageId messageId, CancellationToken ct) =>
+            Task.FromResult(OperationResult<MailItem>.Ok(Msg(0)));
+
+        public Task<Stream> OpenAttachmentAsync(AttachmentRef attachment, CancellationToken ct) => Task.FromResult<Stream>(Stream.Null);
+        public Task<Stream> OpenAttachmentStreamAsync(MessageId messageId, AttachmentId attachmentId, CancellationToken ct) => Task.FromResult<Stream>(Stream.Null);
+    }
+
+    [Fact]
+    public async Task RecoveryExportRunner_UnderRecovery_FlaggedOnUnboundedRun()
+    {
+        var runner = new RecoveryExportRunner();
+        var outputDir = Path.Combine(_tempDir, "eml-underrecovery");
+
+        var result = await runner.ExportToEmlAsync(
+            new UnderReportingReader(), new EmlExporter(), "fake.pst", outputDir,
+            targetFolderPath: null, messageIds: null, progress: null, ct: CancellationToken.None);
+
+        Assert.Equal(2, result.ExportedMessages);
+        Assert.Equal(RecoveryExportStatus.PartialCompleted, result.Status);
+        Assert.Contains(result.Errors, e => e.ErrorCode == "MV-WARN-REC-UNDER-RECOVERY");
+        Assert.NotNull(result.Metrics);
+        Assert.Equal(10, result.Metrics!.ExpectedMessages);
+        Assert.True(result.Metrics!.CoveragePercent < 90.0);
     }
 }
