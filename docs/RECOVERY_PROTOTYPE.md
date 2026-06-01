@@ -122,7 +122,7 @@ Cada export gera, na pasta de saída: árvore de pastas em subdiretórios + `.em
 - **[TESTE]** Testes: **191 aprovados / 192**. A única falha é `Desktop_XstReaderIndexing_StartsCliWorker`,
   teste de **integração dependente de ambiente** (precisa lançar um processo worker do CLI), que falha
   **identicamente antes das minhas mudanças** neste sandbox. Não é defeito de recuperação.
-- **[TESTE]** Recuperação real do OST do corpus `querebola@gmail.com.ost` (95 MB, Unicode wVer=36):
+- **[TESTE]** Recuperação real do OST do corpus `corpus-user@example.com.ost` (95 MB, Unicode wVer=36):
   travessia da árvore Gmail real (`IPM_SUBTREE\[Gmail]\...`, Caixa de entrada, Lixeira, etc.),
   **>240 arquivos `.eml` gerados, 0 falhas** até a interrupção manual.
 - **[TESTE]** Um `.eml` recuperado de 6,1 MB foi **parseado como MIME válido**: From/To/Subject(UTF-8)/Date/Message-Id,
@@ -221,7 +221,7 @@ na enumeração (não redundante). Próxima alavanca de perf seria streaming/pip
 
 ### 13.5 Benchmark COMPLETO end-to-end `[TESTE]` (arquivo inteiro, caminho otimizado, sem timeout)
 
-Run completo do OST de 90 MB (`querebola@gmail.com.ost`), sem `--force-reread`, checkpoints ativos:
+Run completo do OST de 90 MB (`corpus-user@example.com.ost`), sem `--force-reread`, checkpoints ativos:
 
 | Métrica | Valor |
 |---|---:|
@@ -453,7 +453,7 @@ nos bytes crus do healthy (Encryption=none).
 | Categoria | Presente em claro (UTF-16LE)? |
 |---|---|
 | Assunto/corpo (Steam, Discord, Reserva, Movida, Wacom, Confirmação…) | **0 / 30 — NÃO** |
-| Metadados (Borges 1046×, BitMart 6×, Renata 18×, querebola 15381×, nomes de pasta) | **sim** |
+| Metadados (Borges 1046×, BitMart 6×, Renata 18×, corpus-user 15381×, nomes de pasta) | **sim** |
 
 **Verdito (Gate 0 FALHA para conteúdo):** o scan de texto **funciona** (acha o que está em claro), mas
 **assunto/corpo NÃO estão em claro** — só metadados. O conteúdo vive na **heap estruturada/comprimida** que XstReader

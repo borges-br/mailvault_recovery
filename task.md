@@ -103,7 +103,7 @@ Legenda: ✅ Done · 🔄 In Progress · ⬜ Todo · ❌ Blocked
 
 ## Validation Manual
 
-- ⬜ .local-corpus/ost/small/querebola@gmail.com.ost indexa e exporta 100 EML
+- ⬜ .local-corpus/ost/small/corpus-user@example.com.ost indexa e exporta 100 EML
 - ⬜ EML gerado abre no Thunderbird
 - ⬜ Falha de anexo não bloqueia exportação da mensagem
 - ⬜ Relatório JSON gerado com sucesso/falhas
