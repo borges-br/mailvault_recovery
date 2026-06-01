@@ -8,6 +8,18 @@
     <ProjectReference Include="..\MailVault.Exporters.Eml\MailVault.Exporters.Eml.csproj" />
     <ProjectReference Include="..\MailVault.Exporters.Mbox\MailVault.Exporters.Mbox.csproj" />
     <ProjectReference Include="..\MailVault.Validation\MailVault.Validation.csproj" />
+    <ProjectReference Include="..\MailVault.Carving\MailVault.Carving.csproj" />
+    <!-- Copy-only plugin dependency: garante que o adapter OST/PST e XstReader.Api.dll
+         sejam copiados (frescos) para a saída do CLI. Sem isto, builds de desenvolvimento
+         rodam contra um plugin desatualizado e os comandos recover-* falham. -->
+    <ProjectReference Include="..\MailVault.Adapters.XstReader\MailVault.Adapters.XstReader.csproj">
+      <Private>true</Private>
+      <CopyLocalSatelliteAssemblies>true</CopyLocalSatelliteAssemblies>
+    </ProjectReference>
+    <ProjectReference Include="..\MailVault.Adapters.Libpff\MailVault.Adapters.Libpff.csproj">
+      <Private>true</Private>
+      <CopyLocalSatelliteAssemblies>true</CopyLocalSatelliteAssemblies>
+    </ProjectReference>
   </ItemGroup>
 
   <ItemGroup>

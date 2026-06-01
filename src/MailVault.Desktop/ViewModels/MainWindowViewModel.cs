@@ -303,6 +303,8 @@ public class MainWindowViewModel : ViewModelBase
             {
                 await _messageListViewModel.SetFolderAsync(fId, _reader, CancellationToken.None);
             }
+            // Alimenta o ExportPanel com a pasta selecionada → habilita "Exportar pasta selecionada"
+            _exportPanelViewModel.SelectedFolderPath = fId.Value;
         };
 
         _messageListViewModel.MessageSelected += msg =>
