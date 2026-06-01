@@ -122,7 +122,7 @@ Cada export gera, na pasta de saída: árvore de pastas em subdiretórios + `.em
 - **[TESTE]** Testes: **191 aprovados / 192**. A única falha é `Desktop_XstReaderIndexing_StartsCliWorker`,
   teste de **integração dependente de ambiente** (precisa lançar um processo worker do CLI), que falha
   **identicamente antes das minhas mudanças** neste sandbox. Não é defeito de recuperação.
-- **[TESTE]** Recuperação real do OST do corpus `querebola@gmail.com.ost` (95 MB, Unicode wVer=36):
+- **[TESTE]** Recuperação real do OST do corpus `corpus-user@example.com.ost` (95 MB, Unicode wVer=36):
   travessia da árvore Gmail real (`IPM_SUBTREE\[Gmail]\...`, Caixa de entrada, Lixeira, etc.),
   **>240 arquivos `.eml` gerados, 0 falhas** até a interrupção manual.
 - **[TESTE]** Um `.eml` recuperado de 6,1 MB foi **parseado como MIME válido**: From/To/Subject(UTF-8)/Date/Message-Id,
@@ -221,7 +221,7 @@ na enumeração (não redundante). Próxima alavanca de perf seria streaming/pip
 
 ### 13.5 Benchmark COMPLETO end-to-end `[TESTE]` (arquivo inteiro, caminho otimizado, sem timeout)
 
-Run completo do OST de 90 MB (`querebola@gmail.com.ost`), sem `--force-reread`, checkpoints ativos:
+Run completo do OST de 90 MB (`corpus-user@example.com.ost`), sem `--force-reread`, checkpoints ativos:
 
 | Métrica | Valor |
 |---|---:|
@@ -390,3 +390,79 @@ estrutural **abre**, libpff recupera o **mesmo conjunto de mensagens** — nunca
 `NeedsCSharpCarver`) e `truncamento ≥30%`. Observação lateral (não decisiva): o `pffexport` extraiu 4139 itens
 do saudável em ≤3 min (vs 19 min do XstReader) — sinal de **velocidade** de I/O, porém sem ganho de recuperação
 e em formato não-canônico; só relevante se algum dia o gargalo de I/O justificar, exigindo o parser de qualquer modo.
+
+## 16. Milestone 3c.1 — Carver C# (Raw Artifact Scanner, somente-relatório) `[TESTE]`
+
+Projeto novo **`src/MailVault.Carving/`** (referencia só o Core; **isolado** do motor estrutural → fast path
+intocado). `RawArtifactScanner`: leitura **read-only**, **streaming em chunks com overlap**, busca por bytes
+(`IPM.Note` ASCII + UTF-16LE) — **sem regex global, sem carregar o arquivo todo**. **SOMENTE-RELATÓRIO**: lista
+candidatos físicos (offset/encoding/confiança/preview) em `_mailvault-carving-report.json/.md`; **não exporta EML**
+⇒ impossível gerar recuperação falsa nesta fase. Limites: `--max-scan-bytes`/`--max-candidates`/
+`--max-candidates-per-mb`/`--chunk-size`/`--overlap-size`/`--max-preview-bytes`/`--timeout`/`--no-previews`.
+Comando dedicado `carve <file> --out <dir>` (carver **nunca** roda no `recover-eml` padrão).
+
+### 16.1 Prova de viabilidade `[TESTE]` (corpus — cenários onde estrutural+libpff = 0)
+| Cenário | XstReader | libpff | **Carver 3c.1** |
+|---|---:|---:|---:|
+| header-zeroed (512B zerados) | 0 | 0 | **121 candidatos IPM.Note** |
+| magic-broken (!BDN) | 0 | 0 | **121** |
+| truncated-30% | 0 | 0 | **79** |
+| truncated-60% | 0 | 0 | **14** (menos arquivo salvo → menos sinais) |
+
+→ O carver encontra **sinais físicos de mensagem exatamente onde XstReader e libpff falham ao abrir**, sem crash,
+em centésimos de segundo nos truncados. **Viabilidade do carver C# comprovada.** Abre header-destruído sem crash;
+streaming O(chunk); fast path do `recover-eml` confirmado intacto (getMsg=0, ~6 msg/s, nenhuma invocação de carving).
+
+### 16.2 Testes `[TESTE]`
+`MailVault.Carving.Tests` (**7/7**), com buffers sintéticos: acha `IPM.Note` UTF-16LE/ASCII; 0 sem sinal;
+**assinatura na fronteira de chunk é achada exatamente 1×** (valida overlap sem recontagem); respeita
+`--max-scan-bytes`; varre **arquivo sem header** (!BDN ausente); `--no-previews` omite preview.
+Suíte total: **203 aprovados / 1** (Desktop worker-launch, flaky de ambiente, pré-existente).
+
+### 16.3 Próximos submilestones (gate por etapa, não iniciados)
+3c.2 clustering de candidatos · 3c.3 builder de EML **parcial** (headers sintéticos, pasta `Partial/`) ·
+3c.4 `Orphaned Items` + dedup · 3c.5 integração `recover-eml --carve` · 3c.6 benchmark/precisão no corpus.
+O gate de viabilidade (3c.1) passou ⇒ seguiu-se para 3c.2/3c.3 (ver §16.4).
+
+### 16.4 Classificação + builder de EML parcial (3c.2/3c.3) — achado honesto `[TESTE]`
+Implementados: `CarveFieldExtractor` (extrai assunto/email/data/corpo da janela física + classifica
+Mail/Orphan/System/LocateOnly com score 0–100 + denylist de itens de sistema), `CarvedMessageBuilder`
+(EML **parcial** com headers sintéticos `X-MailVault-*` + corpo "NÃO É CÓPIA FIEL", pasta `Recovered/Carved/Partial`
+ou `Orphaned Items`), `RawPffCarver` (orquestra scan→classifica→export). Export é **opt-in** (`--export`,
+`--min-confidence`), default **report-only**. Testes 11/11 (e-mail sintético real → Mail+export; system → System;
+marker-only → LocateOnly; report-only não exporta).
+
+**Régua funciona; o sinal `IPM.Note` é que NÃO basta — medido no corpus:**
+1. **Recall ~3%**: o healthy (4.139 msgs) tem só **121** `IPM.Note` UTF-16LE → o formato **deduplica** a string de
+   classe (não a grava por mensagem). A assinatura localiza uma fração mínima das mensagens.
+2. **Precisão da camada Mail ≈ 0 no corpus**: dos 121, **118 = System** (itens internos do OST) e os **3 "Mail"
+   são falsos positivos** (fragmentos de pasta + endereço do próprio dono da conta), não correspondência real.
+
+**Decisão (critério de parada da régua acionado):** o carver por `IPM.Note` **não entrega recuperação útil** neste
+corpus (recall baixo + Mail = falso positivo). Mantém-se **report-only/diagnóstico por padrão**; `--export` fica
+**opt-in e experimental** (EMLs fortemente disclaimerados, nunca apresentados como completos). **Não** ligar export
+por padrão. O caminho para recuperação real de mensagens em arquivo com cabeçalho/índice destruído seria um
+**parser de bloco/heap MS-PST** (decodificar PC/HN para extrair propriedades por mensagem) — esforço muito alto,
+ROI incerto (depende dos blocos intactos na fração salva), a decidir como milestone próprio antes de investir.
+
+### 16.5 Gate 0 de viabilidade do parser de bloco `[TESTE]` (grátis, antes de qualquer parser)
+Pergunta: o **conteúdo real** (assunto/corpo) existe como **texto UTF-16LE em claro** no OST bruto (o que um carver
+de scan conseguiria pegar)? Método: 30 assuntos reais (ground truth do XstReader) + palavras distintivas, procurados
+nos bytes crus do healthy (Encryption=none).
+
+| Categoria | Presente em claro (UTF-16LE)? |
+|---|---|
+| Assunto/corpo (Steam, Discord, Reserva, Movida, Wacom, Confirmação…) | **0 / 30 — NÃO** |
+| Metadados (Borges 1046×, BitMart 6×, Renata 18×, corpus-user 15381×, nomes de pasta) | **sim** |
+
+**Verdito (Gate 0 FALHA para conteúdo):** o scan de texto **funciona** (acha o que está em claro), mas
+**assunto/corpo NÃO estão em claro** — só metadados. O conteúdo vive na **heap estruturada/comprimida** que XstReader
+e pffexport **decodificam**, mas scan não alcança. Implicações:
+1. O carver de assinatura/texto (3c.1–3c.3) é **confirmadamente locate/diagnóstico** — não recupera conteúdo.
+2. Recuperar conteúdo de arquivo com cabeçalho/índice destruído exige **decode completo de heap/PC + provável
+   descompressão**, e **localizar blocos válidos sem o índice NBT/BBT** — ou seja, reimplementar o núcleo do
+   XstReader/libpff porém SEM o índice. Esforço enorme, ROI ruim (e blocos podem estar fisicamente perdidos).
+3. **Recomendação:** NÃO investir no parser de bloco como rota de carving. Carving permanece diagnóstico; a
+   recuperação real continua sendo estrutural (XstReader, arquivos que abrem) + libpff fallback. Posição honesta:
+   conteúdo de arquivos com cabeçalho/índice destruído é **largamente irrecuperável** sem reconstrução de bloco de
+   nível comercial (grande projeto à parte, fora do escopo atual).

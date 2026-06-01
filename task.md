@@ -103,7 +103,7 @@ Legenda: ✅ Done · 🔄 In Progress · ⬜ Todo · ❌ Blocked
 
 ## Validation Manual
 
-- ⬜ .local-corpus/ost/small/querebola@gmail.com.ost indexa e exporta 100 EML
+- ⬜ .local-corpus/ost/small/corpus-user@example.com.ost indexa e exporta 100 EML
 - ⬜ EML gerado abre no Thunderbird
 - ⬜ Falha de anexo não bloqueia exportação da mensagem
 - ⬜ Relatório JSON gerado com sucesso/falhas
@@ -154,5 +154,17 @@ Objetivo: medir onde o motor estrutural quebra (sem Deep Scan/PST writer; sem ma
 - ✅ `docs/CORPUS_TESTING.md` + seção 14 em `docs/RECOVERY_PROTOTYPE.md` com tabela de limites p/ Milestone 3.
 - ✅ Fix `.gitignore`: /test-corpus/, /recovery-runs/, relatórios, progress.json, .tmp_*.
 - ⏭️ Limites p/ Milestone 3 (Deep Scan/Carving): (1) cabeçalho destruído; (2) truncamento ≥30% (Node block); (3) sub-recuperação silenciosa.
+
+## Milestone 3 — Deep Scan / Carving (2026-05-29)
+
+- ✅ **3a — libpff Deep Scan**: `--deep-scan` opt-in + auto-fallback (Failed/0); `PffDeepScanRunner`; detector de sub-recuperação. Commit `a052fa1`.
+- ✅ **Sweep comparativo** (`run-corpus-recovery.ps1 -DeepScan`): **AddsValue=0** — libpff nunca recupera mais que o XstReader. Commit `06b7823`, tag `recovery-mvp-3a-libpff-sweep`.
+- ✅ **Decisão**: NÃO fazer Fase 3b (PffExportParser); libpff = diagnóstico/fallback.
+- ✅ **3c.1 — Carver C# (Raw Artifact Scanner, somente-relatório)**: novo projeto `MailVault.Carving` isolado; comando `carve`. **Viabilidade provada**: 121/121/79/14 candidatos `IPM.Note` em header-zeroed/magic-broken/truncated-30/60% (onde estrutural+libpff=0). Commit `d27e748`.
+- ✅ **3c.2/3c.3 — Classificação (Mail/Orphan/System/LocateOnly + score) + builder de EML parcial** (`--export` opt-in, `X-MailVault-*`, pasta Partial/Orphaned). 11 testes Carving.
+- 🟡 **Achado honesto (gate)**: assinatura `IPM.Note` tem **recall ~3%** (formato deduplica a classe: healthy 4.139 msgs = só 121 markers) e camada Mail = **falso positivo** no corpus (118/121=System). → carver fica **report-only/diagnóstico**; `--export` opt-in/experimental.
+- ✅ **Gate 0 do parser de bloco (grátis)**: conteúdo (assunto/corpo) **NÃO está em texto claro** no OST (Steam/Discord/Reserva/etc. = 0 UTF-16LE; só metadados em claro). Conteúdo vive na heap estruturada/comprimida.
+- 🛑 **DECISÃO (usuário): NÃO investir no parser de bloco/heap.** Seria reimplementar o XstReader sem índice + descompressão (ROI ruim). **Carver permanece diagnóstico/localizador**; recuperação real = estrutural (XstReader) + libpff fallback. Frente de carving de conteúdo **encerrada**.
+- Posição honesta: conteúdo de arquivos com cabeçalho/índice destruído é **largamente irrecuperável** sem reconstrução de bloco de nível comercial (projeto à parte).
 
 Critério de aceite: OST exporta EML real abrível no Thunderbird. Build e testes passam.

@@ -67,6 +67,31 @@ com, por cenário: status/exportadas do XstReader, status/mensagens/arquivos/tem
 Por isso a **Fase 3b (PffExportParser) NÃO foi iniciada**; libpff fica como diagnóstico/fallback e a próxima
 rota é o carver C#. Detalhe em [RECOVERY_PROTOTYPE.md §15.4](RECOVERY_PROTOTYPE.md).
 
+### 2.2 Carving por assinatura (Milestone 3c.1 — `carve`, somente-relatório)
+
+Para os cenários onde XstReader **e** libpff falham ao abrir (cabeçalho destruído, truncamento severo), o
+carver C# (`MailVault.Carving`) varre o arquivo fisicamente por assinaturas. **Somente-relatório**: lista
+candidatos, **não exporta EML**.
+
+```powershell
+# Report-only (default): classifica candidatos, NÃO exporta EML
+mailvault carve "test-corpus\generated\header-damaged\header-zeroed.ost" --out ".\carved"
+# Opt-in: exporta EML PARCIAL dos clusters Mail/Orphan (experimental, ver achado abaixo)
+mailvault carve "...header-zeroed.ost" --out ".\carved" --export --min-confidence 50
+# limites: --max-scan-bytes --max-candidates --max-candidates-per-mb --chunk-size --overlap-size
+#          --max-preview-bytes --timeout --no-previews
+```
+
+Gera `_mailvault-carving-report.json/.md` com candidatos classificados (**Mail / Orphan / System / LocateOnly**),
+score, campos extraídos e (se `--export`) caminho do EML parcial. O carver **nunca** roda no `recover-eml` padrão.
+
+**Resultado medido (3c.1):** 121 candidatos em `header-zeroed`, 79 em `truncated-30%`, 14 em `truncated-60%` —
+onde estrutural+libpff retornam 0.
+**Achado 3c.2/3c.3 (honesto):** dos 121, **118=System** e os **3 "Mail" são falsos positivos**; e o healthy
+(4.139 msgs) tem só 121 `IPM.Note` (formato deduplica a classe → recall ~3%). Por isso **export fica opt-in/
+experimental** e o carver permanece **report-only/diagnóstico por padrão**. Detalhe em
+[RECOVERY_PROTOTYPE.md §16.4](RECOVERY_PROTOTYPE.md).
+
 ## 3. Saída consolidada (em `test-corpus/reports/`)
 - `corpus-results.json` — registro completo por arquivo + resumo.
 - `corpus-results.md` — tabela + seção "Limites conhecidos (candidatos a Deep Scan/Carving)".
