@@ -103,7 +103,7 @@ Write-Host "  VERIFICACAO DE INTEGRIDADE DOS ARTEFATOS  " -ForegroundColor Green
 Write-Host "=====================================================================" -ForegroundColor Green
 
 $DesktopExe = "$PublishDir\MailVault.Desktop.exe"
-$CliExe = "$PublishDir\MailVault.Cli.exe"
+$CliExe = "$PublishDir\mailvault.exe"
 $AdapterDll = "$PublishDir\MailVault.Adapters.XstReader.dll"
 $XstApiDll = "$PublishDir\XstReader.Api.dll"
 
@@ -118,9 +118,9 @@ if (-not $SkipCompile) {
     }
 
     if (Test-Path $CliExe) {
-        Write-Host "[OK] MailVault.Cli.exe localizado com sucesso." -ForegroundColor Green
+        Write-Host "[OK] mailvault.exe localizado com sucesso." -ForegroundColor Green
     } else {
-        Write-Host "[FALHA] MailVault.Cli.exe nao foi gerado!" -ForegroundColor Red
+        Write-Host "[FALHA] mailvault.exe nao foi gerado!" -ForegroundColor Red
         $AllChecksPassed = $false
     }
 
@@ -163,17 +163,17 @@ if (-not $SkipCompile) {
     Write-Host "[TESTE FUNCIONAL CLI] Testando ajuda geral do CLI..." -ForegroundColor Cyan
     & $CliExe --help | Out-Null
     if ($LASTEXITCODE -eq 0) {
-        Write-Host "[OK] 'MailVault.Cli.exe --help' executado com código 0." -ForegroundColor Green
+        Write-Host "[OK] 'mailvault.exe --help' executado com código 0." -ForegroundColor Green
     } else {
-        Write-Warning "Falha ao executar 'MailVault.Cli.exe --help'. ExitCode: $LASTEXITCODE"
+        Write-Warning "Falha ao executar 'mailvault.exe --help'. ExitCode: $LASTEXITCODE"
     }
 
     Write-Host "[TESTE FUNCIONAL CLI] Testando ajuda do subcomando index-worker..." -ForegroundColor Cyan
     & $CliExe index-worker --help | Out-Null
     if ($LASTEXITCODE -eq 0) {
-        Write-Host "[OK] 'MailVault.Cli.exe index-worker --help' executado com código 0." -ForegroundColor Green
+        Write-Host "[OK] 'mailvault.exe index-worker --help' executado com código 0." -ForegroundColor Green
     } else {
-        Write-Warning "Falha ao executar 'MailVault.Cli.exe index-worker --help'. ExitCode: $LASTEXITCODE"
+        Write-Warning "Falha ao executar 'mailvault.exe index-worker --help'. ExitCode: $LASTEXITCODE"
     }
 }
 

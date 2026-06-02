@@ -63,3 +63,4 @@ _mailvault-export-report*.csv
 progress.json
 # scratch logs de sessão (ex.: .tmp_recover.log)
 .tmp_*
+/reference_mailvault/
