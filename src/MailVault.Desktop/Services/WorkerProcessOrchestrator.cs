@@ -109,20 +109,27 @@ public sealed class WorkerProcessOrchestrator
     {
         string baseDir = AppContext.BaseDirectory;
         string exeExtension = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : "";
-        
-        // 1. Look in the same folder as base directory
-        string sameFolder = Path.Combine(baseDir, $"MailVault.Cli{exeExtension}");
-        if (File.Exists(sameFolder)) return sameFolder;
 
-        // 2. Look in relative dev directories (net10.0 sibling)
-        string siblingDev = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "MailVault.Cli", "bin", "Debug", "net10.0", $"MailVault.Cli{exeExtension}"));
-        if (File.Exists(siblingDev)) return siblingDev;
+        // O CLI é publicado/compilado como "mailvault" (AssemblyName=mailvault).
+        // "MailVault.Cli" é mantido como fallback de compatibilidade.
+        string[] names = { $"mailvault{exeExtension}", $"MailVault.Cli{exeExtension}" };
 
-        string siblingDevRelease = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "MailVault.Cli", "bin", "Release", "net10.0", $"MailVault.Cli{exeExtension}"));
-        if (File.Exists(siblingDevRelease)) return siblingDevRelease;
+        foreach (var name in names)
+        {
+            // 1. Look in the same folder as base directory
+            string sameFolder = Path.Combine(baseDir, name);
+            if (File.Exists(sameFolder)) return sameFolder;
+
+            // 2. Look in relative dev directories (net10.0 sibling)
+            string siblingDev = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "MailVault.Cli", "bin", "Debug", "net10.0", name));
+            if (File.Exists(siblingDev)) return siblingDev;
+
+            string siblingDevRelease = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "MailVault.Cli", "bin", "Release", "net10.0", name));
+            if (File.Exists(siblingDevRelease)) return siblingDevRelease;
+        }
 
         // 3. Fallback to standard command name
-        return $"MailVault.Cli{exeExtension}";
+        return $"mailvault{exeExtension}";
     }
 
     public async Task<WorkerOrchestrationResult> RunJobAsync(

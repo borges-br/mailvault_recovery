@@ -52,11 +52,16 @@ public interface IWorkerExecutableResolver
 
 public sealed class WorkerExecutableResolver : IWorkerExecutableResolver
 {
-    private static readonly string RemediationMessage = 
+    private static readonly string RemediationMessage =
         "Remediação Sugerida:\n" +
         "1. Certifique-se de compilar o CLI executando: dotnet build src/MailVault.Cli/MailVault.Cli.csproj\n" +
         "2. Se estiver publicando a aplicação, execute o script de empacotamento: .\\scripts\\publish-windows.ps1\n" +
         "3. Como alternativa de desenvolvimento, defina a variável de ambiente: MAILVAULT_CLI_PATH com o caminho completo do executável/dll.";
+
+    // O CLI é publicado/compilado como "mailvault.exe"/"mailvault.dll" (AssemblyName=mailvault
+    // em MailVault.Cli.csproj). "MailVault.Cli.*" é mantido como fallback de compatibilidade.
+    private static readonly string[] CliExeNames = { "mailvault.exe", "MailVault.Cli.exe" };
+    private static readonly string[] CliDllNames = { "mailvault.dll", "MailVault.Cli.dll" };
 
     public bool DisableDevelopmentFallback { get; set; }
 
@@ -114,37 +119,43 @@ public sealed class WorkerExecutableResolver : IWorkerExecutableResolver
 
         // B. Published/End-User Layout
         string baseDir = AppContext.BaseDirectory;
-        string pubExe = Path.GetFullPath(Path.Combine(baseDir, "MailVault.Cli.exe"));
-        string pubDll = Path.GetFullPath(Path.Combine(baseDir, "MailVault.Cli.dll"));
 
-        probedPaths.Add($"[Published Layout EXE] {pubExe}");
-        if (File.Exists(pubExe) && IsPathAllowed(pubExe))
+        foreach (var exeName in CliExeNames)
         {
-            return new WorkerLaunchInfo(
-                FileName: pubExe,
-                ArgumentsPrefix: null,
-                WorkingDirectory: baseDir,
-                LaunchMode: WorkerLaunchMode.Exe,
-                DiagnosticDescription: $"Layout de usuário publicado (EXE) detectado em: '{pubExe}'",
-                ProbedPaths: probedPaths,
-                IsPublishedLayout: true,
-                IsDevelopmentLayout: false
-            );
+            string pubExe = Path.GetFullPath(Path.Combine(baseDir, exeName));
+            probedPaths.Add($"[Published Layout EXE] {pubExe}");
+            if (File.Exists(pubExe) && IsPathAllowed(pubExe))
+            {
+                return new WorkerLaunchInfo(
+                    FileName: pubExe,
+                    ArgumentsPrefix: null,
+                    WorkingDirectory: baseDir,
+                    LaunchMode: WorkerLaunchMode.Exe,
+                    DiagnosticDescription: $"Layout de usuário publicado (EXE) detectado em: '{pubExe}'",
+                    ProbedPaths: probedPaths,
+                    IsPublishedLayout: true,
+                    IsDevelopmentLayout: false
+                );
+            }
         }
 
-        probedPaths.Add($"[Published Layout DLL] {pubDll}");
-        if (File.Exists(pubDll) && IsPathAllowed(pubDll))
+        foreach (var dllName in CliDllNames)
         {
-            return new WorkerLaunchInfo(
-                FileName: "dotnet",
-                ArgumentsPrefix: $"exec \"{pubDll}\"",
-                WorkingDirectory: baseDir,
-                LaunchMode: WorkerLaunchMode.DotnetDll,
-                DiagnosticDescription: $"Layout de usuário publicado (DLL) detectado em: '{pubDll}'",
-                ProbedPaths: probedPaths,
-                IsPublishedLayout: true,
-                IsDevelopmentLayout: false
-            );
+            string pubDll = Path.GetFullPath(Path.Combine(baseDir, dllName));
+            probedPaths.Add($"[Published Layout DLL] {pubDll}");
+            if (File.Exists(pubDll) && IsPathAllowed(pubDll))
+            {
+                return new WorkerLaunchInfo(
+                    FileName: "dotnet",
+                    ArgumentsPrefix: $"exec \"{pubDll}\"",
+                    WorkingDirectory: baseDir,
+                    LaunchMode: WorkerLaunchMode.DotnetDll,
+                    DiagnosticDescription: $"Layout de usuário publicado (DLL) detectado em: '{pubDll}'",
+                    ProbedPaths: probedPaths,
+                    IsPublishedLayout: true,
+                    IsDevelopmentLayout: false
+                );
+            }
         }
 
         // C. Development Repository Layout
@@ -156,37 +167,44 @@ public sealed class WorkerExecutableResolver : IWorkerExecutableResolver
             string[] configs = { "Debug", "Release" };
             foreach (var config in configs)
             {
-                string devExe = Path.GetFullPath(Path.Combine(repoRoot, "src", "MailVault.Cli", "bin", config, "net10.0", "MailVault.Cli.exe"));
-                string devDll = Path.GetFullPath(Path.Combine(repoRoot, "src", "MailVault.Cli", "bin", config, "net10.0", "MailVault.Cli.dll"));
+                string binDir = Path.Combine(repoRoot, "src", "MailVault.Cli", "bin", config, "net10.0");
 
-                probedPaths.Add($"[Dev Layout EXE ({config})] {devExe}");
-                if (File.Exists(devExe) && IsPathAllowed(devExe))
+                foreach (var exeName in CliExeNames)
                 {
-                    return new WorkerLaunchInfo(
-                        FileName: devExe,
-                        ArgumentsPrefix: null,
-                        WorkingDirectory: Path.GetDirectoryName(devExe)!,
-                        LaunchMode: WorkerLaunchMode.Exe,
-                        DiagnosticDescription: $"Modo de desenvolvimento estruturado (EXE - {config}) detectado em: '{devExe}'",
-                        ProbedPaths: probedPaths,
-                        IsPublishedLayout: false,
-                        IsDevelopmentLayout: true
-                    );
+                    string devExe = Path.GetFullPath(Path.Combine(binDir, exeName));
+                    probedPaths.Add($"[Dev Layout EXE ({config})] {devExe}");
+                    if (File.Exists(devExe) && IsPathAllowed(devExe))
+                    {
+                        return new WorkerLaunchInfo(
+                            FileName: devExe,
+                            ArgumentsPrefix: null,
+                            WorkingDirectory: Path.GetDirectoryName(devExe)!,
+                            LaunchMode: WorkerLaunchMode.Exe,
+                            DiagnosticDescription: $"Modo de desenvolvimento estruturado (EXE - {config}) detectado em: '{devExe}'",
+                            ProbedPaths: probedPaths,
+                            IsPublishedLayout: false,
+                            IsDevelopmentLayout: true
+                        );
+                    }
                 }
 
-                probedPaths.Add($"[Dev Layout DLL ({config})] {devDll}");
-                if (File.Exists(devDll) && IsPathAllowed(devDll))
+                foreach (var dllName in CliDllNames)
                 {
-                    return new WorkerLaunchInfo(
-                        FileName: "dotnet",
-                        ArgumentsPrefix: $"exec \"{devDll}\"",
-                        WorkingDirectory: Path.GetDirectoryName(devDll)!,
-                        LaunchMode: WorkerLaunchMode.DotnetDll,
-                        DiagnosticDescription: $"Modo de desenvolvimento estruturado (DLL - {config}) detectado em: '{devDll}'",
-                        ProbedPaths: probedPaths,
-                        IsPublishedLayout: false,
-                        IsDevelopmentLayout: true
-                    );
+                    string devDll = Path.GetFullPath(Path.Combine(binDir, dllName));
+                    probedPaths.Add($"[Dev Layout DLL ({config})] {devDll}");
+                    if (File.Exists(devDll) && IsPathAllowed(devDll))
+                    {
+                        return new WorkerLaunchInfo(
+                            FileName: "dotnet",
+                            ArgumentsPrefix: $"exec \"{devDll}\"",
+                            WorkingDirectory: Path.GetDirectoryName(devDll)!,
+                            LaunchMode: WorkerLaunchMode.DotnetDll,
+                            DiagnosticDescription: $"Modo de desenvolvimento estruturado (DLL - {config}) detectado em: '{devDll}'",
+                            ProbedPaths: probedPaths,
+                            IsPublishedLayout: false,
+                            IsDevelopmentLayout: true
+                        );
+                    }
                 }
             }
 
@@ -213,7 +231,7 @@ public sealed class WorkerExecutableResolver : IWorkerExecutableResolver
         }
 
         // E. Throw helpful resolution error
-        string message = "Não foi possível localizar o executável do worker CLI (MailVault.Cli.exe ou MailVault.Cli.dll) em nenhum dos layouts suportados.\n" +
+        string message = "Não foi possível localizar o executável do worker CLI (mailvault.exe ou mailvault.dll) em nenhum dos layouts suportados.\n" +
                          string.Join("\n", diagnosticLogs);
         
         throw new WorkerLaunchResolutionException(
