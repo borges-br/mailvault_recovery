@@ -44,7 +44,12 @@ public class DesktopExportService
 
         try
         {
-            string finalOutputDir = outDir ?? Path.Combine(caseFolderPath, "exports");
+            // Resolve o destino: vazio → <caso>/exports; relativo (ex.: "exports") →
+            // sob a pasta do caso; absoluto → como informado. Sem isso, um caminho
+            // relativo seria resolvido contra o CWD do worker (pasta de publicação).
+            string finalOutputDir = string.IsNullOrWhiteSpace(outDir)
+                ? Path.Combine(caseFolderPath, "exports")
+                : Path.IsPathRooted(outDir) ? outDir : Path.Combine(caseFolderPath, outDir);
 
             var orchestrator = new WorkerProcessOrchestrator();
             var jobConfig = new WorkerJobConfig(

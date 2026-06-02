@@ -173,8 +173,13 @@ public sealed class WorkerProcessOrchestrator
             Directory.CreateDirectory(absCasePath);
         }
 
-        var absoluteJob = job with { 
-            EvidencePath = Path.GetFullPath(job.EvidencePath),
+        // EvidencePath pode ser vazio em jobs que operam sobre o case.db (ex.: Export,
+        // Validation) — nesses casos não há evidência original para resolver, e
+        // Path.GetFullPath("") lançaria "The path is empty. (Parameter 'path')".
+        var absoluteJob = job with {
+            EvidencePath = string.IsNullOrWhiteSpace(job.EvidencePath)
+                ? job.EvidencePath
+                : Path.GetFullPath(job.EvidencePath),
             CasePath = absCasePath
         };
 
