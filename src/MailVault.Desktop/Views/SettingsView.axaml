@@ -1,0 +1,51 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MailVault.Desktop.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="700"
+             x:Class="MailVault.Desktop.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+    <ScrollViewer Background="{StaticResource BgAppBrush}" Padding="30">
+        <StackPanel Spacing="25" MaxWidth="700" HorizontalAlignment="Left">
+            <TextBlock Text="Configurações Locais e Preferências" FontSize="26" FontWeight="Black" Foreground="{StaticResource TextPrimaryBrush}"/>
+            <TextBlock Text="{Binding StatusMessage}" FontSize="12" Foreground="{StaticResource SuccessBrush}" FontWeight="Bold" IsVisible="{Binding StatusMessage.Length}"/>
+
+            <Border Theme="{StaticResource Card}" CornerRadius="12" Padding="25">
+                <StackPanel Spacing="20">
+                    <TextBlock Text="DIRETÓRIOS E FOLDERS PADRÃO" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" LetterSpacing="0.5"/>
+
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Pasta padrão de saída de casos" FontSize="11" Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold"/>
+                        <TextBox Text="{Binding DefaultCaseFolder, Mode=TwoWay}" Classes="mono" Background="{StaticResource BgInputBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" Padding="12" CornerRadius="6" FontSize="12"/>
+                    </StackPanel>
+
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Pasta padrão do Corpus de Testes" FontSize="11" Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold"/>
+                        <TextBox Text="{Binding DefaultCorpusPath, Mode=TwoWay}" Classes="mono" Background="{StaticResource BgInputBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" Padding="12" CornerRadius="6" FontSize="12"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Theme="{StaticResource Card}" CornerRadius="12" Padding="25">
+                <StackPanel Spacing="20">
+                    <TextBlock Text="SEGURANÇA E OPERAÇÕES FORENSES" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" LetterSpacing="0.5"/>
+
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="{Binding MaxPreviewLength, StringFormat='Tamanho máximo da visualização segura: \{0\} caracteres'}" FontSize="11" Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold"/>
+                        <Slider Minimum="100" Maximum="2000" Value="{Binding MaxPreviewLength}" Foreground="{StaticResource AccentBrush}" Width="300" HorizontalAlignment="Left"/>
+                    </StackPanel>
+
+                    <CheckBox IsChecked="{Binding ConfirmBeforeExport}" Content="Confirmar antes de iniciar jobs de exportação" Foreground="{StaticResource TextPrimaryBrush}" FontSize="12"/>
+                    <CheckBox IsChecked="{Binding OpenFolderAfterExport}" Content="Abrir pasta no Windows Explorer ao finalizar exportações" Foreground="{StaticResource TextPrimaryBrush}" FontSize="12"/>
+                    <CheckBox IsChecked="{Binding AdvancedMode}" Content="Exibir logs técnicos avançados e ferramentas experimentais" Foreground="{StaticResource TextPrimaryBrush}" FontSize="12"/>
+                </StackPanel>
+            </Border>
+
+            <Grid ColumnDefinitions="*, Auto">
+                <Button Grid.Column="0" Theme="{StaticResource OutlineButton}" Foreground="{StaticResource DangerBrush}" Content="Limpar Cache Operacional e Recentes" Command="{Binding PurgeCacheCommand}" Padding="15,10" FontSize="12" HorizontalAlignment="Left"/>
+                <Button Grid.Column="1" Theme="{StaticResource PrimaryButton}" Content="Salvar Preferências" Command="{Binding SaveCommand}" Padding="20,10" FontSize="12" Margin="10,0,0,0"/>
+            </Grid>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

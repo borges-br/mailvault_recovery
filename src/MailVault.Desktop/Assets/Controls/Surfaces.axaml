@@ -1,0 +1,178 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- ============================================================
+         Superfícies e elementos reutilizáveis
+         ============================================================ -->
+
+    <!-- ===== Card — Border de superfície padrão ===== -->
+    <ControlTheme x:Key="Card" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource BgSurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource BorderSubtleBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="Padding" Value="16"/>
+        <Setter Property="BoxShadow" Value="0 1 2 0 #66000000"/>
+    </ControlTheme>
+
+    <!-- Card elevado (hero / destaque) -->
+    <ControlTheme x:Key="CardElevated" TargetType="Border" BasedOn="{StaticResource Card}">
+        <Setter Property="Background" Value="{StaticResource BgElevatedBrush}"/>
+        <Setter Property="CornerRadius" Value="12"/>
+        <Setter Property="BoxShadow" Value="0 6 20 0 #73000000"/>
+    </ControlTheme>
+
+    <!-- ===== Badge — ContentControl com variantes de cor =====
+         Default = neutral. Classes: accent/success/warning/danger/info/exp -->
+    <ControlTheme x:Key="Badge" TargetType="ContentControl">
+        <Setter Property="FontFamily" Value="{StaticResource FontUI}"/>
+        <Setter Property="FontSize" Value="10"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Name="PART_Badge"
+                        Background="{StaticResource BgElevatedBrush}"
+                        BorderBrush="{StaticResource BorderSubtleBrush}"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Padding="8,3">
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      Foreground="{TemplateBinding Foreground}"
+                                      VerticalAlignment="Center"
+                                      HorizontalAlignment="Center"/>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+
+        <!-- variantes -->
+        <Style Selector="^.accent">
+            <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+            <Style Selector="^ /template/ Border#PART_Badge">
+                <Setter Property="Background" Value="{StaticResource AccentGlowBrush}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource AccentLineBrush}"/>
+            </Style>
+        </Style>
+        <Style Selector="^.success">
+            <Setter Property="Foreground" Value="{StaticResource SuccessBrush}"/>
+            <Style Selector="^ /template/ Border#PART_Badge">
+                <Setter Property="Background" Value="{StaticResource SuccessSubtleBrush}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource SuccessBrush}"/>
+            </Style>
+        </Style>
+        <Style Selector="^.warning">
+            <Setter Property="Foreground" Value="{StaticResource WarningBrush}"/>
+            <Style Selector="^ /template/ Border#PART_Badge">
+                <Setter Property="Background" Value="{StaticResource WarningSubtleBrush}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource WarningBrush}"/>
+            </Style>
+        </Style>
+        <Style Selector="^.danger">
+            <Setter Property="Foreground" Value="{StaticResource DangerBrush}"/>
+            <Style Selector="^ /template/ Border#PART_Badge">
+                <Setter Property="Background" Value="{StaticResource DangerSubtleBrush}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource DangerBrush}"/>
+            </Style>
+        </Style>
+        <Style Selector="^.info">
+            <Setter Property="Foreground" Value="{StaticResource InfoBrush}"/>
+            <Style Selector="^ /template/ Border#PART_Badge">
+                <Setter Property="Background" Value="{StaticResource InfoSubtleBrush}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource InfoBrush}"/>
+            </Style>
+        </Style>
+        <Style Selector="^.exp">
+            <Setter Property="Foreground" Value="{StaticResource ExperimentalBrush}"/>
+            <Style Selector="^ /template/ Border#PART_Badge">
+                <Setter Property="Background" Value="{StaticResource ExperimentalSubtleBrush}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource ExperimentalBrush}"/>
+            </Style>
+        </Style>
+    </ControlTheme>
+
+    <!-- ===== StatusDot — Ellipse 7x7 colorida ===== -->
+    <ControlTheme x:Key="StatusDot" TargetType="Ellipse">
+        <Setter Property="Width" Value="7"/>
+        <Setter Property="Height" Value="7"/>
+        <Setter Property="Fill" Value="{StaticResource TextMutedBrush}"/>
+        <Style Selector="^.accent"><Setter Property="Fill" Value="{StaticResource AccentBrush}"/></Style>
+        <Style Selector="^.success"><Setter Property="Fill" Value="{StaticResource SuccessBrush}"/></Style>
+        <Style Selector="^.warning"><Setter Property="Fill" Value="{StaticResource WarningBrush}"/></Style>
+        <Style Selector="^.danger"><Setter Property="Fill" Value="{StaticResource DangerBrush}"/></Style>
+        <Style Selector="^.info"><Setter Property="Fill" Value="{StaticResource InfoBrush}"/></Style>
+        <Style Selector="^.exp"><Setter Property="Fill" Value="{StaticResource ExperimentalBrush}"/></Style>
+    </ControlTheme>
+
+    <!-- ===== NavButton — item de navegação da sidebar ===== -->
+    <!-- Mantém o modelo de Command existente (não usa seleção de ListBox).
+         Classe "active" marca o módulo atual com barra esquerda cyan. -->
+    <ControlTheme x:Key="NavButton" TargetType="Button">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+        <Setter Property="FontFamily" Value="{StaticResource FontUI}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="Medium"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        <Setter Property="Margin" Value="0,1"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Name="PART_Root"
+                        Background="{TemplateBinding Background}"
+                        CornerRadius="6">
+                    <Grid ColumnDefinitions="3,*">
+                        <Border Name="PART_Bar" Grid.Column="0"
+                                Width="3" CornerRadius="2"
+                                Margin="0,4" Background="Transparent"/>
+                        <ContentPresenter Grid.Column="1"
+                                          Content="{TemplateBinding Content}"
+                                          Foreground="{TemplateBinding Foreground}"
+                                          Padding="11,11"
+                                          VerticalAlignment="Center"
+                                          HorizontalAlignment="Left"/>
+                    </Grid>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:pointerover /template/ Border#PART_Root">
+            <Setter Property="Background" Value="{StaticResource BgElevatedBrush}"/>
+        </Style>
+        <Style Selector="^:pointerover">
+            <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+        </Style>
+
+        <!-- estado ativo -->
+        <Style Selector="^.active /template/ Border#PART_Root">
+            <Setter Property="Background" Value="{StaticResource AccentGlowBrush}"/>
+        </Style>
+        <Style Selector="^.active /template/ Border#PART_Bar">
+            <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+        </Style>
+        <Style Selector="^.active">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="0.45"/>
+        </Style>
+    </ControlTheme>
+
+    <!-- ===== ProgressBarStripe — barra com gradiente accent ===== -->
+    <ControlTheme x:Key="ProgressBarStripe" TargetType="ProgressBar" BasedOn="{StaticResource {x:Type ProgressBar}}">
+        <Setter Property="Background" Value="{StaticResource BgInputBrush}"/>
+        <Setter Property="MinHeight" Value="10"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Foreground">
+            <Setter.Value>
+                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
+                    <GradientStop Offset="0" Color="{StaticResource AccentStrongColor}"/>
+                    <GradientStop Offset="1" Color="{StaticResource AccentColor}"/>
+                </LinearGradientBrush>
+            </Setter.Value>
+        </Setter>
+    </ControlTheme>
+
+</ResourceDictionary>

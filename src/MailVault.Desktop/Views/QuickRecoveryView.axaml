@@ -1,0 +1,122 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MailVault.Desktop.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="800"
+             x:Class="MailVault.Desktop.Views.QuickRecoveryView"
+             x:DataType="vm:QuickRecoveryViewModel">
+    <ScrollViewer Background="{StaticResource BgAppBrush}" Padding="30">
+        <StackPanel Spacing="25" MaxWidth="720" HorizontalAlignment="Left">
+
+            <!-- Header -->
+            <StackPanel Spacing="6">
+                <TextBlock Text="Recuperação Rápida" FontSize="28" FontWeight="Black" Foreground="{StaticResource TextPrimaryBrush}"/>
+                <TextBlock Text="Selecione um arquivo OST/PST/MBOX, escolha a pasta de destino e exporte diretamente — sem indexação." FontSize="13" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <!-- Source file section -->
+            <Border Theme="{StaticResource Card}" CornerRadius="12" Padding="22">
+                <StackPanel Spacing="14">
+                    <TextBlock Text="ARQUIVO DE ORIGEM" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" LetterSpacing="0.5"/>
+
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Arquivo OST / PST / MBOX / EML" FontSize="11" Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold"/>
+                        <Grid ColumnDefinitions="*, Auto">
+                            <TextBox Grid.Column="0" Text="{Binding SourceFilePath}" IsReadOnly="True" Classes="mono"
+                                     Watermark="Caminho do arquivo de e-mail..."
+                                     Background="{StaticResource BgInputBrush}" Foreground="{StaticResource TextPrimaryBrush}" BorderBrush="{StaticResource BorderSubtleBrush}"
+                                     Padding="12" CornerRadius="6" FontSize="12"/>
+                            <Button Grid.Column="1" Theme="{StaticResource OutlineButton}" Content="Procurar..." Command="{Binding BrowseSourceFileCommand}"
+                                    Margin="10,0,0,0" Padding="15,12"/>
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Output folder section -->
+            <Border Theme="{StaticResource Card}" CornerRadius="12" Padding="22">
+                <StackPanel Spacing="14">
+                    <TextBlock Text="PASTA DE DESTINO" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" LetterSpacing="0.5"/>
+
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Pasta onde os e-mails exportados serão gravados" FontSize="11" Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold"/>
+                        <Grid ColumnDefinitions="*, Auto">
+                            <TextBox Grid.Column="0" Text="{Binding OutputFolderPath, Mode=TwoWay}" Classes="mono"
+                                     Watermark="Ex: C:\recuperacao\saida"
+                                     Background="{StaticResource BgInputBrush}" Foreground="{StaticResource TextPrimaryBrush}" BorderBrush="{StaticResource BorderSubtleBrush}"
+                                     Padding="12" CornerRadius="6" FontSize="12"/>
+                            <Button Grid.Column="1" Theme="{StaticResource OutlineButton}" Content="Procurar..." Command="{Binding BrowseOutputFolderCommand}"
+                                    Margin="10,0,0,0" Padding="15,12"/>
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Export action buttons -->
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <Button Content="&#x2B07; Exportar para EML"
+                        Command="{Binding ExportToEmlCommand}"
+                        IsEnabled="{Binding IsIdle}"
+                        Background="{StaticResource SuccessBrush}" Foreground="White" FontWeight="Bold"
+                        Padding="18,12" CornerRadius="6" FontSize="14"/>
+                <Button Content="&#x2B07; Exportar para MBOX"
+                        Command="{Binding ExportToMboxCommand}"
+                        IsEnabled="{Binding IsIdle}"
+                        Background="{StaticResource InfoBrush}" Foreground="White" FontWeight="Bold"
+                        Padding="18,12" CornerRadius="6" FontSize="14"/>
+            </StackPanel>
+
+            <!-- Progress counters (visible while running) -->
+            <Grid ColumnDefinitions="*, *, *, *" IsVisible="{Binding IsRunning}" Margin="0,4,0,0">
+                <Border Grid.Column="0" Background="{StaticResource SuccessSubtleBrush}" CornerRadius="6" Padding="14,10" Margin="0,0,4,0" BorderBrush="{StaticResource SuccessBrush}" BorderThickness="1">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Exportados" FontSize="10" Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding MessagesExported}" FontSize="26" FontWeight="Black" Foreground="{StaticResource SuccessBrush}"/>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="1" Background="{StaticResource DangerSubtleBrush}" CornerRadius="6" Padding="14,10" Margin="4,0,4,0" BorderBrush="{StaticResource DangerBrush}" BorderThickness="1">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Falhas" FontSize="10" Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding MessagesFailed}" FontSize="26" FontWeight="Black" Foreground="{StaticResource DangerBrush}"/>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="2" Background="{StaticResource InfoSubtleBrush}" CornerRadius="6" Padding="14,10" Margin="4,0,4,0" BorderBrush="{StaticResource InfoBrush}" BorderThickness="1">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Anexos" FontSize="10" Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding AttachmentsExported}" FontSize="26" FontWeight="Black" Foreground="{StaticResource InfoBrush}"/>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="3" Background="{StaticResource ExperimentalSubtleBrush}" CornerRadius="6" Padding="14,10" Margin="4,0,0,0" BorderBrush="{StaticResource ExperimentalBrush}" BorderThickness="1">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Tempo" FontSize="10" Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding ElapsedText}" Classes="mono" FontSize="18" FontWeight="Bold" Foreground="{StaticResource ExperimentalBrush}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Status console -->
+            <Border Background="{StaticResource BgInputBrush}" CornerRadius="8" Padding="14,10" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1"
+                    IsVisible="{Binding StatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                <StackPanel Spacing="5">
+                    <TextBlock Text="STATUS" FontSize="9" FontWeight="Bold" Foreground="{StaticResource TextDisabledBrush}" LetterSpacing="1"/>
+                    <TextBlock Text="{Binding StatusText}" Classes="mono" FontSize="12"
+                               Foreground="{StaticResource WarningBrush}" TextWrapping="Wrap" LineHeight="18"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Cancel / open folder -->
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <Button Theme="{StaticResource DangerButton}" Content="&#x26D4; Cancelar"
+                        Command="{Binding CancelCommand}"
+                        IsVisible="{Binding IsRunning}"
+                        Padding="18,10" FontSize="13"/>
+                <Button Theme="{StaticResource OutlineButton}" Content="&#x1F4C2; Abrir pasta de exportação"
+                        Command="{Binding OpenOutputFolderCommand}"
+                        IsVisible="{Binding HasCompleted}"
+                        Padding="18,10" FontSize="13"/>
+            </StackPanel>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

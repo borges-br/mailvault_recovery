@@ -1,7 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <!-- WinExe: subsistema Windows (GUI). Com 'Exe' (console) o app abre uma
+         janela de terminal junto da UI Avalonia; ao publicar, o .exe vira um
+         console app e pisca/fecha um terminal ao iniciar pelo Explorer. -->
+    <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>

@@ -3,7 +3,56 @@
              x:Class="MailVault.Desktop.App"
              RequestedThemeVariant="Dark">
 
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://MailVault.Desktop/Assets/Tokens.axaml"/>
+                <ResourceInclude Source="avares://MailVault.Desktop/Assets/Controls/Buttons.axaml"/>
+                <ResourceInclude Source="avares://MailVault.Desktop/Assets/Controls/Surfaces.axaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+
     <Application.Styles>
         <FluentTheme />
+
+        <!-- ============================================================
+             Estilos globais — tipografia e chrome base
+             ============================================================ -->
+        <Style Selector="Window">
+            <Setter Property="Background" Value="{StaticResource BgAppBrush}"/>
+            <Setter Property="FontFamily" Value="{StaticResource FontUI}"/>
+        </Style>
+
+        <Style Selector="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource FontUI}"/>
+        </Style>
+
+        <Style Selector="TextBox">
+            <Setter Property="FontFamily" Value="{StaticResource FontUI}"/>
+        </Style>
+
+        <Style Selector="ComboBox">
+            <Setter Property="FontFamily" Value="{StaticResource FontUI}"/>
+        </Style>
+
+        <!-- Transição suave de cor em todos os botões -->
+        <Style Selector="Button">
+            <Setter Property="FontFamily" Value="{StaticResource FontUI}"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                    <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
+                </Transitions>
+            </Setter>
+        </Style>
+
+        <!-- Texto monoespaçado utilitário: <TextBlock Classes="mono"/> -->
+        <Style Selector="TextBlock.mono">
+            <Setter Property="FontFamily" Value="{StaticResource FontMono}"/>
+        </Style>
+        <Style Selector="TextBox.mono">
+            <Setter Property="FontFamily" Value="{StaticResource FontMono}"/>
+        </Style>
     </Application.Styles>
 </Application>

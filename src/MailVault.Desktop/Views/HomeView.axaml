@@ -1,0 +1,97 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MailVault.Desktop.ViewModels"
+             xmlns:svc="using:MailVault.Desktop.Services"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="700"
+             x:Class="MailVault.Desktop.Views.HomeView"
+             x:DataType="vm:HomeViewModel">
+    <ScrollViewer Background="{StaticResource BgAppBrush}" Padding="30">
+        <StackPanel Spacing="30" MaxWidth="850" HorizontalAlignment="Center" Margin="0,20">
+            <!-- Hero -->
+            <Border CornerRadius="16" Padding="28,30">
+                <Border.Background>
+                    <RadialGradientBrush GradientOrigin="50%,0%" Center="50%,0%" Radius="0.9">
+                        <GradientStop Offset="0" Color="{StaticResource AccentGlowColor}"/>
+                        <GradientStop Offset="1" Color="#000B0F14"/>
+                    </RadialGradientBrush>
+                </Border.Background>
+                <StackPanel Spacing="8" HorizontalAlignment="Center">
+                    <TextBlock Text="MailVault Recovery" FontSize="36" FontWeight="Black" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center" LetterSpacing="1"/>
+                    <TextBlock Text="Visual Inspection Hub — Solução Forense Local e Offline" FontSize="14" Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Abrir cofre existente -->
+            <Border Theme="{StaticResource Card}" CornerRadius="12" Padding="25">
+                <StackPanel Spacing="20">
+                    <TextBlock Text="ABRIR COFRE DE E-MAILS EXISTENTE" FontSize="14" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
+                    <TextBlock Text="Selecione um diretório de caso gerado anteriormente que contenha o arquivo case.db íntegro." FontSize="12" Foreground="{StaticResource TextMutedBrush}"/>
+
+                    <Grid ColumnDefinitions="*, Auto" Margin="0,5,0,0">
+                        <TextBox Grid.Column="0" Text="{Binding SelectedCasePath, Mode=TwoWay}" Watermark="Caminho da pasta do caso físico (Ex: C:\cases\CASE-001)"
+                                 Background="{StaticResource BgInputBrush}" Foreground="{StaticResource TextPrimaryBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" Padding="14" CornerRadius="6" FontSize="13"/>
+                        <Button Grid.Column="1" Theme="{StaticResource OutlineButton}" Content="Procurar..." Command="{Binding SelectCaseFolderCommand}" Margin="10,0,0,0" Padding="15,14"/>
+                    </Grid>
+
+                    <Button Theme="{StaticResource PrimaryButton}" Content="Iniciar Inspeção Técnica" Command="{Binding OpenCaseCommand}"
+                            HorizontalAlignment="Stretch" Padding="15" FontSize="14"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Dois caminhos de novo caso -->
+            <Grid ColumnDefinitions="*, *" Margin="0,5">
+                <Border Grid.Column="0" Theme="{StaticResource Card}" CornerRadius="12" Padding="20" Margin="0,0,8,0">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="🧪 NOVO CASO OST / PST" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                        <TextBlock Text="Indexe uma nova evidência local a partir de arquivos .ost ou .pst do Microsoft Outlook em modo seguro e protegido." FontSize="12" Foreground="{StaticResource TextMutedBrush}" Height="50"/>
+                        <Button Theme="{StaticResource OutlineButton}" Content="Iniciar Assistente de Indexação" Command="{ReflectionBinding $parent[Window].DataContext.ShowNewCaseWizardCommand}"
+                                HorizontalAlignment="Stretch" Padding="12"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="1" Theme="{StaticResource Card}" CornerRadius="12" Padding="20" Margin="8,0,0,0">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="📦 MBOX / THUNDERBIRD / MAILDIR / EML" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                        <TextBlock Text="Indexe e recupere perfis Thunderbird, caixas de correio MBOX, diretórios Maildir ou pastas EML recursivamente no assistente de indexação." FontSize="12" Foreground="{StaticResource TextMutedBrush}" Height="50"/>
+                        <Button Theme="{StaticResource OutlineButton}" Content="Iniciar Assistente de Indexação" Command="{ReflectionBinding $parent[Window].DataContext.ShowNewCaseWizardCommand}"
+                                HorizontalAlignment="Stretch" Padding="12"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Recent Cases -->
+            <StackPanel Spacing="12">
+                <TextBlock Text="HISTÓRICO DE CASES RECENTES" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" LetterSpacing="1"/>
+                <Border Theme="{StaticResource Card}" CornerRadius="10" Padding="15">
+                    <StackPanel>
+                        <TextBlock Text="Nenhum histórico recente disponível." Foreground="{StaticResource TextMutedBrush}" FontSize="12" HorizontalAlignment="Center" Margin="0,10" IsVisible="{Binding !RecentCases.Count}"/>
+
+                        <ItemsControl ItemsSource="{Binding RecentCases}" IsVisible="{Binding RecentCases.Count}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="svc:RecentCaseEntry">
+                                    <Border BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="0,0,0,1" Padding="0,8" Margin="0,2">
+                                        <Grid ColumnDefinitions="*, Auto, Auto">
+                                            <StackPanel Grid.Column="0" Spacing="4">
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <TextBlock Text="{Binding CaseId}" Classes="mono" Foreground="{StaticResource TextPrimaryBrush}" FontWeight="Bold" FontSize="13"/>
+                                                    <ContentControl Theme="{StaticResource Badge}" Content="{Binding OpenMode}"/>
+                                                </StackPanel>
+                                                <TextBlock Text="{Binding CaseFolderPath}" Classes="mono" Foreground="{StaticResource TextMutedBrush}" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                                            </StackPanel>
+                                            <Button Grid.Column="1" Theme="{StaticResource PrimaryButton}" Content="Abrir" Command="{Binding $parent[ItemsControl].DataContext.OpenRecentCaseCommand}" CommandParameter="{Binding}"
+                                                    Padding="12,6" Margin="8,0,0,0" FontSize="11"/>
+                                            <Button Grid.Column="2" Theme="{StaticResource GhostButton}" Foreground="{StaticResource DangerBrush}" Content="Remover" Command="{Binding $parent[ItemsControl].DataContext.RemoveRecentCaseCommand}" CommandParameter="{Binding}"
+                                                    Padding="12,6" Margin="6,0,0,0" FontSize="11"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

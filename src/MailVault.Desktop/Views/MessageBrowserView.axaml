@@ -1,0 +1,74 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MailVault.Desktop.ViewModels"
+             xmlns:domain="using:MailVault.Domain"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="700"
+             x:Class="MailVault.Desktop.Views.MessageBrowserView"
+             x:DataType="vm:MessageBrowserViewModel">
+    <Grid ColumnDefinitions="280, 4, 380, 4, *" Background="{StaticResource BgAppBrush}">
+        <!-- Left Panel: Folder Tree -->
+        <Border Grid.Column="0" Background="{StaticResource BgSurfaceAltBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="0,0,1,0">
+            <Grid RowDefinitions="Auto, *">
+                <Border Grid.Row="0" Height="40" Background="{StaticResource BgInputBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="0,0,0,1" Padding="12,0">
+                    <TextBlock Text="ÁRVORE DE PASTAS" FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" LetterSpacing="0.5"/>
+                </Border>
+                <TreeView Grid.Row="1" ItemsSource="{Binding FolderTree.RootFolders}" SelectedItem="{Binding FolderTree.SelectedItem, Mode=TwoWay}" Padding="5">
+                    <TreeView.ItemTemplate>
+                        <TreeDataTemplate ItemsSource="{Binding Children}" x:DataType="vm:FolderTreeItemViewModel">
+                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,2">
+                                <TextBlock Text="📁" Foreground="{StaticResource WarningBrush}" FontSize="12"/>
+                                <TextBlock Text="{Binding DisplayName}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="13"/>
+                            </StackPanel>
+                        </TreeDataTemplate>
+                    </TreeView.ItemTemplate>
+                </TreeView>
+            </Grid>
+        </Border>
+
+        <GridSplitter Grid.Column="1" Width="4" Background="{StaticResource BorderSubtleBrush}" ResizeBehavior="PreviousAndNext"/>
+
+        <!-- Middle Panel: Message List -->
+        <Border Grid.Column="2" Background="{StaticResource BgAppBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="0,0,1,0">
+            <Grid RowDefinitions="Auto, *, Auto">
+                <Border Grid.Row="0" Height="40" Background="{StaticResource BgInputBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="0,0,0,1" Padding="12,0">
+                    <TextBlock Text="MENSAGENS INDEXADAS" FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" LetterSpacing="0.5"/>
+                </Border>
+                <ListBox Grid.Row="1" ItemsSource="{Binding MessageList.Messages}" SelectedItem="{Binding MessageList.SelectedMessage, Mode=TwoWay}" Background="Transparent">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="domain:MailItem">
+                            <Border BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="0,0,0,1" Padding="5,8">
+                                <Grid RowDefinitions="Auto, Auto, Auto" ColumnDefinitions="*, Auto">
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Subject}" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" FontSize="13" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="📎" IsVisible="{Binding Attachments.Count}" Foreground="{StaticResource AccentBrush}" Margin="5,0,0,0"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding From.Address}" Foreground="{StaticResource TextMutedBrush}" FontSize="11" TextTrimming="CharacterEllipsis" Margin="0,3,0,0"/>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding SentAt, StringFormat='\{0:g\}'}" Classes="mono" Foreground="{StaticResource TextMutedBrush}" FontSize="10" Margin="0,3,0,0"/>
+                                    <Border Grid.Row="2" Grid.Column="1" Background="{StaticResource DangerBrush}" CornerRadius="3" Padding="4,1" IsVisible="{Binding Issues.Count}">
+                                        <TextBlock Text="ALERTA" FontSize="8" FontWeight="Bold" Foreground="White"/>
+                                    </Border>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <!-- Pagination Panel -->
+                <Border Grid.Row="2" Height="45" Background="{StaticResource BgSurfaceAltBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="0,1,0,0" Padding="10,0">
+                    <Grid ColumnDefinitions="Auto, *, Auto">
+                        <Button Grid.Column="0" Theme="{StaticResource GhostButton}" Content="◀" Command="{Binding MessageList.PrevPageCommand}" Padding="8,4" FontSize="11"/>
+                        <TextBlock Grid.Column="1" Text="{Binding MessageList.CurrentPage, StringFormat='Página \{0\}'}" Foreground="{StaticResource TextMutedBrush}" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Button Grid.Column="2" Theme="{StaticResource GhostButton}" Content="▶" Command="{Binding MessageList.NextPageCommand}" Padding="8,4" FontSize="11"/>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+
+        <GridSplitter Grid.Column="3" Width="4" Background="{StaticResource BorderSubtleBrush}" ResizeBehavior="PreviousAndNext"/>
+
+        <!-- Right Panel: Message Preview Safe -->
+        <ContentControl Grid.Column="4" Content="{Binding MessagePreview}"/>
+    </Grid>
+</UserControl>

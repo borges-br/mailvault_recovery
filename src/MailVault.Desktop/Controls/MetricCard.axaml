@@ -1,0 +1,27 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="180" d:DesignHeight="120"
+             x:Class="MailVault.Desktop.Controls.MetricCard"
+             Name="Root">
+    <Border Theme="{StaticResource Card}" Padding="16">
+        <StackPanel Spacing="10">
+            <Border Width="30" Height="30" CornerRadius="6"
+                    HorizontalAlignment="Left"
+                    Background="{StaticResource AccentGlowBrush}">
+                <TextBlock Text="{Binding #Root.Glyph}"
+                           FontSize="15" HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Foreground="{Binding #Root.Accent}"/>
+            </Border>
+            <TextBlock Text="{Binding #Root.Value}"
+                       FontFamily="{StaticResource FontMono}"
+                       FontSize="26" FontWeight="Bold"
+                       Foreground="{StaticResource TextPrimaryBrush}"/>
+            <TextBlock Text="{Binding #Root.Label}"
+                       FontSize="11.5" FontWeight="SemiBold"
+                       Foreground="{StaticResource TextMutedBrush}"
+                       TextWrapping="Wrap"/>
+        </StackPanel>
+    </Border>
+</UserControl>

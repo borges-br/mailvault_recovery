@@ -1,0 +1,103 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- ============================================================
+         MailVault Recovery — Design Tokens (dark-first)
+         Fonte da verdade: reference_mailvault/app/tokens.css
+         Cores como <Color> (para gradientes/sombras) e <SolidColorBrush>
+         (para Background/Foreground/BorderBrush nas Views).
+         ============================================================ -->
+
+    <!-- ===== Backgrounds ===== -->
+    <Color x:Key="BgAppColor">#0B0F14</Color>
+    <Color x:Key="BgSurfaceColor">#111827</Color>
+    <Color x:Key="BgSurfaceAltColor">#0F172A</Color>
+    <Color x:Key="BgElevatedColor">#172033</Color>
+    <Color x:Key="BgInputColor">#070A0E</Color>
+
+    <!-- ===== Borders ===== -->
+    <Color x:Key="BorderSubtleColor">#1F2937</Color>
+    <Color x:Key="BorderStrongColor">#334155</Color>
+
+    <!-- ===== Text ===== -->
+    <Color x:Key="TextPrimaryColor">#F8FAFC</Color>
+    <Color x:Key="TextSecondaryColor">#CBD5E1</Color>
+    <Color x:Key="TextMutedColor">#94A3B8</Color>
+    <Color x:Key="TextDisabledColor">#475569</Color>
+
+    <!-- ===== Accent (cyan) ===== -->
+    <Color x:Key="AccentColor">#00E5FF</Color>
+    <Color x:Key="AccentStrongColor">#0E7490</Color>
+    <Color x:Key="AccentContrastColor">#04141A</Color>
+    <Color x:Key="AccentGlowColor">#2400E5FF</Color>   <!-- ~14% -->
+    <Color x:Key="AccentLineColor">#5200E5FF</Color>   <!-- ~32% -->
+    <Color x:Key="AccentHoverColor">#5CF0FF</Color>
+
+    <!-- ===== Semantic ===== -->
+    <Color x:Key="SuccessColor">#10B981</Color>
+    <Color x:Key="WarningColor">#F59E0B</Color>
+    <Color x:Key="DangerColor">#EF4444</Color>
+    <Color x:Key="InfoColor">#3B82F6</Color>
+    <Color x:Key="ExperimentalColor">#8B5CF6</Color>
+
+    <Color x:Key="SuccessSubtleColor">#10261D</Color>
+    <Color x:Key="WarningSubtleColor">#2C1B10</Color>
+    <Color x:Key="DangerSubtleColor">#2A1010</Color>
+    <Color x:Key="InfoSubtleColor">#0C1A2E</Color>
+    <Color x:Key="ExperimentalSubtleColor">#1E1633</Color>
+
+    <!-- ============================================================
+         Brushes — o que as Views consomem na prática
+         ============================================================ -->
+    <SolidColorBrush x:Key="BgAppBrush" Color="{StaticResource BgAppColor}"/>
+    <SolidColorBrush x:Key="BgSurfaceBrush" Color="{StaticResource BgSurfaceColor}"/>
+    <SolidColorBrush x:Key="BgSurfaceAltBrush" Color="{StaticResource BgSurfaceAltColor}"/>
+    <SolidColorBrush x:Key="BgElevatedBrush" Color="{StaticResource BgElevatedColor}"/>
+    <SolidColorBrush x:Key="BgInputBrush" Color="{StaticResource BgInputColor}"/>
+
+    <SolidColorBrush x:Key="BorderSubtleBrush" Color="{StaticResource BorderSubtleColor}"/>
+    <SolidColorBrush x:Key="BorderStrongBrush" Color="{StaticResource BorderStrongColor}"/>
+
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}"/>
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondaryColor}"/>
+    <SolidColorBrush x:Key="TextMutedBrush" Color="{StaticResource TextMutedColor}"/>
+    <SolidColorBrush x:Key="TextDisabledBrush" Color="{StaticResource TextDisabledColor}"/>
+
+    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}"/>
+    <SolidColorBrush x:Key="AccentStrongBrush" Color="{StaticResource AccentStrongColor}"/>
+    <SolidColorBrush x:Key="AccentContrastBrush" Color="{StaticResource AccentContrastColor}"/>
+    <SolidColorBrush x:Key="AccentGlowBrush" Color="{StaticResource AccentGlowColor}"/>
+    <SolidColorBrush x:Key="AccentLineBrush" Color="{StaticResource AccentLineColor}"/>
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="{StaticResource AccentHoverColor}"/>
+
+    <SolidColorBrush x:Key="SuccessBrush" Color="{StaticResource SuccessColor}"/>
+    <SolidColorBrush x:Key="WarningBrush" Color="{StaticResource WarningColor}"/>
+    <SolidColorBrush x:Key="DangerBrush" Color="{StaticResource DangerColor}"/>
+    <SolidColorBrush x:Key="InfoBrush" Color="{StaticResource InfoColor}"/>
+    <SolidColorBrush x:Key="ExperimentalBrush" Color="{StaticResource ExperimentalColor}"/>
+
+    <SolidColorBrush x:Key="SuccessSubtleBrush" Color="{StaticResource SuccessSubtleColor}"/>
+    <SolidColorBrush x:Key="WarningSubtleBrush" Color="{StaticResource WarningSubtleColor}"/>
+    <SolidColorBrush x:Key="DangerSubtleBrush" Color="{StaticResource DangerSubtleColor}"/>
+    <SolidColorBrush x:Key="InfoSubtleBrush" Color="{StaticResource InfoSubtleColor}"/>
+    <SolidColorBrush x:Key="ExperimentalSubtleBrush" Color="{StaticResource ExperimentalSubtleColor}"/>
+
+    <!-- ============================================================
+         Fonts
+         Inter vem embarcada via Avalonia.Fonts.Inter (.WithInterFont()).
+         Mono cai para Cascadia/Consolas quando JetBrains Mono não existe.
+         ============================================================ -->
+    <FontFamily x:Key="FontUI">avares://Avalonia.Fonts.Inter/Assets#Inter</FontFamily>
+    <FontFamily x:Key="FontMono">JetBrains Mono, Cascadia Mono, Consolas, monospace</FontFamily>
+
+    <!-- ============================================================
+         Geometria / layout
+         ============================================================ -->
+    <CornerRadius x:Key="RadiusSm">5</CornerRadius>
+    <CornerRadius x:Key="Radius">8</CornerRadius>
+    <CornerRadius x:Key="RadiusLg">12</CornerRadius>
+    <CornerRadius x:Key="RadiusXl">16</CornerRadius>
+
+    <x:Double x:Key="TopBarHeight">54</x:Double>
+    <x:Double x:Key="StatusBarHeight">30</x:Double>
+    <x:Double x:Key="SidebarWidth">260</x:Double>
+</ResourceDictionary>

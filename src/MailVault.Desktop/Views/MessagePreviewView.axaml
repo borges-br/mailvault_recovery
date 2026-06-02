@@ -1,0 +1,69 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MailVault.Desktop.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="700"
+             x:Class="MailVault.Desktop.Views.MessagePreviewView"
+             x:DataType="vm:MessagePreviewViewModel">
+    <Grid RowDefinitions="Auto, *" Background="{StaticResource BgAppBrush}">
+        <!-- Message Toolbar / Header Info -->
+        <Border Grid.Row="0" Background="{StaticResource BgSurfaceAltBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="0,0,0,1" Padding="20">
+            <StackPanel Spacing="10">
+                <TextBlock Text="{Binding Subject}" FontSize="18" FontWeight="Black" Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap"/>
+
+                <Grid ColumnDefinitions="Auto, *" Margin="0,5,0,0">
+                    <TextBlock Grid.Column="0" Text="Remetente: " Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold" FontSize="12"/>
+                    <TextBlock Grid.Column="1" Text="{Binding From}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
+                </Grid>
+                <Grid ColumnDefinitions="Auto, *">
+                    <TextBlock Grid.Column="0" Text="Para: " Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold" FontSize="12"/>
+                    <TextBlock Grid.Column="1" Text="{Binding To}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
+                </Grid>
+                <Grid ColumnDefinitions="Auto, *" IsVisible="{Binding Cc.Length}">
+                    <TextBlock Grid.Column="0" Text="Cc: " Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold" FontSize="12"/>
+                    <TextBlock Grid.Column="1" Text="{Binding Cc}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
+                </Grid>
+
+                <TextBlock Text="{Binding Dates}" Classes="mono" Foreground="{StaticResource TextDisabledBrush}" FontSize="11" Margin="0,5,0,0"/>
+
+                <!-- Attachments List -->
+                <StackPanel Orientation="Horizontal" Margin="0,5,0,0" Spacing="8" IsVisible="{Binding Attachments.Count}">
+                    <TextBlock Text="Anexos:" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" FontSize="12" VerticalAlignment="Center"/>
+                    <ItemsControl ItemsSource="{Binding Attachments}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="6"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{StaticResource BgElevatedBrush}" CornerRadius="4" BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" Padding="8,4">
+                                    <TextBlock Text="{Binding}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"/>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- Safe Body ScrollViewer -->
+        <ScrollViewer Grid.Row="1" Padding="20">
+            <StackPanel Spacing="15">
+                <!-- Privacy/Security Warning Banner -->
+                <Border Background="{StaticResource WarningSubtleBrush}" BorderBrush="{StaticResource WarningBrush}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <TextBlock Text="🛡️" FontSize="18" VerticalAlignment="Center"/>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="AVISO DE SEGURANÇA E PRIVACIDADE FORENSE" FontSize="10" FontWeight="Bold" Foreground="{StaticResource WarningBrush}" LetterSpacing="0.5"/>
+                            <TextBlock Text="Pré-visualização de mensagem limitada. O corpo completo não reside no índice relacional (case.db) para assegurar o sigilo operacional. Use a exportação forense para obter a integridade total do conteúdo." FontSize="11" Foreground="#FDE68A" TextWrapping="Wrap" Width="580"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <TextBlock Text="{Binding BodyPreview}" Classes="mono" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" LineHeight="18"/>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>
