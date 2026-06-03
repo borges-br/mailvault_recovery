@@ -152,12 +152,19 @@ public sealed class ExportJobRunner : IExportJobRunner
         progress.ReportProgress(25, $"Iniciando gravação técnica física ({options.Format.ToUpperInvariant()})...");
 
         // Abre uma sessão de leitura persistente: o OST/PST fica aberto durante toda a
-        // exportação e o adapter constrói (uma vez) um índice path→mensagem, tornando
-        // cada GetMessageAsync O(1) em vez de varrer/reparsear a árvore por mensagem.
+        // exportação (em vez de reabrir por mensagem).
         var sessionReader = storeReader as ISessionAwareMailStoreReader;
         if (sessionReader != null)
         {
             await sessionReader.BeginReadSessionAsync(caseInfo.SourceFile, ct);
+        }
+
+        // Exportação lê muitas mensagens: pré-constrói (uma vez) o índice path→mensagem,
+        // tornando cada GetMessageAsync O(1). Leituras avulsas (preview de 1 mensagem) NÃO
+        // chamam isto, então não pagam o custo de varrer a árvore inteira.
+        if (storeReader is IBulkReadPreparable bulkReader)
+        {
+            await bulkReader.PrepareBulkReadAsync(ct);
         }
 
         try

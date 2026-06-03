@@ -11,7 +11,7 @@ using XstReader;
 
 namespace MailVault.Adapters.XstReader;
 
-public sealed class XstReaderRecoveryEngine : IMailStoreReader, ISessionAwareMailStoreReader, IExtractionIssueSource, IMetadataOnlyAware
+public sealed class XstReaderRecoveryEngine : IMailStoreReader, ISessionAwareMailStoreReader, IBulkReadPreparable, IExtractionIssueSource, IMetadataOnlyAware
 {
     public bool MetadataOnly { get; set; } = false;
     private readonly SemaphoreSlim _lock = new(1, 1);
@@ -26,11 +26,36 @@ public sealed class XstReaderRecoveryEngine : IMailStoreReader, ISessionAwareMai
     private XstFile? _sessionFile;
     private XstFolder? _sessionRoot;
 
-    // Índices path→objeto construídos uma única vez por sessão (lazy). Tornam
-    // GetMessageAsync/OpenAttachment O(1) em vez de varrer/reparsear a árvore inteira
-    // (re-materializando folder.Messages) a cada chamada — o gargalo da exportação.
+    // Índices path→objeto. Só são construídos em modo "bulk" (PrepareBulkReadAsync,
+    // usado pela exportação), tornando GetMessageAsync/OpenAttachment O(1). Em leituras
+    // avulsas (ex.: preview de 1 mensagem) NÃO são construídos — usa-se a busca direta,
+    // evitando varrer a árvore inteira só para ler um item.
+    private bool _bulkMode;
     private Dictionary<string, XstMessage>? _messageIndex;
     private Dictionary<string, XstAttachment>? _attachmentIndex;
+
+    public async Task PrepareBulkReadAsync(CancellationToken ct)
+    {
+        await _lock.WaitAsync(ct);
+        try
+        {
+            var root = _sessionRoot;
+            if (root == null && _filePath != null)
+            {
+                _sessionFile = new XstFile(_filePath);
+                root = _sessionFile.RootFolder;
+                _sessionRoot = root;
+            }
+            if (root == null) return;
+
+            _bulkMode = true;
+            _messageIndex = BuildMessageIndex(root);
+        }
+        finally
+        {
+            _lock.Release();
+        }
+    }
 
     public string ReaderName => "XstReaderRecoveryEngine";
 
@@ -297,8 +322,11 @@ public sealed class XstReaderRecoveryEngine : IMailStoreReader, ISessionAwareMai
                 return OperationResult<MailItem>.Failure(new ExtractionIssue("MV-ERR-REC-NO-SESSION", "Error", "Leitor não inicializado.", messageId.Value, null));
             }
 
-            _messageIndex ??= BuildMessageIndex(root);
-            if (!_messageIndex.TryGetValue(messageId.Value, out var msg) || msg == null)
+            // Bulk (export): índice O(1). Avulso (preview): busca direta — sem varrer a árvore.
+            XstMessage? msg = _messageIndex != null
+                ? (_messageIndex.TryGetValue(messageId.Value, out var indexed) ? indexed : null)
+                : FindMessageByPath(root, messageId.Value);
+            if (msg == null)
             {
                 return OperationResult<MailItem>.Failure(new ExtractionIssue(
                     Code: "MV-ERR-MSG-NOT-FOUND",
@@ -357,8 +385,15 @@ public sealed class XstReaderRecoveryEngine : IMailStoreReader, ISessionAwareMai
                 throw new InvalidOperationException("Sessão de leitura não iniciada.");
             }
 
-            _attachmentIndex ??= BuildAttachmentIndex(root);
-            if (!_attachmentIndex.TryGetValue(attachmentId, out var xstAttach) || xstAttach == null)
+            // Em bulk constrói o índice de anexos uma vez (lazy); avulso usa busca direta.
+            if (_bulkMode && _attachmentIndex == null)
+            {
+                _attachmentIndex = BuildAttachmentIndex(root);
+            }
+            XstAttachment? xstAttach = _attachmentIndex != null
+                ? (_attachmentIndex.TryGetValue(attachmentId, out var indexedAtt) ? indexedAtt : null)
+                : FindAttachmentByPath(root, attachmentId);
+            if (xstAttach == null)
             {
                 throw new FileNotFoundException($"Anexo com ID {attachmentId} não encontrado no arquivo.");
             }
@@ -382,6 +417,7 @@ public sealed class XstReaderRecoveryEngine : IMailStoreReader, ISessionAwareMai
     private void DisposeSessionNoLock()
     {
         _folderCache.Clear();
+        _bulkMode = false;
         _messageIndex = null;
         _attachmentIndex = null;
         _sessionRoot = null;

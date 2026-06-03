@@ -23,12 +23,6 @@ public sealed class XstReaderMailStoreReader : IMailStoreReader, ISessionAwareMa
     private XstFile? _sessionFile;
     private XstFolder? _sessionRoot;
 
-    // Índices path→objeto construídos uma única vez por sessão (lazy). Tornam
-    // GetMessageAsync/OpenAttachment O(1) em vez de varrer a árvore a cada chamada.
-    // Só são usados/válidos enquanto a sessão (e o XstFile) estiver aberta.
-    private Dictionary<string, XstMessage>? _messageIndex;
-    private Dictionary<string, XstAttachment>? _attachmentIndex;
-
     public string ReaderName => "XstReader.Api Engine";
 
     public int XstFileOpenCount { get; private set; }
@@ -242,7 +236,7 @@ public sealed class XstReaderMailStoreReader : IMailStoreReader, ISessionAwareMa
     {
         try
         {
-            var msg = RunWithRoot(root => FindMessageCached(root, messageId.Value), ct);
+            var msg = RunWithRoot(root => FindMessageByPath(root, messageId.Value), ct);
 
             if (msg == null)
             {
@@ -285,7 +279,7 @@ public sealed class XstReaderMailStoreReader : IMailStoreReader, ISessionAwareMa
     {
         try
         {
-            var xstAttach = RunWithRoot(root => FindAttachmentCached(root, attachmentId), ct);
+            var xstAttach = RunWithRoot(root => FindAttachmentByPath(root, attachmentId), ct);
             if (xstAttach == null)
             {
                 throw new FileNotFoundException($"Anexo com ID {attachmentId} não foi encontrado.");
@@ -338,8 +332,6 @@ public sealed class XstReaderMailStoreReader : IMailStoreReader, ISessionAwareMa
     private void DisposeSessionNoLock()
     {
         _folderCache.Clear();
-        _messageIndex = null;
-        _attachmentIndex = null;
         _sessionRoot = null;
         _sessionFile?.Dispose();
         _sessionFile = null;
@@ -565,76 +557,6 @@ public sealed class XstReaderMailStoreReader : IMailStoreReader, ISessionAwareMa
         }
 
         return null;
-    }
-
-    // Busca via índice O(1) quando há sessão aberta; caso contrário, varredura direta.
-    private XstMessage? FindMessageCached(XstFolder root, string path)
-    {
-        if (_sessionRoot != null)
-        {
-            _messageIndex ??= BuildMessageIndex(root);
-            return _messageIndex.TryGetValue(path, out var m) ? m : null;
-        }
-        return FindMessageByPath(root, path);
-    }
-
-    private XstAttachment? FindAttachmentCached(XstFolder root, string path)
-    {
-        if (_sessionRoot != null)
-        {
-            _attachmentIndex ??= BuildAttachmentIndex(root);
-            return _attachmentIndex.TryGetValue(path, out var a) ? a : null;
-        }
-        return FindAttachmentByPath(root, path);
-    }
-
-    private Dictionary<string, XstMessage> BuildMessageIndex(XstFolder root)
-    {
-        var index = new Dictionary<string, XstMessage>(StringComparer.OrdinalIgnoreCase);
-        var stack = new Stack<XstFolder>();
-        stack.Push(root);
-        while (stack.Count > 0)
-        {
-            var folder = stack.Pop();
-            foreach (var msg in SafeMessages(folder, SafeObjectId(() => folder.Path, "msg-index")))
-            {
-                var p = SafeString(() => msg.Path);
-                if (!string.IsNullOrEmpty(p)) index[p!] = msg;
-            }
-            foreach (var sub in SafeFolders(folder, SafeObjectId(() => folder.Path, "msg-index")))
-            {
-                stack.Push(sub);
-            }
-        }
-        return index;
-    }
-
-    private Dictionary<string, XstAttachment> BuildAttachmentIndex(XstFolder root)
-    {
-        var index = new Dictionary<string, XstAttachment>(StringComparer.OrdinalIgnoreCase);
-        var stack = new Stack<XstFolder>();
-        stack.Push(root);
-        while (stack.Count > 0)
-        {
-            var folder = stack.Pop();
-            foreach (var msg in SafeMessages(folder, SafeObjectId(() => folder.Path, "att-index")))
-            {
-                try
-                {
-                    foreach (var att in msg.Attachments ?? Enumerable.Empty<XstAttachment>())
-                    {
-                        var ap = SafeString(() => att.Path);
-                        if (!string.IsNullOrEmpty(ap)) index[ap!] = att;
-                    }
-                }
-                catch { /* mensagem sem anexos legíveis; ignora */ }
-            }
-            foreach (var sub in SafeFolders(folder, SafeObjectId(() => folder.Path, "att-index")))
-            {
-                stack.Push(sub);
-            }
-        }
-        return index;
     }
 
     private void CacheFolder(XstFolder folder)
