@@ -151,6 +151,17 @@ public sealed class ExportJobRunner : IExportJobRunner
 
         progress.ReportProgress(25, $"Iniciando gravação técnica física ({options.Format.ToUpperInvariant()})...");
 
+        // Abre uma sessão de leitura persistente: o OST/PST fica aberto durante toda a
+        // exportação e o adapter constrói (uma vez) um índice path→mensagem, tornando
+        // cada GetMessageAsync O(1) em vez de varrer/reparsear a árvore por mensagem.
+        var sessionReader = storeReader as ISessionAwareMailStoreReader;
+        if (sessionReader != null)
+        {
+            await sessionReader.BeginReadSessionAsync(caseInfo.SourceFile, ct);
+        }
+
+        try
+        {
         if (options.Format.Equals("eml", StringComparison.OrdinalIgnoreCase))
         {
             int seq = 1;
@@ -433,6 +444,14 @@ public sealed class ExportJobRunner : IExportJobRunner
                         TechnicalDetails: mboxEx.ToString()
                     ));
                 }
+            }
+        }
+        }
+        finally
+        {
+            if (sessionReader != null)
+            {
+                try { await sessionReader.EndReadSessionAsync(CancellationToken.None); } catch { /* best-effort */ }
             }
         }
 

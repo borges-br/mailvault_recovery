@@ -26,6 +26,12 @@ public sealed class XstReaderRecoveryEngine : IMailStoreReader, ISessionAwareMai
     private XstFile? _sessionFile;
     private XstFolder? _sessionRoot;
 
+    // Índices path→objeto construídos uma única vez por sessão (lazy). Tornam
+    // GetMessageAsync/OpenAttachment O(1) em vez de varrer/reparsear a árvore inteira
+    // (re-materializando folder.Messages) a cada chamada — o gargalo da exportação.
+    private Dictionary<string, XstMessage>? _messageIndex;
+    private Dictionary<string, XstAttachment>? _attachmentIndex;
+
     public string ReaderName => "XstReaderRecoveryEngine";
 
     public async Task BeginReadSessionAsync(string filePath, CancellationToken ct)
@@ -291,8 +297,8 @@ public sealed class XstReaderRecoveryEngine : IMailStoreReader, ISessionAwareMai
                 return OperationResult<MailItem>.Failure(new ExtractionIssue("MV-ERR-REC-NO-SESSION", "Error", "Leitor não inicializado.", messageId.Value, null));
             }
 
-            var msg = FindMessageByPath(root, messageId.Value);
-            if (msg == null)
+            _messageIndex ??= BuildMessageIndex(root);
+            if (!_messageIndex.TryGetValue(messageId.Value, out var msg) || msg == null)
             {
                 return OperationResult<MailItem>.Failure(new ExtractionIssue(
                     Code: "MV-ERR-MSG-NOT-FOUND",
@@ -351,8 +357,8 @@ public sealed class XstReaderRecoveryEngine : IMailStoreReader, ISessionAwareMai
                 throw new InvalidOperationException("Sessão de leitura não iniciada.");
             }
 
-            var xstAttach = FindAttachmentByPath(root, attachmentId);
-            if (xstAttach == null)
+            _attachmentIndex ??= BuildAttachmentIndex(root);
+            if (!_attachmentIndex.TryGetValue(attachmentId, out var xstAttach) || xstAttach == null)
             {
                 throw new FileNotFoundException($"Anexo com ID {attachmentId} não encontrado no arquivo.");
             }
@@ -376,6 +382,8 @@ public sealed class XstReaderRecoveryEngine : IMailStoreReader, ISessionAwareMai
     private void DisposeSessionNoLock()
     {
         _folderCache.Clear();
+        _messageIndex = null;
+        _attachmentIndex = null;
         _sessionRoot = null;
         _sessionFile?.Dispose();
         _sessionFile = null;
@@ -612,6 +620,55 @@ public sealed class XstReaderRecoveryEngine : IMailStoreReader, ISessionAwareMai
         }
 
         return null;
+    }
+
+    private Dictionary<string, XstMessage> BuildMessageIndex(XstFolder root)
+    {
+        var index = new Dictionary<string, XstMessage>(StringComparer.OrdinalIgnoreCase);
+        var stack = new Stack<XstFolder>();
+        stack.Push(root);
+        while (stack.Count > 0)
+        {
+            var folder = stack.Pop();
+            foreach (var msg in SafeMessages(folder, SafeObjectId(() => folder.Path, "msg-index")))
+            {
+                var p = SafeString(() => msg.Path);
+                if (!string.IsNullOrEmpty(p)) index[p!] = msg;
+            }
+            foreach (var sub in SafeFolders(folder, SafeObjectId(() => folder.Path, "msg-index")))
+            {
+                stack.Push(sub);
+            }
+        }
+        return index;
+    }
+
+    private Dictionary<string, XstAttachment> BuildAttachmentIndex(XstFolder root)
+    {
+        var index = new Dictionary<string, XstAttachment>(StringComparer.OrdinalIgnoreCase);
+        var stack = new Stack<XstFolder>();
+        stack.Push(root);
+        while (stack.Count > 0)
+        {
+            var folder = stack.Pop();
+            foreach (var msg in SafeMessages(folder, SafeObjectId(() => folder.Path, "att-index")))
+            {
+                try
+                {
+                    foreach (var att in msg.Attachments ?? Enumerable.Empty<XstAttachment>())
+                    {
+                        var ap = SafeString(() => att.Path);
+                        if (!string.IsNullOrEmpty(ap)) index[ap!] = att;
+                    }
+                }
+                catch { /* mensagem sem anexos legíveis; ignora */ }
+            }
+            foreach (var sub in SafeFolders(folder, SafeObjectId(() => folder.Path, "att-index")))
+            {
+                stack.Push(sub);
+            }
+        }
+        return index;
     }
 
     private void CacheFolder(XstFolder folder)
