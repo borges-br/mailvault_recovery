@@ -189,8 +189,10 @@ public class DesktopViewModelsTests
     public void MessagePreviewViewModel_TruncatesBodyPreview()
     {
         // Arrange
+        // A partir do milestone de preview ao vivo, o corpo é exibido na íntegra
+        // (cap de MaxBodyChars=100_000), não mais truncado em 400 chars.
         var vm = new MessagePreviewViewModel();
-        var longBody = new string('A', 500);
+        var longBody = new string('A', 100_500);
         var mailItemLong = new MailItem(
             InternalId: "M1",
             InternetMessageId: "<m1@test.com>",
@@ -228,8 +230,10 @@ public class DesktopViewModelsTests
         // Action & Assert Long
         vm.SetMessage(mailItemLong);
         Assert.True(vm.HasMessage);
-        Assert.Contains("[CONTEÚDO TRUNCADO POR SEGURANÇA E PRIVACIDADE FORENSE]", vm.BodyPreview);
-        Assert.Equal(400 + "... [CONTEÚDO TRUNCADO POR SEGURANÇA E PRIVACIDADE FORENSE]".Length, vm.BodyPreview.Length);
+        Assert.Contains("corpo truncado na visualização", vm.BodyPreview);
+        Assert.Equal(
+            100_000 + "\n\n[...] (corpo truncado na visualização; use a exportação forense para o conteúdo completo.)".Length,
+            vm.BodyPreview.Length);
 
         // Action & Assert Short
         vm.SetMessage(mailItemShort);

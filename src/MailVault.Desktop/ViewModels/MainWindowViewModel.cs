@@ -66,6 +66,9 @@ public class MainWindowViewModel : ViewModelBase
     private readonly LocalSettingsService _settingsService;
     private readonly IDesktopFileDialogService _fileDialogService;
 
+    // Leitor ao vivo da evidência (preview de conteúdo completo sob demanda).
+    private DesktopMessagePreviewService? _previewService;
+
     private SqliteCaseIndexStore? _store;
     private ICaseIndexReader? _reader;
     private CancellationTokenSource? _caseLoadCts;
@@ -387,6 +390,10 @@ public class MainWindowViewModel : ViewModelBase
             _store = result.Store;
             _reader = _store.CreateReader();
 
+            // Abre o leitor ao vivo em background (não bloqueia a abertura do caso).
+            // Enquanto não estiver pronto, o preview mostra os metadados do índice.
+            _ = OpenLivePreviewAsync(casePath);
+
             WarningBanner = result.WarningMessage;
 
             await _caseOverviewViewModel.LoadFromWorkspaceAsync(result, linkedCts.Token);
@@ -482,13 +489,76 @@ public class MainWindowViewModel : ViewModelBase
         SchemaVersion = "N/A";
         LastActionTime = "N/A";
 
+        _messagePreviewViewModel.AttachPreviewService(null);
         _messagePreviewViewModel.SetMessage(null);
+        var previewToClose = _previewService;
+        _previewService = null;
+        if (previewToClose != null)
+        {
+            _ = previewToClose.CloseAsync();
+        }
         _messageListViewModel.ResetMessages();
         _folderTreeViewModel.ResetFolders();
         _searchViewModel.ClearReader();
         _auditManifestViewModel.ClearData();
         _exportPanelViewModel.SetCaseFolder("");
         _validationPanelViewModel.SetCaseFolder("");
+    }
+
+    private async Task OpenLivePreviewAsync(string casePath)
+    {
+        // Detacha qualquer leitor anterior enquanto abre o novo.
+        _messagePreviewViewModel.AttachPreviewService(null);
+
+        var service = new DesktopMessagePreviewService();
+        bool ok;
+        try
+        {
+            string? sourcePath = ReadCaseSourceFile(casePath);
+            ok = await service.OpenAsync(sourcePath, CancellationToken.None);
+        }
+        catch
+        {
+            ok = false;
+        }
+
+        // O usuário pode ter fechado/trocado o caso durante a abertura (que leva ~1-2s).
+        if (!ok || _caseFolderPath != casePath)
+        {
+            await service.CloseAsync();
+            service.Dispose();
+            return;
+        }
+
+        var previous = _previewService;
+        _previewService = service;
+        _messagePreviewViewModel.AttachPreviewService(service);
+        if (previous != null)
+        {
+            await previous.CloseAsync();
+        }
+    }
+
+    private static string? ReadCaseSourceFile(string casePath)
+    {
+        string dbPath = Path.Combine(casePath, "case.db");
+        if (!File.Exists(dbPath))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={dbPath};Mode=ReadOnly;");
+            conn.Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT source_file FROM case_info LIMIT 1";
+            return cmd.ExecuteScalar()?.ToString();
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private void CancelCurrentCaseLoad()
