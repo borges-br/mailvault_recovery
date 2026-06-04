@@ -1,6 +1,6 @@
 # MailVault Recovery
 
-![MailVault Recovery banner](docs/assets/mailvault-logo.svg)
+![MailVault Recovery banner](docs/assets/banner.png)
 
 [![.NET](https://img.shields.io/badge/.NET-net10.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
 [![UI](https://img.shields.io/badge/UI-Avalonia-3366CC)](https://avaloniaui.net/)
