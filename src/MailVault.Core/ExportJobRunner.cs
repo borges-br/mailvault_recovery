@@ -171,27 +171,24 @@ public sealed class ExportJobRunner : IExportJobRunner
         {
         if (options.Format.Equals("eml", StringComparison.OrdinalIgnoreCase))
         {
-            int seq = 1;
-            foreach (var item in targetedMessages)
-            {
-                ct.ThrowIfCancellationRequested();
-                var folderNode = allFolders.First(f => f.Id.Value == item.Folder.Value);
-                
-                string targetDir = options.OutputDir;
-                if (options.PreserveFolderStructure)
-                {
-                    string safeSubdir = string.Join("/", folderNode.FullPath.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries).Select(s => SanitiseFilename(s, "Folder")));
-                    targetDir = Path.Combine(options.OutputDir, "eml", safeSubdir);
-                }
-                else
-                {
-                    targetDir = Path.Combine(options.OutputDir, "eml");
-                }
+            // Exportação EML paralela: cada mensagem gera um arquivo independente, então
+            // particionamos as mensagens em chunks processados por threads distintas, cada
+            // uma com sua PRÓPRIA sessão de leitor (o XstReader não é thread-safe). O nome do
+            // arquivo usa a POSIÇÃO global da mensagem (determinístico, sem contador
+            // compartilhado). Contadores/listas são agregados sob lock. Com parallelism=1
+            // (env MAILVAULT_EXPORT_PARALLELISM=1) o comportamento é exatamente sequencial.
+            var aggLock = new object();
+            int processedCount = 0;
 
-                if (!Directory.Exists(targetDir))
-                {
-                    Directory.CreateDirectory(targetDir);
-                }
+            async Task ProcessEmlAsync(IMailStoreReader reader, IAttachmentContentProvider attProv, (MailItem Msg, FolderId Folder) item, int position)
+            {
+                int seq = position + 1;
+                var folderNode = allFolders.First(f => f.Id.Value == item.Folder.Value);
+
+                string targetDir = options.PreserveFolderStructure
+                    ? Path.Combine(options.OutputDir, "eml", string.Join("/", folderNode.FullPath.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries).Select(s => SanitiseFilename(s, "Folder"))))
+                    : Path.Combine(options.OutputDir, "eml");
+                Directory.CreateDirectory(targetDir);
 
                 // Generate deterministic and safe file name (Gate 7)
                 string safeSubject = SanitiseFilename(item.Msg.Subject ?? "(Sem Assunto)", "Email");
@@ -201,140 +198,183 @@ public sealed class ExportJobRunner : IExportJobRunner
                 // MAX_PATH protection (260 characters limit on Windows)
                 if (targetFilePath.Length > 240)
                 {
-                    int maxFilenameLen = 240 - targetDir.Length - 5; // leave space for extension
+                    int maxFilenameLen = 240 - targetDir.Length - 5;
                     if (maxFilenameLen > 10)
                     {
-                        string truncatedSubject = safeSubject;
-                        if (truncatedSubject.Length > maxFilenameLen)
-                        {
-                            truncatedSubject = truncatedSubject.Substring(0, maxFilenameLen);
-                        }
+                        string truncatedSubject = safeSubject.Length > maxFilenameLen ? safeSubject.Substring(0, maxFilenameLen) : safeSubject;
                         fileBaseName = $"{seq:D6}-{truncatedSubject}";
                         targetFilePath = Path.Combine(targetDir, $"{fileBaseName}.eml");
                     }
                 }
 
-                // Security: Ensure no path traversal and we remain inside output directory base (Gate 7)
                 EnsureSafeWritePath(targetFilePath, options.OutputDir);
 
                 if (File.Exists(targetFilePath) && !options.Overwrite)
                 {
-                    issuesList.Add(new ExtractionIssue(
-                        Code: "MV-ERR-EXPORT-OVERWRITE",
-                        Severity: "Error",
-                        Message: $"O arquivo de destino já existe e a opção --overwrite está inativa: '{targetFilePath}'",
-                        ObjectId: item.Msg.InternalId,
-                        TechnicalDetails: null
-                    ));
-                    messagesFailed++;
-                    exportedMsgRecords.Add(new ExportedMessageRecord(item.Msg.InternalId, folderNode.FullPath, TruncateString(item.Msg.Subject ?? "(Sem Assunto)", 60), Path.GetRelativePath(options.OutputDir, targetFilePath), "Failed (Overwrite blocked)", item.Msg.Attachments.Count));
-                    continue;
+                    lock (aggLock)
+                    {
+                        issuesList.Add(new ExtractionIssue(
+                            Code: "MV-ERR-EXPORT-OVERWRITE",
+                            Severity: "Error",
+                            Message: $"O arquivo de destino já existe e a opção --overwrite está inativa: '{targetFilePath}'",
+                            ObjectId: item.Msg.InternalId,
+                            TechnicalDetails: null));
+                        messagesFailed++;
+                        exportedMsgRecords.Add(new ExportedMessageRecord(item.Msg.InternalId, folderNode.FullPath, TruncateString(item.Msg.Subject ?? "(Sem Assunto)", 60), Path.GetRelativePath(options.OutputDir, targetFilePath), "Failed (Overwrite blocked)", item.Msg.Attachments.Count));
+                    }
+                    return;
                 }
 
-                // Re-read full message details from read-only physical file (minimizaton of data on db)
-                var readResult = await storeReader.GetMessageAsync(new MessageId(item.Msg.InternalId), ct);
+                // Re-read full message details from read-only physical file
+                var readResult = await reader.GetMessageAsync(new MessageId(item.Msg.InternalId), ct);
                 if (!readResult.Success || readResult.Value == null)
                 {
                     string err = string.Join("; ", readResult.Issues.Select(i => i.Message));
-                    issuesList.Add(new ExtractionIssue(
-                        Code: "MV-ERR-EXPORT-READMSG",
-                        Severity: "Error",
-                        Message: $"Falha ao ler mensagem original do PST/OST: {err}",
-                        ObjectId: item.Msg.InternalId,
-                        TechnicalDetails: null
-                    ));
-                    messagesFailed++;
-                    exportedMsgRecords.Add(new ExportedMessageRecord(item.Msg.InternalId, folderNode.FullPath, TruncateString(item.Msg.Subject ?? "(Sem Assunto)", 60), Path.GetRelativePath(options.OutputDir, targetFilePath), "Failed (PST Read)", item.Msg.Attachments.Count));
-                    continue;
+                    lock (aggLock)
+                    {
+                        issuesList.Add(new ExtractionIssue(
+                            Code: "MV-ERR-EXPORT-READMSG",
+                            Severity: "Error",
+                            Message: $"Falha ao ler mensagem original do PST/OST: {err}",
+                            ObjectId: item.Msg.InternalId,
+                            TechnicalDetails: null));
+                        messagesFailed++;
+                        exportedMsgRecords.Add(new ExportedMessageRecord(item.Msg.InternalId, folderNode.FullPath, TruncateString(item.Msg.Subject ?? "(Sem Assunto)", 60), Path.GetRelativePath(options.OutputDir, targetFilePath), "Failed (PST Read)", item.Msg.Attachments.Count));
+                    }
+                    return;
                 }
 
                 var fullMail = readResult.Value!;
-
                 string tmpFilePath = targetFilePath + ".tmp";
                 try
                 {
                     using (var fs = new FileStream(tmpFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
                     {
-                        await exporter.ExportMessageAsync(fullMail, attachmentProvider, fs, ct);
+                        await exporter.ExportMessageAsync(fullMail, attProv, fs, ct);
                     }
 
-                    if (File.Exists(targetFilePath))
-                    {
-                        File.Delete(targetFilePath);
-                    }
+                    if (File.Exists(targetFilePath)) File.Delete(targetFilePath);
                     File.Move(tmpFilePath, targetFilePath);
 
-                    messagesExported++;
-                    exportedFilesList.Add(targetFilePath);
-                    exportedMsgRecords.Add(new ExportedMessageRecord(fullMail.InternalId, folderNode.FullPath, TruncateString(fullMail.Subject ?? "(Sem Assunto)", 60), Path.GetRelativePath(options.OutputDir, targetFilePath), "Success", fullMail.Attachments.Count));
+                    int localAttExported = 0;
+                    int localAttFailed = 0;
+                    var localFiles = new List<string> { targetFilePath };
+                    var localIssues = new List<ExtractionIssue>();
 
-                    // Process attachments extraction if requested
                     if (options.IncludeAttachments && options.ExtractAttachments && fullMail.Attachments.Count > 0)
                     {
-                        string attDirName = $"{fileBaseName}-attachments";
-                        string attPathDir = Path.Combine(targetDir, attDirName);
-                        if (!Directory.Exists(attPathDir))
-                        {
-                            Directory.CreateDirectory(attPathDir);
-                        }
+                        string attPathDir = Path.Combine(targetDir, $"{fileBaseName}-attachments");
+                        Directory.CreateDirectory(attPathDir);
 
                         foreach (var att in fullMail.Attachments)
                         {
                             string safeAttName = SanitiseFilename(att.FileName ?? $"anexo-{att.InternalId}", "anexo");
                             string attTargetPath = Path.Combine(attPathDir, safeAttName);
-
                             EnsureSafeWritePath(attTargetPath, options.OutputDir);
-
                             try
                             {
-                                using (var attStream = await storeReader.OpenAttachmentStreamAsync(new MessageId(fullMail.InternalId), new AttachmentId(att.InternalId), ct))
+                                using (var attStream = await reader.OpenAttachmentStreamAsync(new MessageId(fullMail.InternalId), new AttachmentId(att.InternalId), ct))
                                 using (var attOutFs = new FileStream(attTargetPath, FileMode.Create, FileAccess.Write, FileShare.None))
                                 {
                                     await attStream.CopyToAsync(attOutFs, ct);
                                 }
-                                attachmentsExported++;
-                                exportedFilesList.Add(attTargetPath);
+                                localAttExported++;
+                                localFiles.Add(attTargetPath);
                             }
                             catch (Exception attEx)
                             {
-                                attachmentsFailed++;
-                                issuesList.Add(new ExtractionIssue(
+                                localAttFailed++;
+                                localIssues.Add(new ExtractionIssue(
                                     Code: "MV-ERR-EXPORT-ATTACH",
                                     Severity: "Warning",
                                     Message: $"Falha ao exportar anexo avulso '{att.FileName}': {attEx.Message}",
                                     ObjectId: att.InternalId,
-                                    TechnicalDetails: attEx.ToString()
-                                ));
+                                    TechnicalDetails: attEx.ToString()));
                             }
                         }
                     }
                     else if (options.IncludeAttachments)
                     {
-                        attachmentsExported += fullMail.Attachments.Count; // Count attachments embedded
+                        localAttExported += fullMail.Attachments.Count;
+                    }
+
+                    lock (aggLock)
+                    {
+                        messagesExported++;
+                        attachmentsExported += localAttExported;
+                        attachmentsFailed += localAttFailed;
+                        exportedFilesList.AddRange(localFiles);
+                        if (localIssues.Count > 0) issuesList.AddRange(localIssues);
+                        exportedMsgRecords.Add(new ExportedMessageRecord(fullMail.InternalId, folderNode.FullPath, TruncateString(fullMail.Subject ?? "(Sem Assunto)", 60), Path.GetRelativePath(options.OutputDir, targetFilePath), "Success", fullMail.Attachments.Count));
                     }
                 }
                 catch (Exception ex)
                 {
-                    if (File.Exists(tmpFilePath))
+                    if (File.Exists(tmpFilePath)) { try { File.Delete(tmpFilePath); } catch { } }
+                    lock (aggLock)
                     {
-                        try { File.Delete(tmpFilePath); } catch { }
+                        messagesFailed++;
+                        issuesList.Add(new ExtractionIssue(
+                            Code: "MV-ERR-EXPORT-WRITEEML",
+                            Severity: "Error",
+                            Message: $"Falha técnica ao escrever EML em disco: {ex.Message}",
+                            ObjectId: item.Msg.InternalId,
+                            TechnicalDetails: ex.ToString()));
+                        exportedMsgRecords.Add(new ExportedMessageRecord(item.Msg.InternalId, folderNode.FullPath, TruncateString(item.Msg.Subject ?? "(Sem Assunto)", 60), Path.GetRelativePath(options.OutputDir, targetFilePath), "Failed (Write)", item.Msg.Attachments.Count));
                     }
-
-                    messagesFailed++;
-                    issuesList.Add(new ExtractionIssue(
-                        Code: "MV-ERR-EXPORT-WRITEEML",
-                        Severity: "Error",
-                        Message: $"Falha técnica ao escrever EML em disco: {ex.Message}",
-                        ObjectId: item.Msg.InternalId,
-                        TechnicalDetails: ex.ToString()
-                    ));
-                    exportedMsgRecords.Add(new ExportedMessageRecord(item.Msg.InternalId, folderNode.FullPath, TruncateString(item.Msg.Subject ?? "(Sem Assunto)", 60), Path.GetRelativePath(options.OutputDir, targetFilePath), "Failed (Write)", item.Msg.Attachments.Count));
                 }
 
-                seq++;
-                double percentage = 25 + (65.0 * seq / messagesSelected);
-                progress.ReportProgress(percentage, $"Exportado e-mail {seq} de {messagesSelected}...");
+                int done = System.Threading.Interlocked.Increment(ref processedCount);
+                if (done % 20 == 0 || done == messagesSelected)
+                {
+                    lock (aggLock)
+                    {
+                        progress.ReportProgress(25 + (65.0 * done / messagesSelected), $"Exportado e-mail {done} de {messagesSelected}...");
+                    }
+                }
             }
+
+            // Posição global determinística (independente da thread / ordem de conclusão).
+            var positioned = new List<((MailItem Msg, FolderId Folder) Item, int Position)>(targetedMessages.Count);
+            for (int i = 0; i < targetedMessages.Count; i++) positioned.Add((targetedMessages[i], i));
+
+            int parallelism = GetExportParallelism(positioned.Count);
+            var chunks = PartitionList(positioned, parallelism);
+
+            var emlTasks = new List<Task>(chunks.Count);
+            for (int ci = 0; ci < chunks.Count; ci++)
+            {
+                var chunk = chunks[ci];
+                bool useOuterReader = ci == 0;
+                emlTasks.Add(Task.Run(async () =>
+                {
+                    IMailStoreReader reader = storeReader;
+                    IAttachmentContentProvider attProv = attachmentProvider;
+                    bool ownReader = false;
+                    if (!useOuterReader)
+                    {
+                        reader = await CreatePreparedReaderAsync(adapterResolver, caseInfo.SourceFile, ct);
+                        attProv = new AdapterAttachmentContentProvider(reader);
+                        ownReader = true;
+                    }
+                    try
+                    {
+                        foreach (var entry in chunk)
+                        {
+                            ct.ThrowIfCancellationRequested();
+                            await ProcessEmlAsync(reader, attProv, entry.Item, entry.Position);
+                        }
+                    }
+                    finally
+                    {
+                        if (ownReader && reader is ISessionAwareMailStoreReader extra)
+                        {
+                            try { await extra.EndReadSessionAsync(CancellationToken.None); } catch { }
+                        }
+                    }
+                }, ct));
+            }
+            await Task.WhenAll(emlTasks);
         }
         else if (options.Format.Equals("mbox", StringComparison.OrdinalIgnoreCase))
         {
@@ -605,6 +645,58 @@ public sealed class ExportJobRunner : IExportJobRunner
     {
         if (input.Length <= maxLen) return input;
         return input.Substring(0, maxLen - 3) + "...";
+    }
+
+    // Grau de paralelismo da exportação EML. Default = min(cores, 8); pode ser fixado via
+    // env MAILVAULT_EXPORT_PARALLELISM (1 = sequencial, usado para verificação/baseline).
+    private static int GetExportParallelism(int messageCount)
+    {
+        if (messageCount <= 0) return 1;
+        var env = Environment.GetEnvironmentVariable("MAILVAULT_EXPORT_PARALLELISM");
+        if (int.TryParse(env, out int configured) && configured >= 1)
+        {
+            // Override explícito (também usado na verificação paralelo-vs-sequencial).
+            return Math.Max(1, Math.Min(configured, Math.Min(16, messageCount)));
+        }
+        // Auto: cada thread reconstrói o índice da própria sessão, então só paraleliza
+        // exportações grandes, onde a leitura de corpos (paralelizada) domina esse custo.
+        if (messageCount < 250) return 1;
+        return Math.Max(1, Math.Min(Environment.ProcessorCount, 8));
+    }
+
+    // Divide a lista em até `parts` chunks contíguos (preserva a ordem/posição global).
+    private static List<List<T>> PartitionList<T>(List<T> list, int parts)
+    {
+        parts = Math.Max(1, parts);
+        var result = new List<List<T>>(parts);
+        int n = list.Count;
+        int baseSize = n / parts;
+        int rem = n % parts;
+        int idx = 0;
+        for (int i = 0; i < parts; i++)
+        {
+            int size = baseSize + (i < rem ? 1 : 0);
+            if (size <= 0) continue;
+            result.Add(list.GetRange(idx, size));
+            idx += size;
+        }
+        if (result.Count == 0) result.Add(new List<T>());
+        return result;
+    }
+
+    // Cria um leitor independente (própria sessão + índice) para um chunk paralelo.
+    private static async Task<IMailStoreReader> CreatePreparedReaderAsync(IAdapterResolver adapterResolver, string sourceFile, CancellationToken ct)
+    {
+        var r = adapterResolver.ResolveAdapter(Path.GetExtension(sourceFile));
+        if (!r.Success || r.Reader == null)
+        {
+            throw new InvalidOperationException($"Falha ao carregar leitor paralelo para exportação: {r.ErrorMessage}");
+        }
+        var reader = r.Reader;
+        await reader.InspectAsync(sourceFile, ct);
+        if (reader is ISessionAwareMailStoreReader s) await s.BeginReadSessionAsync(sourceFile, ct);
+        if (reader is IBulkReadPreparable b) await b.PrepareBulkReadAsync(ct);
+        return reader;
     }
 
     private static string EscapeCsvField(string field)
