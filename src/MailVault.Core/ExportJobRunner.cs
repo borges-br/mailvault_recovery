@@ -338,7 +338,14 @@ public sealed class ExportJobRunner : IExportJobRunner
             var positioned = new List<((MailItem Msg, FolderId Folder) Item, int Position)>(targetedMessages.Count);
             for (int i = 0; i < targetedMessages.Count; i++) positioned.Add((targetedMessages[i], i));
 
-            int parallelism = GetExportParallelism(positioned.Count);
+            // Cada thread reconstrói o índice da sua sessão (custo ~ total de mensagens
+            // físicas). Em exportações de escopo completo (sem filtro de pasta/limit/offset)
+            // a leitura de corpos domina esse custo e o paralelismo compensa; em escopo
+            // parcial pode não compensar, então só auto-paraleliza no escopo completo.
+            bool fullScope = string.IsNullOrEmpty(options.FolderIdOrPath)
+                             && !options.Limit.HasValue
+                             && !options.Offset.HasValue;
+            int parallelism = GetExportParallelism(positioned.Count, fullScope);
             var chunks = PartitionList(positioned, parallelism);
 
             var emlTasks = new List<Task>(chunks.Count);
@@ -649,7 +656,7 @@ public sealed class ExportJobRunner : IExportJobRunner
 
     // Grau de paralelismo da exportação EML. Default = min(cores, 8); pode ser fixado via
     // env MAILVAULT_EXPORT_PARALLELISM (1 = sequencial, usado para verificação/baseline).
-    private static int GetExportParallelism(int messageCount)
+    private static int GetExportParallelism(int messageCount, bool fullScope)
     {
         if (messageCount <= 0) return 1;
         var env = Environment.GetEnvironmentVariable("MAILVAULT_EXPORT_PARALLELISM");
@@ -658,9 +665,8 @@ public sealed class ExportJobRunner : IExportJobRunner
             // Override explícito (também usado na verificação paralelo-vs-sequencial).
             return Math.Max(1, Math.Min(configured, Math.Min(16, messageCount)));
         }
-        // Auto: cada thread reconstrói o índice da própria sessão, então só paraleliza
-        // exportações grandes, onde a leitura de corpos (paralelizada) domina esse custo.
-        if (messageCount < 250) return 1;
+        // Auto: só paraleliza exportações grandes E de escopo completo (ver chamada).
+        if (!fullScope || messageCount < 250) return 1;
         return Math.Max(1, Math.Min(Environment.ProcessorCount, 8));
     }
 
