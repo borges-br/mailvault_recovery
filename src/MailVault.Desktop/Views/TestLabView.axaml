@@ -172,7 +172,7 @@
                     </Grid>
 
                     <!-- Bottom: Actions -->
-                    <Button Grid.Row="2" Theme="{StaticResource PrimaryButton}" Content="Abrir Caso Gerado no Inspector" Command="{Binding ViewActiveTestFolder}" IsEnabled="{Binding PipelineSummaryResult, Converter={x:Static ObjectConverters.IsNotNull}}"
+                    <Button Grid.Row="2" Theme="{StaticResource PrimaryButton}" Content="Abrir Caso Gerado" Command="{Binding ViewActiveTestFolder}" IsEnabled="{Binding PipelineSummaryResult, Converter={x:Static ObjectConverters.IsNotNull}}"
                             HorizontalAlignment="Center" Padding="25,12" Margin="0,15,0,0"/>
                 </Grid>
             </Border>

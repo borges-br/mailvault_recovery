@@ -14,7 +14,7 @@ public class MainWindowViewModel : ViewModelBase
 {
     private static readonly TimeSpan CaseLoadTimeout = TimeSpan.FromSeconds(15);
 
-    private string _windowTitle = "MailVault Recovery — Visual Inspection Hub";
+    private string _windowTitle = "MailVault Recovery";
     private bool _isCaseLoaded;
     private string? _caseFolderPath;
     private string? _warningBanner;
@@ -40,6 +40,13 @@ public class MainWindowViewModel : ViewModelBase
     private string _lastActionTime = "N/A";
 
     private ViewModelBase? _currentView;
+
+    // Indicador global de indexação (visível em qualquer página enquanto o wizard indexa)
+    private bool _isIndexingRunningIndicator;
+    private bool _isIndexingTerminalIndicator;
+    private string _indexingIndicatorText = "";
+    private bool _indexingTerminalPending;
+    private bool _wasWizardIndexing;
 
     private readonly HomeViewModel _homeViewModel;
     private readonly CaseOverviewViewModel _caseOverviewViewModel;
@@ -82,8 +89,14 @@ public class MainWindowViewModel : ViewModelBase
     public bool IsCaseLoaded
     {
         get => _isCaseLoaded;
-        set => this.RaiseAndSetIfChanged(ref _isCaseLoaded, value);
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _isCaseLoaded, value);
+            this.RaisePropertyChanged(nameof(SystemStateText));
+        }
     }
+
+    public string SystemStateText => IsCaseLoaded ? "Caso aberto" : "Nenhum caso aberto";
 
     public string? WarningBanner
     {
@@ -158,19 +171,54 @@ public class MainWindowViewModel : ViewModelBase
     public string SqliteStatus
     {
         get => _sqliteStatus;
-        set => this.RaiseAndSetIfChanged(ref _sqliteStatus, value);
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _sqliteStatus, value);
+            this.RaisePropertyChanged(nameof(SqliteOk));
+        }
     }
 
     public string ManifestStatus
     {
         get => _manifestStatus;
-        set => this.RaiseAndSetIfChanged(ref _manifestStatus, value);
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _manifestStatus, value);
+            this.RaisePropertyChanged(nameof(ManifestOk));
+        }
     }
 
     public string AuditStatus
     {
         get => _auditStatus;
-        set => this.RaiseAndSetIfChanged(ref _auditStatus, value);
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _auditStatus, value);
+            this.RaisePropertyChanged(nameof(AuditOk));
+        }
+    }
+
+    // Reflete o estado real ao lado do texto do rodapé/status bar (verde só quando OK de verdade).
+    public bool SqliteOk => !string.IsNullOrEmpty(_sqliteStatus) && _sqliteStatus != "Desconectado";
+    public bool ManifestOk => string.Equals(_manifestStatus, "OK", StringComparison.OrdinalIgnoreCase);
+    public bool AuditOk => string.Equals(_auditStatus, "OK", StringComparison.OrdinalIgnoreCase);
+
+    public bool IsIndexingRunningIndicator
+    {
+        get => _isIndexingRunningIndicator;
+        private set => this.RaiseAndSetIfChanged(ref _isIndexingRunningIndicator, value);
+    }
+
+    public bool IsIndexingTerminalIndicator
+    {
+        get => _isIndexingTerminalIndicator;
+        private set => this.RaiseAndSetIfChanged(ref _isIndexingTerminalIndicator, value);
+    }
+
+    public string IndexingIndicatorText
+    {
+        get => _indexingIndicatorText;
+        private set => this.RaiseAndSetIfChanged(ref _indexingIndicatorText, value);
     }
 
     public string SchemaVersion
@@ -202,12 +250,12 @@ public class MainWindowViewModel : ViewModelBase
             if (CurrentView is HomeViewModel) return "Home";
             string currentModule = CurrentView switch
             {
-                CaseOverviewViewModel => "Overview do Caso",
-                MessageBrowserViewModel => "Navegador de Correio",
-                SearchViewModel => "Busca Integrada",
-                ExportPanelViewModel => "Exportação Forense",
-                ValidationPanelViewModel => "Laboratório de Validação",
-                AuditManifestViewModel => "Auditoria & Manifesto",
+                CaseOverviewViewModel => "Dashboard do Caso",
+                MessageBrowserViewModel => "Navegador de E-mails",
+                SearchViewModel => "Busca",
+                ExportPanelViewModel => "Exportar E-mails",
+                ValidationPanelViewModel => "Validação",
+                AuditManifestViewModel => "Relatórios do Caso",
                 TestLabViewModel => "Test Lab",
                 SettingsViewModel => "Configurações",
                 NewCaseWizardViewModel => "Novo Caso",
@@ -250,6 +298,7 @@ public class MainWindowViewModel : ViewModelBase
     public ICommand ShowAuditManifestCommand { get; }
     public ICommand ShowTestLabCommand { get; }
     public ICommand ShowQuickRecoveryCommand { get; }
+    public ICommand ShowIndexingProgressCommand { get; }
     public ICommand OpenCaseFromTopbarCommand { get; }
     public ICommand OpenCaseFolderInExplorerCommand { get; }
 
@@ -291,6 +340,12 @@ public class MainWindowViewModel : ViewModelBase
         // Milestone 6.2 VM Init
         _newCaseWizardViewModel = new NewCaseWizardViewModel(new DesktopCaseCreationService(), _fileDialogService);
         _newCaseWizardViewModel.IndexingCompleted += async path => await LoadCaseAsync(path);
+
+        // Espelha o estado da indexação para o indicador global, que continua visível
+        // mesmo quando o usuário navega para fora do wizard.
+        _newCaseWizardViewModel.WhenAnyValue(x => x.IsIndexing).Subscribe(OnWizardIsIndexingChanged);
+        _newCaseWizardViewModel.WhenAnyValue(x => x.ProgressPercent).Subscribe(_ => RefreshIndexingIndicator());
+        _newCaseWizardViewModel.WhenAnyValue(x => x.MessagesIndexed).Subscribe(_ => RefreshIndexingIndicator());
 
         _settingsViewModel = new SettingsViewModel();
         _auditManifestViewModel = new AuditManifestViewModel();
@@ -336,7 +391,8 @@ public class MainWindowViewModel : ViewModelBase
         ShowAuditManifestCommand = ReactiveCommand.Create(() => CurrentView = _auditManifestViewModel);
         ShowTestLabCommand = ReactiveCommand.Create(() => CurrentView = _testLabViewModel);
         ShowQuickRecoveryCommand = ReactiveCommand.Create(() => CurrentView = _quickRecoveryViewModel);
-        
+        ShowIndexingProgressCommand = ReactiveCommand.Create(ShowIndexingProgress);
+
         OpenCaseFromTopbarCommand = ReactiveCommand.CreateFromTask(OnOpenCaseFromTopbarAsync);
         OpenCaseFolderInExplorerCommand = ReactiveCommand.CreateFromTask(OnOpenCaseFolderInExplorerAsync);
 
@@ -424,6 +480,7 @@ public class MainWindowViewModel : ViewModelBase
             StatusBarText = $"Case {CaseId}: {HealthStatus}";
             WindowTitle = $"MailVault Recovery — Caso: {Path.GetFileName(casePath)}";
             CurrentView = _caseOverviewViewModel;
+            ClearIndexingIndicator();
 
             _recentCasesService.AddOrUpdate(new RecentCaseEntry
             {
@@ -461,9 +518,10 @@ public class MainWindowViewModel : ViewModelBase
         CancelCurrentCaseLoad();
         ClearActiveCaseResources();
         _caseFolderPath = null;
-        WindowTitle = "MailVault Recovery — Visual Inspection Hub";
+        WindowTitle = "MailVault Recovery";
         StatusBarText = "Nenhum case aberto.";
         CaseStatusText = "Nenhum case";
+        ClearIndexingIndicator();
         RefreshRecentCases();
         CurrentView = _homeViewModel;
     }
@@ -583,6 +641,71 @@ public class MainWindowViewModel : ViewModelBase
         _recentCasesService.Remove(caseFolderPath);
         RefreshRecentCases();
         _homeViewModel.StatusText = "Case recente removido.";
+    }
+
+    private void OnWizardIsIndexingChanged(bool isIndexing)
+    {
+        if (isIndexing)
+        {
+            _indexingTerminalPending = false;
+        }
+        else if (_wasWizardIndexing)
+        {
+            // A indexação acabou de terminar. Se o usuário NÃO está no wizard, mantém
+            // um aviso clicável para que ele possa voltar e ver o resultado.
+            _indexingTerminalPending = !ReferenceEquals(CurrentView, _newCaseWizardViewModel)
+                                       && IsTerminalIndexingStatus(_newCaseWizardViewModel.IndexingStatus);
+        }
+
+        _wasWizardIndexing = isIndexing;
+        RefreshIndexingIndicator();
+    }
+
+    private static bool IsTerminalIndexingStatus(string? status) =>
+        !string.IsNullOrEmpty(status) && status != "Running";
+
+    private void RefreshIndexingIndicator()
+    {
+        var w = _newCaseWizardViewModel;
+        if (w.IsIndexing)
+        {
+            int pct = (int)Math.Round(w.ProgressPercent);
+            pct = Math.Clamp(pct, 0, 100);
+            IndexingIndicatorText = $"Indexando… {w.MessagesIndexed:N0} e-mails • {pct}%";
+            IsIndexingTerminalIndicator = false;
+            IsIndexingRunningIndicator = true;
+        }
+        else if (_indexingTerminalPending)
+        {
+            IndexingIndicatorText = w.IndexingStatus switch
+            {
+                "Cancelled" => "Indexação cancelada — clique para ver",
+                "Success" or "NativeExportSuccess" or "NativeExportSuccessWithWarnings"
+                    => "✓ Indexação concluída — clique para abrir",
+                _ => "⚠ Indexação falhou — clique para ver",
+            };
+            IsIndexingRunningIndicator = false;
+            IsIndexingTerminalIndicator = true;
+        }
+        else
+        {
+            IsIndexingRunningIndicator = false;
+            IsIndexingTerminalIndicator = false;
+        }
+    }
+
+    private void ShowIndexingProgress()
+    {
+        // Volta ao wizard SEM reiniciar nada (diferente de "Novo Caso").
+        _indexingTerminalPending = false;
+        CurrentView = _newCaseWizardViewModel;
+        RefreshIndexingIndicator();
+    }
+
+    private void ClearIndexingIndicator()
+    {
+        _indexingTerminalPending = false;
+        RefreshIndexingIndicator();
     }
 
     public void ShowGlobalError(Exception ex)

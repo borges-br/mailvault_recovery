@@ -8,8 +8,8 @@
              x:DataType="vm:ExportPanelViewModel">
     <ScrollViewer Padding="30" Background="{StaticResource BgAppBrush}">
         <StackPanel Spacing="25" MaxWidth="700" HorizontalAlignment="Left">
-            <TextBlock Text="Módulo de Exportação Forense" FontSize="26" FontWeight="Black" Foreground="{StaticResource TextPrimaryBrush}"/>
-            <TextBlock Text="Gere cópias físicas das mensagens recuperadas e indexadas. Todas as exportações são autenticadas com hash de conformidade." FontSize="13" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
+            <TextBlock Text="Exportar E-mails" FontSize="26" FontWeight="Black" Foreground="{StaticResource TextPrimaryBrush}"/>
+            <TextBlock Text="Gere cópias das mensagens recuperadas em EML ou MBOX, prontas para abrir em qualquer cliente de e-mail." FontSize="13" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
 
             <Border Theme="{StaticResource Card}" CornerRadius="12" Padding="25">
                 <StackPanel Spacing="20">
@@ -31,7 +31,7 @@
 
                     <CheckBox Content="Incluir e extrair anexos fisicamente" IsChecked="{Binding IncludeAttachments}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="13"/>
 
-                    <Button Theme="{StaticResource PrimaryButton}" Content="Iniciar Exportação Forense" Command="{Binding RunExportCommand}"
+                    <Button Theme="{StaticResource PrimaryButton}" Content="Iniciar Exportação" Command="{Binding RunExportCommand}"
                             Padding="14,10" FontSize="13" HorizontalAlignment="Left"/>
                 </StackPanel>
             </Border>

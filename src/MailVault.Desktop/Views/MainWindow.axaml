@@ -35,14 +35,35 @@
                     <TextBlock Text="Professional Email Recovery Console" FontSize="10" Foreground="{StaticResource TextMutedBrush}"/>
                 </StackPanel>
 
-                <!-- Breadcrumb -->
-                <TextBlock Grid.Column="2" Text="{Binding Breadcrumb}" Foreground="{StaticResource TextMutedBrush}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" Margin="28,0" TextTrimming="CharacterEllipsis"/>
+                <!-- Breadcrumb + indicador global de indexação -->
+                <Grid Grid.Column="2" ColumnDefinitions="*, Auto" Margin="28,0">
+                    <TextBlock Grid.Column="0" Text="{Binding Breadcrumb}" Foreground="{StaticResource TextMutedBrush}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
 
-                <!-- Actions & security indicators -->
+                    <!-- Em andamento: pílula accent, clicável para voltar ao progresso SEM reiniciar -->
+                    <Button Grid.Column="1" Command="{Binding ShowIndexingProgressCommand}"
+                            IsVisible="{Binding IsIndexingRunningIndicator}"
+                            Background="{StaticResource AccentGlowBrush}" BorderBrush="{StaticResource AccentBrush}" BorderThickness="1"
+                            CornerRadius="14" Padding="12,5" Cursor="Hand" VerticalAlignment="Center"
+                            ToolTip.Tip="Indexação em andamento — clique para voltar ao progresso">
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <Ellipse Theme="{StaticResource StatusDot}" Classes="accent" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding IndexingIndicatorText}" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Terminou enquanto o usuário estava em outra página: aviso clicável -->
+                    <Button Grid.Column="1" Command="{Binding ShowIndexingProgressCommand}"
+                            IsVisible="{Binding IsIndexingTerminalIndicator}"
+                            Background="{StaticResource BgElevatedBrush}" BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1"
+                            CornerRadius="14" Padding="12,5" Cursor="Hand" VerticalAlignment="Center"
+                            ToolTip.Tip="Clique para ver o resultado da indexação">
+                        <TextBlock Text="{Binding IndexingIndicatorText}" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                    </Button>
+                </Grid>
+
+                <!-- Actions -->
                 <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,18,0" Spacing="7">
-                    <ContentControl Theme="{StaticResource Badge}" Content="🔒 SOMENTE LEITURA"/>
-                    <ContentControl Theme="{StaticResource Badge}" Content="🌐 OFFLINE / LOCAL"/>
-                    <ContentControl Theme="{StaticResource Badge}" Classes="success" Content="● AUDIT ENABLED"/>
+                    <ContentControl Theme="{StaticResource Badge}" Content="🔒 Não altera o arquivo original"/>
                     <Border Width="1" Height="22" Background="{StaticResource BorderSubtleBrush}" Margin="4,0"/>
                     <Button Theme="{StaticResource PrimaryButton}" Content="Novo Caso" Command="{Binding ShowNewCaseWizardCommand}" Padding="14,7" FontSize="12"/>
                     <Button Theme="{StaticResource OutlineButton}" Content="Abrir" Command="{Binding OpenCaseFromTopbarCommand}" Padding="14,7" FontSize="12"/>
@@ -105,8 +126,6 @@
                                 </StackPanel>
                             </Grid>
 
-                            <ContentControl Theme="{StaticResource Badge}" Classes="success" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,4,0,0" Content="✓ CADEIA DE CUSTÓDIA ATIVA"/>
-
                             <Button Theme="{StaticResource OutlineButton}" Content="📂 Abrir Pasta no Explorer"
                                     Command="{Binding OpenCaseFolderInExplorerCommand}"
                                     IsEnabled="{Binding IsCaseLoaded}"
@@ -121,11 +140,11 @@
                             <TextBlock Text="CASO" FontSize="9" FontWeight="Black" Foreground="{StaticResource TextDisabledBrush}" Margin="10,8,0,8" LetterSpacing="1.4"/>
 
                             <Button Theme="{StaticResource NavButton}" Content="📊 Dashboard do Caso" Command="{Binding ShowOverviewCommand}" IsEnabled="{Binding IsCaseLoaded}"/>
-                            <Button Theme="{StaticResource NavButton}" Content="📁 Navegador de Correio" Command="{Binding ShowBrowserCommand}" IsEnabled="{Binding IsCaseLoaded}"/>
-                            <Button Theme="{StaticResource NavButton}" Content="🔍 Busca Integrada" Command="{Binding ShowSearchCommand}" IsEnabled="{Binding IsCaseLoaded}"/>
-                            <Button Theme="{StaticResource NavButton}" Content="📦 Exportação Forense" Command="{Binding ShowExportCommand}" IsEnabled="{Binding IsCaseLoaded}"/>
-                            <Button Theme="{StaticResource NavButton}" Content="✔️ Laboratório de Validação" Command="{Binding ShowValidationCommand}" IsEnabled="{Binding IsCaseLoaded}"/>
-                            <Button Theme="{StaticResource NavButton}" Content="📄 Auditoria &amp; Manifesto" Command="{Binding ShowAuditManifestCommand}" IsEnabled="{Binding IsCaseLoaded}"/>
+                            <Button Theme="{StaticResource NavButton}" Content="📁 Navegador de E-mails" Command="{Binding ShowBrowserCommand}" IsEnabled="{Binding IsCaseLoaded}"/>
+                            <Button Theme="{StaticResource NavButton}" Content="🔍 Busca" Command="{Binding ShowSearchCommand}" IsEnabled="{Binding IsCaseLoaded}"/>
+                            <Button Theme="{StaticResource NavButton}" Content="📦 Exportar E-mails" Command="{Binding ShowExportCommand}" IsEnabled="{Binding IsCaseLoaded}"/>
+                            <Button Theme="{StaticResource NavButton}" Content="✔️ Validação" Command="{Binding ShowValidationCommand}" IsEnabled="{Binding IsCaseLoaded}"/>
+                            <Button Theme="{StaticResource NavButton}" Content="📄 Relatórios do Caso" Command="{Binding ShowAuditManifestCommand}" IsEnabled="{Binding IsCaseLoaded}"/>
 
                             <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="8,8,8,8"/>
 
@@ -146,10 +165,10 @@
                     <!-- Sidebar Footer -->
                     <Border Grid.Row="2" Padding="14,14" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="0,1,0,0">
                         <StackPanel Spacing="4">
-                            <TextBlock Text="SISTEMA OPERACIONAL" FontSize="9" FontWeight="Bold" Foreground="{StaticResource TextDisabledBrush}"/>
+                            <TextBlock Text="STATUS" FontSize="9" FontWeight="Bold" Foreground="{StaticResource TextDisabledBrush}"/>
                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                <Ellipse Theme="{StaticResource StatusDot}" Classes="success" VerticalAlignment="Center"/>
-                                <TextBlock Text="Integridade: OK / Offline" FontSize="11" Foreground="{StaticResource SuccessBrush}" FontWeight="Medium"/>
+                                <Ellipse Theme="{StaticResource StatusDot}" Classes.success="{Binding IsCaseLoaded}" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding SystemStateText}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" FontWeight="Medium"/>
                             </StackPanel>
                             <TextBlock Text="MailVault Recovery v3.0.0" Classes="mono" FontSize="10" Foreground="{StaticResource TextDisabledBrush}"/>
                         </StackPanel>
@@ -234,21 +253,21 @@
                     <Border Width="1" Height="14" Background="{StaticResource BorderSubtleBrush}"/>
                     <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
                         <TextBlock Text="SQLite" FontSize="10" Foreground="{StaticResource TextDisabledBrush}" FontWeight="Bold" VerticalAlignment="Center"/>
-                        <Ellipse Theme="{StaticResource StatusDot}" Classes="success" VerticalAlignment="Center"/>
+                        <Ellipse Theme="{StaticResource StatusDot}" Classes.success="{Binding SqliteOk}" VerticalAlignment="Center"/>
                         <TextBlock Text="{Binding SqliteStatus}" Classes="mono" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                     </StackPanel>
 
                     <Border Width="1" Height="14" Background="{StaticResource BorderSubtleBrush}"/>
                     <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
                         <TextBlock Text="Manifest" FontSize="10" Foreground="{StaticResource TextDisabledBrush}" FontWeight="Bold" VerticalAlignment="Center"/>
-                        <Ellipse Theme="{StaticResource StatusDot}" Classes="success" VerticalAlignment="Center"/>
+                        <Ellipse Theme="{StaticResource StatusDot}" Classes.success="{Binding ManifestOk}" VerticalAlignment="Center"/>
                         <TextBlock Text="{Binding ManifestStatus}" Classes="mono" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                     </StackPanel>
 
                     <Border Width="1" Height="14" Background="{StaticResource BorderSubtleBrush}"/>
                     <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
                         <TextBlock Text="Audit" FontSize="10" Foreground="{StaticResource TextDisabledBrush}" FontWeight="Bold" VerticalAlignment="Center"/>
-                        <Ellipse Theme="{StaticResource StatusDot}" Classes="success" VerticalAlignment="Center"/>
+                        <Ellipse Theme="{StaticResource StatusDot}" Classes.success="{Binding AuditOk}" VerticalAlignment="Center"/>
                         <TextBlock Text="{Binding AuditStatus}" Classes="mono" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                     </StackPanel>
 

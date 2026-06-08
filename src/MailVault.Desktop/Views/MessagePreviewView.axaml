@@ -69,8 +69,8 @@
                     <StackPanel Orientation="Horizontal" Spacing="10">
                         <TextBlock Text="🛡️" FontSize="18" VerticalAlignment="Center"/>
                         <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="LEITURA FORENSE SOMENTE-LEITURA" FontSize="10" FontWeight="Bold" Foreground="{StaticResource WarningBrush}" LetterSpacing="0.5"/>
-                            <TextBlock Text="Remetente, destinatários e corpo são lidos ao vivo da evidência original (read-only), sem alterá-la. Anexos não são abertos nesta visualização — use a exportação forense para obter o MIME completo (incluindo HTML e anexos)." FontSize="11" Foreground="#FDE68A" TextWrapping="Wrap" Width="580"/>
+                            <TextBlock Text="LEITURA SOMENTE-LEITURA" FontSize="10" FontWeight="Bold" Foreground="{StaticResource WarningBrush}" LetterSpacing="0.5"/>
+                            <TextBlock Text="Remetente, destinatários e corpo são lidos ao vivo do arquivo original (somente leitura), sem alterá-lo. Anexos não são abertos nesta visualização — use a exportação para obter o MIME completo (incluindo HTML e anexos)." FontSize="11" Foreground="#FDE68A" TextWrapping="Wrap" Width="580"/>
                         </StackPanel>
                     </StackPanel>
                 </Border>

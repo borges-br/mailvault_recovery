@@ -54,7 +54,7 @@
                 </Border>
                 <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Theme="{StaticResource Card}" Margin="5">
                     <StackPanel>
-                        <TextBlock Text="Mídia Originária Forense" FontSize="11" Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold"/>
+                        <TextBlock Text="Arquivo de Origem" FontSize="11" Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold"/>
                         <TextBlock Text="{Binding SourceFileMasked}" Classes="mono" FontSize="14" FontWeight="Medium" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,5,0,0"/>
                     </StackPanel>
                 </Border>

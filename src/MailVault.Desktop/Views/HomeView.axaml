@@ -19,7 +19,7 @@
                 </Border.Background>
                 <StackPanel Spacing="8" HorizontalAlignment="Center">
                     <TextBlock Text="MailVault Recovery" FontSize="36" FontWeight="Black" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center" LetterSpacing="1"/>
-                    <TextBlock Text="Visual Inspection Hub — Solução Forense Local e Offline" FontSize="14" Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Recuperação de E-mails — Local e Offline" FontSize="14" Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Center"/>
                 </StackPanel>
             </Border>
 

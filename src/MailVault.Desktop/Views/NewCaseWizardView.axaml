@@ -20,7 +20,7 @@
                 </StackPanel>
                 <StackPanel Grid.Column="2" HorizontalAlignment="Center">
                     <TextBlock Text="STEP 3" FontSize="9" FontWeight="Black" Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Center"/>
-                    <TextBlock Text="Auditoria &amp; Custódia" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Confirmação" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
                 </StackPanel>
                 <StackPanel Grid.Column="3" HorizontalAlignment="Center">
                     <TextBlock Text="STEP 4" FontSize="9" FontWeight="Black" Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Center"/>
@@ -36,8 +36,8 @@
         <Grid Grid.Row="1" MaxWidth="800" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
             <!-- STEP 1 CONTENT -->
             <StackPanel Spacing="20" IsVisible="{Binding IsStep1}">
-                <TextBlock Text="1. Selecione a mídia forense original" FontSize="20" FontWeight="Black" Foreground="{StaticResource TextPrimaryBrush}"/>
-                <TextBlock Text="O MailVault Recovery trata arquivos OST e PST como evidências read-only locais. Nenhuma alteração é gravada na origem." FontSize="13" Foreground="{StaticResource TextMutedBrush}"/>
+                <TextBlock Text="1. Selecione o arquivo de e-mails" FontSize="20" FontWeight="Black" Foreground="{StaticResource TextPrimaryBrush}"/>
+                <TextBlock Text="O MailVault Recovery abre arquivos OST e PST em modo somente leitura. Nenhuma alteração é gravada no arquivo original." FontSize="13" Foreground="{StaticResource TextMutedBrush}"/>
 
                 <Grid ColumnDefinitions="*, Auto, Auto">
                     <TextBox Grid.Column="0" Text="{Binding SourcePath, Mode=TwoWay}" Watermark="Ex: C:\evidences\backup.ost ou diretório Thunderbird/MBOX/Maildir/EML" Classes="mono"
@@ -100,16 +100,16 @@
 
             <!-- STEP 3 CONTENT -->
             <StackPanel Spacing="20" IsVisible="{Binding IsStep3}">
-                <TextBlock Text="3. Termo de Custódia e Integridade Técnica" FontSize="20" FontWeight="Black" Foreground="{StaticResource TextPrimaryBrush}"/>
+                <TextBlock Text="3. Confirmação e privacidade" FontSize="20" FontWeight="Black" Foreground="{StaticResource TextPrimaryBrush}"/>
 
                 <Border Background="{StaticResource WarningSubtleBrush}" BorderBrush="{StaticResource WarningBrush}" BorderThickness="1" CornerRadius="8" Padding="18">
                     <StackPanel Spacing="10">
-                        <TextBlock Text="🛡️ PROTOCOLO FORENSE E SIGILO DE DADOS" FontSize="11" FontWeight="Bold" Foreground="{StaticResource WarningBrush}" LetterSpacing="0.5"/>
-                        <TextBlock Text="Ao prosseguir, você compreende que o MailVault Recovery irá ler de forma integral e offline o arquivo original. Nenhuma informação de correio é transmitida externamente. O corpo das mensagens no banco local SQLite é cacheado e truncado para segurança." FontSize="12" Foreground="#FDE68A" TextWrapping="Wrap"/>
+                        <TextBlock Text="🔒 PROCESSAMENTO LOCAL E PRIVACIDADE" FontSize="11" FontWeight="Bold" Foreground="{StaticResource WarningBrush}" LetterSpacing="0.5"/>
+                        <TextBlock Text="Ao prosseguir, o MailVault Recovery lê o arquivo original de forma offline e somente leitura. Nenhum e-mail é enviado para fora do seu computador. O corpo das mensagens é armazenado localmente no banco SQLite do caso." FontSize="12" Foreground="#FDE68A" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
 
-                <CheckBox IsChecked="{Binding DisclaimerAccepted}" Content="Compreendo e aceito as premissas de custódia e sigilo local." Foreground="{StaticResource TextPrimaryBrush}" FontSize="13" Margin="0,10"/>
+                <CheckBox IsChecked="{Binding DisclaimerAccepted}" Content="Compreendo que o arquivo será lido localmente, sem modificação e sem envio externo." Foreground="{StaticResource TextPrimaryBrush}" FontSize="13" Margin="0,10"/>
 
                 <Grid ColumnDefinitions="Auto, *, Auto">
                     <Button Grid.Column="0" Theme="{StaticResource OutlineButton}" Content="Voltar" Command="{Binding BackCommand}" Padding="20,12"/>
@@ -280,7 +280,7 @@
                         </StackPanel>
 
                         <StackPanel Spacing="5">
-                            <TextBlock Text="Recomendação Forense:" FontSize="11" Foreground="{StaticResource SuccessBrush}" FontWeight="Bold"/>
+                            <TextBlock Text="Recomendação:" FontSize="11" Foreground="{StaticResource SuccessBrush}" FontWeight="Bold"/>
                             <TextBlock Text="{Binding NativeFailureRecommendation}" FontSize="12" Foreground="#A5D6A7" TextWrapping="Wrap"/>
                         </StackPanel>
                     </StackPanel>
@@ -297,7 +297,7 @@
 
                 <!-- Case success options -->
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12" IsVisible="{Binding IndexingError, Converter={x:Static ObjectConverters.IsNull}}">
-                    <Button Theme="{StaticResource PrimaryButton}" Content="Abrir Cofre no Inspector" Command="{Binding OpenCreatedCase}" Padding="30,12"/>
+                    <Button Theme="{StaticResource PrimaryButton}" Content="Abrir Caso" Command="{Binding OpenCreatedCase}" Padding="30,12"/>
                     <Button Theme="{StaticResource OutlineButton}" Content="Novo Caso" Command="{Binding StartNewCaseCommand}" Padding="30,12"/>
                 </StackPanel>
 
