@@ -29,7 +29,7 @@
 
             <Border Theme="{StaticResource Card}" CornerRadius="12" Padding="25">
                 <StackPanel Spacing="20">
-                    <TextBlock Text="SEGURANÇA E OPERAÇÕES FORENSES" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" LetterSpacing="0.5"/>
+                    <TextBlock Text="PREFERÊNCIAS E MODO DIAGNÓSTICO" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" LetterSpacing="0.5"/>
 
                     <StackPanel Spacing="8">
                         <TextBlock Text="{Binding MaxPreviewLength, StringFormat='Tamanho máximo da visualização segura: \{0\} caracteres'}" FontSize="11" Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold"/>
@@ -38,7 +38,7 @@
 
                     <CheckBox IsChecked="{Binding ConfirmBeforeExport}" Content="Confirmar antes de iniciar jobs de exportação" Foreground="{StaticResource TextPrimaryBrush}" FontSize="12"/>
                     <CheckBox IsChecked="{Binding OpenFolderAfterExport}" Content="Abrir pasta no Windows Explorer ao finalizar exportações" Foreground="{StaticResource TextPrimaryBrush}" FontSize="12"/>
-                    <CheckBox IsChecked="{Binding AdvancedMode}" Content="Exibir logs técnicos avançados e ferramentas experimentais" Foreground="{StaticResource TextPrimaryBrush}" FontSize="12"/>
+                    <CheckBox IsChecked="{Binding AdvancedMode}" Content="Modo diagnóstico — exibe Test Lab, Validação e Relatórios do Caso na navegação (ferramentas técnicas/de suporte)" Foreground="{StaticResource TextPrimaryBrush}" FontSize="12"/>
                 </StackPanel>
             </Border>
 

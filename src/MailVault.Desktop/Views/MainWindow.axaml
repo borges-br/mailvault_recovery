@@ -143,15 +143,15 @@
                             <Button Theme="{StaticResource NavButton}" Content="📁 Navegador de E-mails" Command="{Binding ShowBrowserCommand}" IsEnabled="{Binding IsCaseLoaded}"/>
                             <Button Theme="{StaticResource NavButton}" Content="🔍 Busca" Command="{Binding ShowSearchCommand}" IsEnabled="{Binding IsCaseLoaded}"/>
                             <Button Theme="{StaticResource NavButton}" Content="📦 Exportar E-mails" Command="{Binding ShowExportCommand}" IsEnabled="{Binding IsCaseLoaded}"/>
-                            <Button Theme="{StaticResource NavButton}" Content="✔️ Validação" Command="{Binding ShowValidationCommand}" IsEnabled="{Binding IsCaseLoaded}"/>
-                            <Button Theme="{StaticResource NavButton}" Content="📄 Relatórios do Caso" Command="{Binding ShowAuditManifestCommand}" IsEnabled="{Binding IsCaseLoaded}"/>
+                            <Button Theme="{StaticResource NavButton}" Content="✔️ Validação" Command="{Binding ShowValidationCommand}" IsEnabled="{Binding IsCaseLoaded}" IsVisible="{Binding IsDiagnosticModeEnabled}"/>
+                            <Button Theme="{StaticResource NavButton}" Content="📄 Relatórios do Caso" Command="{Binding ShowAuditManifestCommand}" IsEnabled="{Binding IsCaseLoaded}" IsVisible="{Binding IsDiagnosticModeEnabled}"/>
 
                             <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="8,8,8,8"/>
 
                             <TextBlock Text="OPERAÇÕES" FontSize="9" FontWeight="Black" Foreground="{StaticResource TextDisabledBrush}" Margin="10,2,0,8" LetterSpacing="1.4"/>
 
                             <Button Theme="{StaticResource NavButton}" Content="⚡ Recuperação Rápida" Command="{Binding ShowQuickRecoveryCommand}"/>
-                            <Button Theme="{StaticResource NavButton}" Content="🧪 Test Lab &amp; Pipelines" Command="{Binding ShowTestLabCommand}"/>
+                            <Button Theme="{StaticResource NavButton}" Content="🧪 Test Lab &amp; Pipelines" Command="{Binding ShowTestLabCommand}" IsVisible="{Binding IsDiagnosticModeEnabled}"/>
 
                             <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="8,8,8,8"/>
 

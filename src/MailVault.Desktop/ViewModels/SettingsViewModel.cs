@@ -71,6 +71,9 @@ public sealed class SettingsViewModel : ViewModelBase
     public ICommand SaveCommand { get; }
     public ICommand PurgeCacheCommand { get; }
 
+    // Disparado ao salvar: permite que a janela principal reflita o modo diagnóstico na navegação.
+    public event Action<bool>? DiagnosticModeChanged;
+
     public SettingsViewModel() : this(new LocalSettingsService(), new RecentCasesService()) { }
 
     public SettingsViewModel(LocalSettingsService settingsService, RecentCasesService recentCasesService)
@@ -111,6 +114,7 @@ public sealed class SettingsViewModel : ViewModelBase
 
         _settingsService.Save(settings);
         StatusMessage = "Configurações salvas localmente com sucesso!";
+        DiagnosticModeChanged?.Invoke(AdvancedMode);
     }
 
     private void PurgeCache()

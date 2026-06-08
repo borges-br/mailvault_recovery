@@ -48,6 +48,9 @@ public class MainWindowViewModel : ViewModelBase
     private bool _indexingTerminalPending;
     private bool _wasWizardIndexing;
 
+    // Modo diagnóstico (AdvancedMode): revela telas avançadas/diagnóstico (Test Lab, Validação, Relatórios).
+    private bool _isDiagnosticModeEnabled;
+
     private readonly HomeViewModel _homeViewModel;
     private readonly CaseOverviewViewModel _caseOverviewViewModel;
     private readonly FolderTreeViewModel _folderTreeViewModel;
@@ -97,6 +100,12 @@ public class MainWindowViewModel : ViewModelBase
     }
 
     public string SystemStateText => IsCaseLoaded ? "Caso aberto" : "Nenhum caso aberto";
+
+    public bool IsDiagnosticModeEnabled
+    {
+        get => _isDiagnosticModeEnabled;
+        set => this.RaiseAndSetIfChanged(ref _isDiagnosticModeEnabled, value);
+    }
 
     public string? WarningBanner
     {
@@ -348,6 +357,8 @@ public class MainWindowViewModel : ViewModelBase
         _newCaseWizardViewModel.WhenAnyValue(x => x.MessagesIndexed).Subscribe(_ => RefreshIndexingIndicator());
 
         _settingsViewModel = new SettingsViewModel();
+        IsDiagnosticModeEnabled = _settingsViewModel.AdvancedMode;
+        _settingsViewModel.DiagnosticModeChanged += enabled => IsDiagnosticModeEnabled = enabled;
         _auditManifestViewModel = new AuditManifestViewModel();
         
         _testLabViewModel = new TestLabViewModel();
