@@ -16,6 +16,9 @@ public partial class MainWindow : Window
     {
         if (DataContext is MainWindowViewModel vm)
         {
+            // Recupera jobs de indexação interrompidos por um fechamento/travamento anterior.
+            _ = vm.RecoverInterruptedJobsAsync();
+
             var qr = vm.QuickRecoveryViewModel;
 
             qr.BrowseForFile = async () =>

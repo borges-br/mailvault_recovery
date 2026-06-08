@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -75,6 +77,7 @@ public class MainWindowViewModel : ViewModelBase
     private readonly RecentCasesService _recentCasesService;
     private readonly LocalSettingsService _settingsService;
     private readonly IDesktopFileDialogService _fileDialogService;
+    private readonly IndexingJobLedgerService _jobLedger = new();
 
     // Leitor ao vivo da evidência (preview de conteúdo completo sob demanda).
     private DesktopMessagePreviewService? _previewService;
@@ -336,6 +339,7 @@ public class MainWindowViewModel : ViewModelBase
         _homeViewModel = new HomeViewModel(_diagnosticService, _fileDialogService);
         _homeViewModel.CaseSelected += async path => await LoadCaseAsync(path);
         _homeViewModel.RecentCaseRemovalRequested += RemoveRecentCase;
+        _homeViewModel.InterruptedJobDismissRequested += DismissInterruptedJob;
 
         _caseOverviewViewModel = new CaseOverviewViewModel();
         _folderTreeViewModel = new FolderTreeViewModel();
@@ -492,6 +496,10 @@ public class MainWindowViewModel : ViewModelBase
             WindowTitle = $"MailVault Recovery — Caso: {Path.GetFileName(casePath)}";
             CurrentView = _caseOverviewViewModel;
             ClearIndexingIndicator();
+
+            // Abrir o caso resolve qualquer job interrompido apontando para esta pasta.
+            _jobLedger.RemoveByCaseFolder(casePath);
+            RefreshInterruptedJobs();
 
             _recentCasesService.AddOrUpdate(new RecentCaseEntry
             {
@@ -717,6 +725,88 @@ public class MainWindowViewModel : ViewModelBase
     {
         _indexingTerminalPending = false;
         RefreshIndexingIndicator();
+    }
+
+    /// <summary>
+    /// Chamado uma vez quando a janela abre. Detecta jobs deixados em "Running" por um
+    /// fechamento/travamento anterior, liquida o case.db (lendo os contadores reais) e os
+    /// expõe na Home para o usuário abrir o que foi recuperado ou descartar.
+    /// </summary>
+    public async Task RecoverInterruptedJobsAsync()
+    {
+        List<IndexingJobRecord> jobs;
+        try { jobs = _jobLedger.Load(); }
+        catch { return; }
+
+        var orchestrator = new WorkerProcessOrchestrator();
+        foreach (var job in jobs)
+        {
+            // Caso a pasta do caso tenha sumido do disco, descarta o registro órfão.
+            if (string.IsNullOrWhiteSpace(job.CaseFolderPath) || !Directory.Exists(job.CaseFolderPath))
+            {
+                _jobLedger.Remove(job.JobId);
+                continue;
+            }
+
+            if (string.Equals(job.Status, "Running", StringComparison.OrdinalIgnoreCase))
+            {
+                // O app foi fechado durante a indexação: o worker filho morreu junto.
+                // Liquida o case.db a partir dos contadores reais e marca como interrompido.
+                try
+                {
+                    await orchestrator.IdempotentRepairCaseDbAsync(
+                        job.CaseFolderPath, job.CaseId, "ReaderKilled",
+                        "Aplicativo encerrado durante a indexação.");
+                }
+                catch { /* best-effort */ }
+
+                _jobLedger.Upsert(job with
+                {
+                    Status = "Interrupted",
+                    CompletedAt = DateTimeOffset.Now,
+                    UpdatedAt = DateTimeOffset.Now
+                });
+            }
+        }
+
+        RefreshInterruptedJobs();
+    }
+
+    private void RefreshInterruptedJobs()
+    {
+        List<IndexingJobRecord> interrupted;
+        try
+        {
+            interrupted = _jobLedger.Load()
+                .Where(j => string.Equals(j.Status, "Interrupted", StringComparison.OrdinalIgnoreCase)
+                            && !string.IsNullOrWhiteSpace(j.CaseFolderPath)
+                            && Directory.Exists(j.CaseFolderPath))
+                .ToList();
+        }
+        catch
+        {
+            interrupted = new List<IndexingJobRecord>();
+        }
+
+        RunOnUIThread(() => _homeViewModel.LoadInterruptedJobs(interrupted));
+    }
+
+    private void DismissInterruptedJob(string jobId)
+    {
+        _jobLedger.Remove(jobId);
+        RefreshInterruptedJobs();
+    }
+
+    private static void RunOnUIThread(Action action)
+    {
+        if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+        {
+            action();
+        }
+        else
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(action);
+        }
     }
 
     public void ShowGlobalError(Exception ex)

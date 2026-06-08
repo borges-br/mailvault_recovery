@@ -28,8 +28,11 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
 {
     private readonly DesktopCaseCreationService _caseCreationService;
     private readonly IDesktopFileDialogService _fileDialogService;
+    private readonly IndexingJobLedgerService _jobLedger = new();
     private CancellationTokenSource? _indexingCts;
     private WorkerProcessOrchestrator? _orchestrator;
+    private string? _currentJobId;
+    private DateTimeOffset _jobStartedAt;
 
     private int _currentStep = 1;
     private string _sourcePath = "";
@@ -874,6 +877,12 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
         string caseFolderPath = Path.Combine(DestinationPath, CaseId);
         Directory.CreateDirectory(caseFolderPath);
 
+        // Ledger durável: registra o job como "Running" para que, se o app fechar/
+        // travar durante a indexação, a próxima abertura saiba que havia um job em curso.
+        _currentJobId = Guid.NewGuid().ToString("N");
+        _jobStartedAt = DateTimeOffset.Now;
+        PersistJobRecord("Running", null);
+
         string auditLogFilePath = Path.Combine(caseFolderPath, "audit.log");
         var auditWriter = new FileAuditTrailWriter(auditLogFilePath);
 
@@ -1190,6 +1199,8 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
         }
         finally
         {
+            // Estado terminal (sucesso/falha/cancelado/exceção) converge aqui — registra no ledger.
+            PersistJobRecord(IndexingStatus, IndexingError);
             StopElapsedTimer();
             if (watchdogCts != null)
             {
@@ -1197,6 +1208,33 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
                 watchdogCts.Dispose();
             }
             _orchestrator = null;
+        }
+    }
+
+    private void PersistJobRecord(string status, string? error)
+    {
+        if (_currentJobId == null) return;
+        try
+        {
+            _jobLedger.Upsert(new IndexingJobRecord
+            {
+                JobId = _currentJobId,
+                CaseId = CaseId,
+                CaseFolderPath = Path.Combine(DestinationPath, CaseId),
+                Engine = SelectedReaderEngine,
+                Status = status,
+                FoldersIndexed = FoldersIndexed,
+                MessagesIndexed = MessagesIndexed,
+                ProgressPercent = ProgressPercent,
+                StartedAt = _jobStartedAt,
+                UpdatedAt = DateTimeOffset.Now,
+                CompletedAt = string.Equals(status, "Running", StringComparison.OrdinalIgnoreCase) ? null : DateTimeOffset.Now,
+                ErrorMessage = error
+            });
+        }
+        catch
+        {
+            // best-effort — o ledger não deve derrubar a indexação.
         }
     }
 
@@ -1252,6 +1290,7 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
         IndexingStatus = "Failed";
         IndexingError = "O leitor foi encerrado sob força pelo operador.";
         AppendLog("[ERRO] O leitor foi encerrado sob força pelo operador.");
+        PersistJobRecord("Failed", IndexingError);
     }
 
     private void OpenNativeReport()

@@ -61,6 +61,32 @@
                 </Border>
             </Grid>
 
+            <!-- Indexações interrompidas (app fechado/travado no meio) -->
+            <StackPanel Spacing="12" IsVisible="{Binding InterruptedJobs.Count}">
+                <TextBlock Text="⚠ INDEXAÇÕES INTERROMPIDAS" FontSize="12" FontWeight="Bold" Foreground="{StaticResource WarningBrush}" LetterSpacing="1"/>
+                <Border Background="{StaticResource WarningSubtleBrush}" BorderBrush="{StaticResource WarningBrush}" BorderThickness="1" CornerRadius="10" Padding="15">
+                    <ItemsControl ItemsSource="{Binding InterruptedJobs}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="svc:IndexingJobRecord">
+                                <Border BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="0,0,0,1" Padding="0,8" Margin="0,2">
+                                    <Grid ColumnDefinitions="*, Auto, Auto">
+                                        <StackPanel Grid.Column="0" Spacing="4">
+                                            <TextBlock Text="{Binding CaseId}" Classes="mono" Foreground="{StaticResource TextPrimaryBrush}" FontWeight="Bold" FontSize="13"/>
+                                            <TextBlock Text="{Binding DisplaySummary}" Foreground="{StaticResource TextMutedBrush}" FontSize="11"/>
+                                            <TextBlock Text="{Binding CaseFolderPath}" Classes="mono" Foreground="{StaticResource TextMutedBrush}" FontSize="10" TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="1" Theme="{StaticResource PrimaryButton}" Content="Abrir o que foi recuperado" Command="{Binding $parent[ItemsControl].DataContext.OpenInterruptedJobCommand}" CommandParameter="{Binding}"
+                                                Padding="12,6" Margin="8,0,0,0" FontSize="11"/>
+                                        <Button Grid.Column="2" Theme="{StaticResource GhostButton}" Foreground="{StaticResource DangerBrush}" Content="Descartar" Command="{Binding $parent[ItemsControl].DataContext.DismissInterruptedJobCommand}" CommandParameter="{Binding}"
+                                                Padding="12,6" Margin="6,0,0,0" FontSize="11"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Border>
+            </StackPanel>
+
             <!-- Recent Cases -->
             <StackPanel Spacing="12">
                 <TextBlock Text="HISTÓRICO DE CASES RECENTES" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" LetterSpacing="1"/>

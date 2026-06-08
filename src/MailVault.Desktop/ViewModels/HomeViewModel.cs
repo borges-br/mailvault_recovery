@@ -49,16 +49,22 @@ public class HomeViewModel : LoadableViewModelBase
 
     public ObservableCollection<RecentCaseEntry> RecentCases { get; } = new();
 
+    // Jobs de indexação que ficaram pendentes (app fechado/travado durante a indexação).
+    public ObservableCollection<IndexingJobRecord> InterruptedJobs { get; } = new();
+
     public ICommand OpenCaseCommand { get; }
     public ICommand CreateCaseCommand { get; }
     public ICommand OpenMboxCaseCommand { get; }
     public ICommand OpenRecentCaseCommand { get; }
     public ICommand RemoveRecentCaseCommand { get; }
+    public ICommand OpenInterruptedJobCommand { get; }
+    public ICommand DismissInterruptedJobCommand { get; }
     public ICommand RetryCommand { get; }
     public ICommand SelectCaseFolderCommand { get; }
 
     public event Action<string>? CaseSelected;
     public event Action<string>? RecentCaseRemovalRequested;
+    public event Action<string>? InterruptedJobDismissRequested;
 
     public HomeViewModel() : this(new CaseWorkspaceDiagnosticService(), new DesktopFileDialogService()) { }
 
@@ -73,6 +79,8 @@ public class HomeViewModel : LoadableViewModelBase
         OpenMboxCaseCommand = ReactiveCommand.Create(OnOpenMbox);
         OpenRecentCaseCommand = ReactiveCommand.CreateFromTask<RecentCaseEntry>(OpenRecentCaseAsync);
         RemoveRecentCaseCommand = ReactiveCommand.Create<RecentCaseEntry>(RemoveRecentCase);
+        OpenInterruptedJobCommand = ReactiveCommand.Create<IndexingJobRecord>(OpenInterruptedJob);
+        DismissInterruptedJobCommand = ReactiveCommand.Create<IndexingJobRecord>(DismissInterruptedJob);
         RetryCommand = ReactiveCommand.CreateFromTask(OnOpenCaseAsync);
         SelectCaseFolderCommand = ReactiveCommand.CreateFromTask(OnSelectCaseFolderAsync);
     }
@@ -179,6 +187,30 @@ public class HomeViewModel : LoadableViewModelBase
         {
             RecentCases.Add(e);
         }
+    }
+
+    public void LoadInterruptedJobs(System.Collections.Generic.IEnumerable<IndexingJobRecord> jobs)
+    {
+        InterruptedJobs.Clear();
+        foreach (var j in jobs)
+        {
+            InterruptedJobs.Add(j);
+        }
+    }
+
+    private void OpenInterruptedJob(IndexingJobRecord job)
+    {
+        if (job == null || string.IsNullOrWhiteSpace(job.CaseFolderPath)) return;
+        SelectedCasePath = job.CaseFolderPath;
+        StatusText = $"Abrindo o que foi recuperado de {job.CaseId}...";
+        CaseSelected?.Invoke(job.CaseFolderPath);
+    }
+
+    private void DismissInterruptedJob(IndexingJobRecord job)
+    {
+        if (job == null) return;
+        InterruptedJobs.Remove(job);
+        InterruptedJobDismissRequested?.Invoke(job.JobId);
     }
 
     public void SelectRecentCase(RecentCaseEntry entry)
