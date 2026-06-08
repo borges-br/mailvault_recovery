@@ -9,7 +9,15 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <BuiltInFontsArea>true</BuiltInFontsArea>
+    <!-- Ícone do executável Windows (taskbar / Explorer) -->
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Logo do software embutido como recurso Avalonia (janela + topbar) -->
+    <AvaloniaResource Include="Assets\logo.png" />
+    <AvaloniaResource Include="Assets\app.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="11.0.10" />
