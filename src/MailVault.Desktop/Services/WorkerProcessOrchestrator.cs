@@ -459,7 +459,20 @@ public sealed class WorkerProcessOrchestrator
                             hasTargetStatus = Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
                         }
 
-                        if (!hasTargetStatus)
+                        // Hardening: só insere index_run se case_info já tiver o case_id.
+                        // A FK index_runs.case_id -> case_info.case_id, se violada, derruba
+                        // a transação inteira (perdendo issue + completed_at). Visto em runtime
+                        // quando o ledger aponta um case_id divergente do case.db.
+                        bool caseInfoExists;
+                        using (var cmd = conn.CreateCommand())
+                        {
+                            cmd.CommandText = "SELECT COUNT(*) FROM case_info WHERE case_id = $caseId;";
+                            cmd.Parameters.AddWithValue("$caseId", caseId);
+                            cmd.Transaction = trans;
+                            caseInfoExists = Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
+                        }
+
+                        if (!hasTargetStatus && caseInfoExists)
                         {
                             using var cmd = conn.CreateCommand();
                             cmd.CommandText = @"
