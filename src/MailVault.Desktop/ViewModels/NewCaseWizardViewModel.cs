@@ -518,8 +518,7 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
         _caseCreationService = caseCreationService;
         _fileDialogService = fileDialogService ?? new DesktopFileDialogService();
 
-        string currentDir = Directory.GetCurrentDirectory();
-        DestinationPath = Path.Combine(currentDir, "mailvault-cases");
+        DestinationPath = ResolveDefaultDestination();
 
         var nextCmd = ReactiveCommand.Create(OnNext);
         nextCmd.ThrownExceptions.Subscribe(HandleCommandException);
@@ -1400,7 +1399,7 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
         _orchestrator = null;
 
         SourcePath = "";
-        DestinationPath = Path.Combine(Directory.GetCurrentDirectory(), "mailvault-cases");
+        DestinationPath = ResolveDefaultDestination();
         CaseId = "";
         DisclaimerAccepted = false;
 
@@ -1631,6 +1630,23 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
                 ThroughputText = $"{msgPerSec:F1} emails/s";
             }
         });
+    }
+
+    private static string ResolveDefaultDestination()
+    {
+        try
+        {
+            var settings = new LocalSettingsService().Load();
+            if (!string.IsNullOrWhiteSpace(settings.DefaultCaseFolder))
+            {
+                return settings.DefaultCaseFolder;
+            }
+        }
+        catch
+        {
+            // Fallback abaixo se as settings não puderem ser lidas.
+        }
+        return Path.Combine(Directory.GetCurrentDirectory(), "mailvault-cases");
     }
 
     private static string MaskPath(string path)

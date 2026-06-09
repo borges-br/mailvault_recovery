@@ -20,7 +20,7 @@ public class ExportPanelViewModel : ViewModelBase
     private string _caseFolderPath = "";
     private string _exportFormat = "eml";
     private string _exportPath = "";
-    private string _exportStatus = "Selecione o formato e pasta de destino para iniciar a exportação forense.";
+    private string _exportStatus = "Selecione o formato e pasta de destino para iniciar a exportação.";
     private bool _includeAttachments = true;
     private bool _dryRun;
     private int _messagesSelected;

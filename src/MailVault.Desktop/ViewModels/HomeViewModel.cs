@@ -53,8 +53,6 @@ public class HomeViewModel : LoadableViewModelBase
     public ObservableCollection<IndexingJobRecord> InterruptedJobs { get; } = new();
 
     public ICommand OpenCaseCommand { get; }
-    public ICommand CreateCaseCommand { get; }
-    public ICommand OpenMboxCaseCommand { get; }
     public ICommand OpenRecentCaseCommand { get; }
     public ICommand RemoveRecentCaseCommand { get; }
     public ICommand OpenInterruptedJobCommand { get; }
@@ -75,8 +73,6 @@ public class HomeViewModel : LoadableViewModelBase
         _diagnostics = diagnostics;
         _fileDialogService = fileDialogService ?? new DesktopFileDialogService();
         OpenCaseCommand = ReactiveCommand.CreateFromTask(OnOpenCaseAsync);
-        CreateCaseCommand = ReactiveCommand.Create(OnCreateCase);
-        OpenMboxCaseCommand = ReactiveCommand.Create(OnOpenMbox);
         OpenRecentCaseCommand = ReactiveCommand.CreateFromTask<RecentCaseEntry>(OpenRecentCaseAsync);
         RemoveRecentCaseCommand = ReactiveCommand.Create<RecentCaseEntry>(RemoveRecentCase);
         OpenInterruptedJobCommand = ReactiveCommand.Create<IndexingJobRecord>(OpenInterruptedJob);
@@ -164,20 +160,6 @@ public class HomeViewModel : LoadableViewModelBase
     private void RemoveRecentCase(RecentCaseEntry entry)
     {
         RecentCaseRemovalRequested?.Invoke(entry.CaseFolderPath);
-    }
-
-    private void OnCreateCase()
-    {
-        State = LoadingState.Empty;
-        StatusText = "Criação de case a partir de OST/PST está em desenvolvimento na UI.";
-        WarningBanner = "Fluxo disponível pelo CLI: mailvault index <arquivo.ost|arquivo.pst>.";
-    }
-
-    private void OnOpenMbox()
-    {
-        State = LoadingState.Empty;
-        StatusText = "Validação/inspeção MBOX estrutural disponível pelo CLI neste momento.";
-        WarningBanner = "A UI abrirá o case relacional depois que o índice for criado.";
     }
 
     public void LoadRecentCases(System.Collections.Generic.IEnumerable<RecentCaseEntry> entries)

@@ -232,7 +232,7 @@ public class DesktopViewModelsTests
         Assert.True(vm.HasMessage);
         Assert.Contains("corpo truncado na visualização", vm.BodyPreview);
         Assert.Equal(
-            100_000 + "\n\n[...] (corpo truncado na visualização; use a exportação forense para o conteúdo completo.)".Length,
+            100_000 + "\n\n[...] (corpo truncado na visualização; use a exportação para o conteúdo completo.)".Length,
             vm.BodyPreview.Length);
 
         // Action & Assert Short
@@ -483,15 +483,13 @@ public class DesktopViewModelsTests
     }
 
     [Fact]
-    public void HomeViewModel_ExposesOpenCaseCreateCaseMboxAndRecentCases()
+    public void HomeViewModel_ExposesOpenCaseAndRecentCases()
     {
         // Arrange
         var vm = new HomeViewModel();
 
-        // Assert — all four entry points must be present
+        // Assert — entry points must be present
         Assert.NotNull(vm.OpenCaseCommand);
-        Assert.NotNull(vm.CreateCaseCommand);
-        Assert.NotNull(vm.OpenMboxCaseCommand);
         Assert.NotNull(vm.RecentCases);
     }
 
@@ -1095,8 +1093,6 @@ public class DesktopViewModelsTests
     {
         var vm = new HomeViewModel();
         Assert.NotNull(vm.OpenCaseCommand);
-        Assert.NotNull(vm.CreateCaseCommand);
-        Assert.NotNull(vm.OpenMboxCaseCommand);
         Assert.NotNull(vm.RecentCases);
     }
 
@@ -1402,12 +1398,12 @@ public class DesktopViewModelsTests
             Assert.True(settings.DarkTheme);
 
             settings.DarkTheme = false;
-            settings.MaxPreviewLength = 650;
+            settings.AdvancedMode = true;
             svc.Save(settings);
 
             var loaded = svc.Load();
             Assert.False(loaded.DarkTheme);
-            Assert.Equal(650, loaded.MaxPreviewLength);
+            Assert.True(loaded.AdvancedMode);
         }
         finally
         {

@@ -191,12 +191,12 @@ public class MessagePreviewViewModel : ViewModelBase
         }
         else
         {
-            return "(Mensagem sem corpo de texto recuperável. Use a exportação forense para obter o conteúdo MIME completo.)";
+            return "(Mensagem sem corpo de texto recuperável. Use a exportação para obter o conteúdo MIME completo.)";
         }
 
         if (body.Length > MaxBodyChars)
         {
-            body = body.Substring(0, MaxBodyChars) + "\n\n[...] (corpo truncado na visualização; use a exportação forense para o conteúdo completo.)";
+            body = body.Substring(0, MaxBodyChars) + "\n\n[...] (corpo truncado na visualização; use a exportação para o conteúdo completo.)";
         }
         return body;
     }

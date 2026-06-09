@@ -35,7 +35,7 @@
                         <Button Grid.Column="1" Theme="{StaticResource OutlineButton}" Content="Procurar..." Command="{Binding SelectCaseFolderCommand}" Margin="10,0,0,0" Padding="15,14"/>
                     </Grid>
 
-                    <Button Theme="{StaticResource PrimaryButton}" Content="Iniciar Inspeção Técnica" Command="{Binding OpenCaseCommand}"
+                    <Button Theme="{StaticResource PrimaryButton}" Content="Abrir Caso Existente" Command="{Binding OpenCaseCommand}"
                             HorizontalAlignment="Stretch" Padding="15" FontSize="14"/>
                 </StackPanel>
             </Border>

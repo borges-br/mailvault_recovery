@@ -14,9 +14,6 @@ public sealed class SettingsViewModel : ViewModelBase
     private string _defaultCaseFolder = "";
     private string _defaultCorpusPath = "";
     private bool _darkTheme;
-    private int _maxPreviewLength;
-    private bool _confirmBeforeExport;
-    private bool _openFolderAfterExport;
     private bool _advancedMode;
     private string _statusMessage = "";
 
@@ -36,24 +33,6 @@ public sealed class SettingsViewModel : ViewModelBase
     {
         get => _darkTheme;
         set => this.RaiseAndSetIfChanged(ref _darkTheme, value);
-    }
-
-    public int MaxPreviewLength
-    {
-        get => _maxPreviewLength;
-        set => this.RaiseAndSetIfChanged(ref _maxPreviewLength, value);
-    }
-
-    public bool ConfirmBeforeExport
-    {
-        get => _confirmBeforeExport;
-        set => this.RaiseAndSetIfChanged(ref _confirmBeforeExport, value);
-    }
-
-    public bool OpenFolderAfterExport
-    {
-        get => _openFolderAfterExport;
-        set => this.RaiseAndSetIfChanged(ref _openFolderAfterExport, value);
     }
 
     public bool AdvancedMode
@@ -93,9 +72,6 @@ public sealed class SettingsViewModel : ViewModelBase
         DefaultCaseFolder = settings.DefaultCaseFolder;
         DefaultCorpusPath = settings.DefaultCorpusPath;
         DarkTheme = settings.DarkTheme;
-        MaxPreviewLength = settings.MaxPreviewLength;
-        ConfirmBeforeExport = settings.ConfirmBeforeExport;
-        OpenFolderAfterExport = settings.OpenFolderAfterExport;
         AdvancedMode = settings.AdvancedMode;
     }
 
@@ -106,9 +82,6 @@ public sealed class SettingsViewModel : ViewModelBase
             DefaultCaseFolder = DefaultCaseFolder,
             DefaultCorpusPath = DefaultCorpusPath,
             DarkTheme = DarkTheme,
-            MaxPreviewLength = MaxPreviewLength,
-            ConfirmBeforeExport = ConfirmBeforeExport,
-            OpenFolderAfterExport = OpenFolderAfterExport,
             AdvancedMode = AdvancedMode
         };
 
