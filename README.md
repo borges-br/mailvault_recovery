@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/hero.svg" alt="MailVault Recovery" width="100%" />
+<img src="docs/assets/banner.png" alt="MailVault Recovery" width="100%" />
 
 <br/>
 
