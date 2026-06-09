@@ -2,8 +2,8 @@
   <!-- Versão centralizada de TODO o repositório (Desktop, CLI, Core, etc.).
        Fonte única da verdade: bump aqui, o assembly carrega, a UI lê via AppInfo. -->
   <PropertyGroup>
-    <Version>1.1.0</Version>
-    <InformationalVersion>1.1.0</InformationalVersion>
+    <Version>1.1.1</Version>
+    <InformationalVersion>1.1.1</InformationalVersion>
     <Product>MailVault Recovery</Product>
     <Company>MailVault</Company>
   </PropertyGroup>
