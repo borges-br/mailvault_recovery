@@ -94,6 +94,8 @@
                 <StackPanel Spacing="20">
                     <TextBlock Text="PREFERÊNCIAS E MODO DIAGNÓSTICO" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" LetterSpacing="0.5"/>
 
+                    <CheckBox IsChecked="{Binding ConfirmBeforeExport}" Content="Confirmar antes de iniciar uma exportação" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12"/>
+                    <CheckBox IsChecked="{Binding OpenFolderAfterExport}" Content="Abrir a pasta de destino ao concluir a exportação" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12"/>
                     <CheckBox IsChecked="{Binding AdvancedMode}" Content="Modo diagnóstico — exibe Test Lab, Validação e Relatórios do Caso na navegação (ferramentas técnicas/de suporte)" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12"/>
                 </StackPanel>
             </Border>

@@ -10,6 +10,8 @@ public sealed class LocalSettings
     public string DefaultCorpusPath { get; set; } = "";
     public bool DarkTheme { get; set; } = true;
     public bool AdvancedMode { get; set; } = false;
+    public bool ConfirmBeforeExport { get; set; } = true;
+    public bool OpenFolderAfterExport { get; set; } = true;
 }
 
 public sealed class LocalSettingsService
@@ -79,7 +81,9 @@ public sealed class LocalSettingsService
             DefaultCaseFolder = Path.Combine(currentDir, "mailvault-cases"),
             DefaultCorpusPath = Path.Combine(currentDir, ".local-corpus"),
             DarkTheme = true,
-            AdvancedMode = false
+            AdvancedMode = false,
+            ConfirmBeforeExport = true,
+            OpenFolderAfterExport = true
         };
     }
 }

@@ -6,6 +6,7 @@
              mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="800"
              x:Class="MailVault.Desktop.Views.ExportPanelView"
              x:DataType="vm:ExportPanelViewModel">
+    <Grid>
     <ScrollViewer Padding="30" Background="{DynamicResource BgAppBrush}">
         <StackPanel Spacing="25" MaxWidth="700" HorizontalAlignment="Left">
             <TextBlock Text="Exportar E-mails" FontSize="26" FontWeight="Black" Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -135,4 +136,20 @@
             </Border>
         </StackPanel>
     </ScrollViewer>
+
+    <!-- Overlay: confirmação antes de exportar (setting ConfirmBeforeExport) -->
+    <Grid Background="#C0000000" IsVisible="{Binding ShowExportConfirm}">
+        <Border Theme="{StaticResource CardElevated}" Width="480" Padding="28" CornerRadius="14"
+                HorizontalAlignment="Center" VerticalAlignment="Center">
+            <StackPanel Spacing="18">
+                <TextBlock Text="Confirmar exportação" FontSize="18" FontWeight="Black" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <TextBlock Text="{Binding ExportConfirmMessage}" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
+                    <Button Theme="{StaticResource OutlineButton}" Content="Cancelar" Command="{Binding CancelExportConfirmCommand}" Padding="20,10"/>
+                    <Button Theme="{StaticResource PrimaryButton}" Content="Confirmar e exportar" Command="{Binding ConfirmExportCommand}" Padding="20,10"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Grid>
+    </Grid>
 </UserControl>

@@ -15,6 +15,7 @@ namespace MailVault.Desktop.ViewModels;
 public class ExportPanelViewModel : ViewModelBase
 {
     private readonly DesktopExportService _exportService;
+    private readonly LocalSettingsService _settingsService = new();
 
     // ── Forensic export (existing) ────────────────────────────────────────
     private string _caseFolderPath = "";
@@ -43,6 +44,13 @@ public class ExportPanelViewModel : ViewModelBase
     private CancellationTokenSource? _recoveryCts;
     private System.Timers.Timer? _recoveryTimer;
     private DateTime _recoveryStartTime;
+
+    // Confirmação antes de exportar (setting ConfirmBeforeExport).
+    private bool _showExportConfirm;
+    private string _exportConfirmMessage = "";
+    private bool _exportConfirmed;
+    private bool _pendingEml;
+    private bool _pendingUseSelectedFolder;
 
     // ── Forensic properties ───────────────────────────────────────────────
     public string ExportFormat
@@ -183,6 +191,18 @@ public class ExportPanelViewModel : ViewModelBase
         ? $"Exportar pasta: {_selectedFolderPath}"
         : "Exportar todas as pastas";
 
+    public bool ShowExportConfirm
+    {
+        get => _showExportConfirm;
+        set => this.RaiseAndSetIfChanged(ref _showExportConfirm, value);
+    }
+
+    public string ExportConfirmMessage
+    {
+        get => _exportConfirmMessage;
+        set => this.RaiseAndSetIfChanged(ref _exportConfirmMessage, value);
+    }
+
     // ── Commands ──────────────────────────────────────────────────────────
     public ICommand RunExportCommand { get; }
     public ICommand RecoverToEmlCommand { get; }
@@ -192,6 +212,8 @@ public class ExportPanelViewModel : ViewModelBase
     public ICommand CancelRecoveryCommand { get; }
     public ICommand OpenRecoveryFolderCommand { get; }
     public ICommand ClearSelectedFolderCommand { get; }
+    public ICommand ConfirmExportCommand { get; }
+    public ICommand CancelExportConfirmCommand { get; }
 
     public ExportPanelViewModel() : this(new DesktopExportService()) { }
 
@@ -223,6 +245,11 @@ public class ExportPanelViewModel : ViewModelBase
         CancelRecoveryCommand = ReactiveCommand.Create(() => { _recoveryCts?.Cancel(); });
         OpenRecoveryFolderCommand = ReactiveCommand.Create(OpenRecoveryFolder);
         ClearSelectedFolderCommand = ReactiveCommand.Create(() => { SelectedFolderPath = null; });
+
+        var confirmExportCmd = ReactiveCommand.CreateFromTask(OnConfirmExportAsync);
+        confirmExportCmd.ThrownExceptions.Subscribe(ex => RecoveryStatus = $"❌ {ex.Message}");
+        ConfirmExportCommand = confirmExportCmd;
+        CancelExportConfirmCommand = ReactiveCommand.Create(() => { ShowExportConfirm = false; });
     }
 
     public void SetCaseFolder(string caseFolderPath)
@@ -278,6 +305,22 @@ public class ExportPanelViewModel : ViewModelBase
             RecoveryStatus = "⚠️ Nenhuma pasta selecionada. Use 'Exportar tudo' ou selecione uma pasta no navegador.";
             return;
         }
+
+        var settings = _settingsService.Load();
+
+        // Gate de confirmação (lê a setting na hora; toggla sem reiniciar).
+        if (settings.ConfirmBeforeExport && !_exportConfirmed)
+        {
+            _pendingEml = eml;
+            _pendingUseSelectedFolder = useSelectedFolder;
+            string fmtC = eml ? "EML" : "MBOX";
+            string scopeC = folderFilter != null ? $"a pasta '{folderFilter}'" : "todas as pastas";
+            ExportConfirmMessage = $"Exportar {scopeC} em formato {fmtC} para:\n{RecoveryOutputPath}";
+            ShowExportConfirm = true;
+            return;
+        }
+        _exportConfirmed = false;
+        ShowExportConfirm = false;
 
         IsRecoveryRunning = true;
         HasRecoveryCompleted = false;
@@ -352,6 +395,11 @@ public class ExportPanelViewModel : ViewModelBase
                 RecoveryMetricsSummary = $"{m.MessagesPerSecond:F2} msg/s · {m.AvgMillisecondsPerMessage:F0} ms/msg · getMsg {m.GetMessageMs:F0} ms · etapa+lenta: {m.SlowestStage}";
 
             HasRecoveryCompleted = true;
+
+            if (settings.OpenFolderAfterExport)
+            {
+                OpenRecoveryFolder();
+            }
         }
         catch (OperationCanceledException)
         {
@@ -368,6 +416,13 @@ public class ExportPanelViewModel : ViewModelBase
             _recoveryCts?.Dispose();
             _recoveryCts = null;
         }
+    }
+
+    private async Task OnConfirmExportAsync()
+    {
+        ShowExportConfirm = false;
+        _exportConfirmed = true;
+        await RunRecoveryExportAsync(_pendingEml, _pendingUseSelectedFolder);
     }
 
     private void OpenRecoveryFolder()

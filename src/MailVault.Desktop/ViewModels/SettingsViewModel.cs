@@ -15,6 +15,8 @@ public sealed class SettingsViewModel : ViewModelBase
     private string _defaultCorpusPath = "";
     private bool _darkTheme;
     private bool _advancedMode;
+    private bool _confirmBeforeExport;
+    private bool _openFolderAfterExport;
     private string _statusMessage = "";
     private bool _themeInitialized;
 
@@ -49,6 +51,18 @@ public sealed class SettingsViewModel : ViewModelBase
     {
         get => _advancedMode;
         set => this.RaiseAndSetIfChanged(ref _advancedMode, value);
+    }
+
+    public bool ConfirmBeforeExport
+    {
+        get => _confirmBeforeExport;
+        set => this.RaiseAndSetIfChanged(ref _confirmBeforeExport, value);
+    }
+
+    public bool OpenFolderAfterExport
+    {
+        get => _openFolderAfterExport;
+        set => this.RaiseAndSetIfChanged(ref _openFolderAfterExport, value);
     }
 
     public string StatusMessage
@@ -91,6 +105,8 @@ public sealed class SettingsViewModel : ViewModelBase
         DefaultCorpusPath = settings.DefaultCorpusPath;
         DarkTheme = settings.DarkTheme;
         AdvancedMode = settings.AdvancedMode;
+        ConfirmBeforeExport = settings.ConfirmBeforeExport;
+        OpenFolderAfterExport = settings.OpenFolderAfterExport;
     }
 
     private void SaveSettings()
@@ -100,7 +116,9 @@ public sealed class SettingsViewModel : ViewModelBase
             DefaultCaseFolder = DefaultCaseFolder,
             DefaultCorpusPath = DefaultCorpusPath,
             DarkTheme = DarkTheme,
-            AdvancedMode = AdvancedMode
+            AdvancedMode = AdvancedMode,
+            ConfirmBeforeExport = ConfirmBeforeExport,
+            OpenFolderAfterExport = OpenFolderAfterExport
         };
 
         _settingsService.Save(settings);
