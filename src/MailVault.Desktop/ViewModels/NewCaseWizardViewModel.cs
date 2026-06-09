@@ -1041,7 +1041,7 @@ public sealed class NewCaseWizardViewModel : ViewModelBase
                     OperatorName: Environment.UserName,
                     StartedAt: DateTimeOffset.Now,
                     CompletedAt: DateTimeOffset.Now,
-                    ToolVersion: Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0.0",
+                    ToolVersion: AppInfo.Version,
                     Actions: new List<string> { actionText },
                     Warnings: warnings
                 );

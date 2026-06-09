@@ -104,6 +104,9 @@ public class MainWindowViewModel : ViewModelBase
 
     public string SystemStateText => IsCaseLoaded ? "Caso aberto" : "Nenhum caso aberto";
 
+    /// <summary>Versão exibida na UI (ex.: "v1.1.0"), centralizada via AppInfo/Directory.Build.props.</summary>
+    public string AppVersion => AppInfo.DisplayVersion;
+
     public bool IsDiagnosticModeEnabled
     {
         get => _isDiagnosticModeEnabled;
