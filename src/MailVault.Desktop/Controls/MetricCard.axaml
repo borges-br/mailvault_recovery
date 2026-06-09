@@ -9,7 +9,7 @@
         <StackPanel Spacing="10">
             <Border Width="30" Height="30" CornerRadius="6"
                     HorizontalAlignment="Left"
-                    Background="{StaticResource AccentGlowBrush}">
+                    Background="{DynamicResource AccentGlowBrush}">
                 <TextBlock Text="{Binding #Root.Glyph}"
                            FontSize="15" HorizontalAlignment="Center" VerticalAlignment="Center"
                            Foreground="{Binding #Root.Accent}"/>
@@ -17,10 +17,10 @@
             <TextBlock Text="{Binding #Root.Value}"
                        FontFamily="{StaticResource FontMono}"
                        FontSize="26" FontWeight="Bold"
-                       Foreground="{StaticResource TextPrimaryBrush}"/>
+                       Foreground="{DynamicResource TextPrimaryBrush}"/>
             <TextBlock Text="{Binding #Root.Label}"
                        FontSize="11.5" FontWeight="SemiBold"
-                       Foreground="{StaticResource TextMutedBrush}"
+                       Foreground="{DynamicResource TextMutedBrush}"
                        TextWrapping="Wrap"/>
         </StackPanel>
     </Border>

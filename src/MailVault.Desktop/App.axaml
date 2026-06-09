@@ -20,7 +20,7 @@
              Estilos globais — tipografia e chrome base
              ============================================================ -->
         <Style Selector="Window">
-            <Setter Property="Background" Value="{StaticResource BgAppBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource BgAppBrush}"/>
             <Setter Property="FontFamily" Value="{StaticResource FontUI}"/>
         </Style>
 

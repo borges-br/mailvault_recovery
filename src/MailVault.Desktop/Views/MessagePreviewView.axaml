@@ -6,30 +6,30 @@
              mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="700"
              x:Class="MailVault.Desktop.Views.MessagePreviewView"
              x:DataType="vm:MessagePreviewViewModel">
-    <Grid RowDefinitions="Auto, *" Background="{StaticResource BgAppBrush}">
+    <Grid RowDefinitions="Auto, *" Background="{DynamicResource BgAppBrush}">
         <!-- Message Toolbar / Header Info -->
-        <Border Grid.Row="0" Background="{StaticResource BgSurfaceAltBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="0,0,0,1" Padding="20">
+        <Border Grid.Row="0" Background="{DynamicResource BgSurfaceAltBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,0,1" Padding="20">
             <StackPanel Spacing="10">
-                <TextBlock Text="{Binding Subject}" FontSize="18" FontWeight="Black" Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding Subject}" FontSize="18" FontWeight="Black" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
 
                 <Grid ColumnDefinitions="Auto, *" Margin="0,5,0,0">
-                    <TextBlock Grid.Column="0" Text="Remetente: " Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold" FontSize="12"/>
-                    <TextBlock Grid.Column="1" Text="{Binding From}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
+                    <TextBlock Grid.Column="0" Text="Remetente: " Foreground="{DynamicResource TextMutedBrush}" FontWeight="Bold" FontSize="12"/>
+                    <TextBlock Grid.Column="1" Text="{Binding From}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"/>
                 </Grid>
                 <Grid ColumnDefinitions="Auto, *">
-                    <TextBlock Grid.Column="0" Text="Para: " Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold" FontSize="12"/>
-                    <TextBlock Grid.Column="1" Text="{Binding To}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
+                    <TextBlock Grid.Column="0" Text="Para: " Foreground="{DynamicResource TextMutedBrush}" FontWeight="Bold" FontSize="12"/>
+                    <TextBlock Grid.Column="1" Text="{Binding To}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"/>
                 </Grid>
                 <Grid ColumnDefinitions="Auto, *" IsVisible="{Binding Cc.Length}">
-                    <TextBlock Grid.Column="0" Text="Cc: " Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold" FontSize="12"/>
-                    <TextBlock Grid.Column="1" Text="{Binding Cc}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
+                    <TextBlock Grid.Column="0" Text="Cc: " Foreground="{DynamicResource TextMutedBrush}" FontWeight="Bold" FontSize="12"/>
+                    <TextBlock Grid.Column="1" Text="{Binding Cc}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"/>
                 </Grid>
 
-                <TextBlock Text="{Binding Dates}" Classes="mono" Foreground="{StaticResource TextDisabledBrush}" FontSize="11" Margin="0,5,0,0"/>
+                <TextBlock Text="{Binding Dates}" Classes="mono" Foreground="{DynamicResource TextDisabledBrush}" FontSize="11" Margin="0,5,0,0"/>
 
                 <!-- Attachments List -->
                 <StackPanel Orientation="Horizontal" Margin="0,5,0,0" Spacing="8" IsVisible="{Binding Attachments.Count}">
-                    <TextBlock Text="Anexos:" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" FontSize="12" VerticalAlignment="Center"/>
+                    <TextBlock Text="Anexos:" Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" FontSize="12" VerticalAlignment="Center"/>
                     <ItemsControl ItemsSource="{Binding Attachments}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -38,8 +38,8 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Background="{StaticResource BgElevatedBrush}" CornerRadius="4" BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" Padding="8,4">
-                                    <TextBlock Text="{Binding}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"/>
+                                <Border Background="{DynamicResource BgElevatedBrush}" CornerRadius="4" BorderBrush="{DynamicResource BorderStrongBrush}" BorderThickness="1" Padding="8,4">
+                                    <TextBlock Text="{Binding}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11"/>
                                 </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
@@ -52,30 +52,30 @@
         <ScrollViewer Grid.Row="1" Padding="20">
             <StackPanel Spacing="15">
                 <!-- Carregando conteúdo ao vivo -->
-                <Border IsVisible="{Binding IsLoadingFull}" Background="{StaticResource InfoSubtleBrush}" BorderBrush="{StaticResource InfoBrush}" BorderThickness="1" CornerRadius="6" Padding="12">
+                <Border IsVisible="{Binding IsLoadingFull}" Background="{DynamicResource InfoSubtleBrush}" BorderBrush="{DynamicResource InfoBrush}" BorderThickness="1" CornerRadius="6" Padding="12">
                     <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                        <ProgressBar IsIndeterminate="True" Width="140" Height="4" Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center"/>
-                        <TextBlock Text="Lendo conteúdo completo da evidência original..." Foreground="{StaticResource InfoBrush}" FontSize="12" VerticalAlignment="Center"/>
+                        <ProgressBar IsIndeterminate="True" Width="140" Height="4" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="Lendo conteúdo completo da evidência original..." Foreground="{DynamicResource InfoBrush}" FontSize="12" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Border>
 
                 <!-- Falha ao ler conteúdo ao vivo -->
-                <Border IsVisible="{Binding HasLiveError}" Background="{StaticResource WarningSubtleBrush}" BorderBrush="{StaticResource WarningBrush}" BorderThickness="1" CornerRadius="6" Padding="12">
-                    <TextBlock Text="{Binding LiveError}" Foreground="{StaticResource WarningBrush}" FontSize="11" TextWrapping="Wrap"/>
+                <Border IsVisible="{Binding HasLiveError}" Background="{DynamicResource WarningSubtleBrush}" BorderBrush="{DynamicResource WarningBrush}" BorderThickness="1" CornerRadius="6" Padding="12">
+                    <TextBlock Text="{Binding LiveError}" Foreground="{DynamicResource WarningBrush}" FontSize="11" TextWrapping="Wrap"/>
                 </Border>
 
                 <!-- Nota forense -->
-                <Border Background="{StaticResource WarningSubtleBrush}" BorderBrush="{StaticResource WarningBrush}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
+                <Border Background="{DynamicResource WarningSubtleBrush}" BorderBrush="{DynamicResource WarningBrush}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
                     <StackPanel Orientation="Horizontal" Spacing="10">
                         <TextBlock Text="🛡️" FontSize="18" VerticalAlignment="Center"/>
                         <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="LEITURA SOMENTE-LEITURA" FontSize="10" FontWeight="Bold" Foreground="{StaticResource WarningBrush}" LetterSpacing="0.5"/>
+                            <TextBlock Text="LEITURA SOMENTE-LEITURA" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource WarningBrush}" LetterSpacing="0.5"/>
                             <TextBlock Text="Remetente, destinatários e corpo são lidos ao vivo do arquivo original (somente leitura), sem alterá-lo. Anexos não são abertos nesta visualização — use a exportação para obter o MIME completo (incluindo HTML e anexos)." FontSize="11" Foreground="#FDE68A" TextWrapping="Wrap" Width="580"/>
                         </StackPanel>
                     </StackPanel>
                 </Border>
 
-                <TextBlock Text="{Binding BodyPreview}" Classes="mono" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" LineHeight="18"/>
+                <TextBlock Text="{Binding BodyPreview}" Classes="mono" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" LineHeight="18"/>
             </StackPanel>
         </ScrollViewer>
     </Grid>

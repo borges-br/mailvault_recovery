@@ -6,37 +6,100 @@
              mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="700"
              x:Class="MailVault.Desktop.Views.SettingsView"
              x:DataType="vm:SettingsViewModel">
-    <ScrollViewer Background="{StaticResource BgAppBrush}" Padding="30">
+    <ScrollViewer Background="{DynamicResource BgAppBrush}" Padding="30">
         <StackPanel Spacing="25" MaxWidth="700" HorizontalAlignment="Left">
-            <TextBlock Text="Configurações Locais e Preferências" FontSize="26" FontWeight="Black" Foreground="{StaticResource TextPrimaryBrush}"/>
-            <TextBlock Text="{Binding StatusMessage}" FontSize="12" Foreground="{StaticResource SuccessBrush}" FontWeight="Bold" IsVisible="{Binding StatusMessage.Length}"/>
+            <TextBlock Text="Configurações Locais e Preferências" FontSize="26" FontWeight="Black" Foreground="{DynamicResource TextPrimaryBrush}"/>
+            <TextBlock Text="{Binding StatusMessage}" FontSize="12" Foreground="{DynamicResource SuccessBrush}" FontWeight="Bold" IsVisible="{Binding StatusMessage.Length}"/>
+
+            <!-- ===== Aparência: toggle de tema animado (sol/lua) ===== -->
+            <Border Theme="{StaticResource Card}" CornerRadius="12" Padding="25">
+                <Grid ColumnDefinitions="*, Auto">
+                    <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Text="APARÊNCIA" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" LetterSpacing="0.5"/>
+                        <TextBlock Text="Alterna entre tema escuro e claro. A mudança é aplicada na hora." FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
+                    </StackPanel>
+
+                    <ToggleButton Grid.Column="1" IsChecked="{Binding DarkTheme, Mode=TwoWay}" Cursor="Hand"
+                                  Background="Transparent" BorderThickness="0" Padding="0" VerticalAlignment="Center"
+                                  ToolTip.Tip="Alternar tema claro/escuro">
+                        <ToggleButton.Template>
+                            <ControlTemplate>
+                                <Border Name="Track" Width="62" Height="30" CornerRadius="15"
+                                        Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderStrongBrush}" BorderThickness="1">
+                                    <Panel Margin="2">
+                                        <Border Name="Thumb" Width="24" Height="24" CornerRadius="12" HorizontalAlignment="Left"
+                                                Background="{DynamicResource AccentBrush}">
+                                            <Panel>
+                                                <!-- Sol (tema claro / não-marcado) -->
+                                                <Path Name="Sun" Width="15" Height="15" Stretch="Uniform" Stroke="#FFFFFF" StrokeThickness="2"
+                                                      StrokeLineCap="Round" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                      Data="M12,8 A4,4 0 1 1 11.99,8 Z M12,1.5 V3.5 M12,20.5 V22.5 M4.2,4.2 L5.6,5.6 M18.4,18.4 L19.8,19.8 M1.5,12 H3.5 M20.5,12 H22.5 M4.2,19.8 L5.6,18.4 M18.4,5.6 L19.8,4.2"/>
+                                                <!-- Lua (tema escuro / marcado) -->
+                                                <Path Name="Moon" Width="13" Height="13" Stretch="Uniform" Fill="#FFFFFF" Opacity="0"
+                                                      HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                      Data="M21,12.79 A9,9 0 1 1 11.21,3 A7,7 0 0 0 21,12.79 Z"/>
+                                            </Panel>
+                                        </Border>
+                                    </Panel>
+                                </Border>
+                            </ControlTemplate>
+                        </ToggleButton.Template>
+                        <ToggleButton.Styles>
+                            <Style Selector="ToggleButton /template/ Border#Thumb">
+                                <Setter Property="RenderTransform" Value="translateX(0px)"/>
+                                <Setter Property="Transitions">
+                                    <Transitions>
+                                        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.25" Easing="CubicEaseOut"/>
+                                    </Transitions>
+                                </Setter>
+                            </Style>
+                            <Style Selector="ToggleButton /template/ Path#Sun">
+                                <Setter Property="Transitions"><Transitions><DoubleTransition Property="Opacity" Duration="0:0:0.2"/></Transitions></Setter>
+                            </Style>
+                            <Style Selector="ToggleButton /template/ Path#Moon">
+                                <Setter Property="Transitions"><Transitions><DoubleTransition Property="Opacity" Duration="0:0:0.2"/></Transitions></Setter>
+                            </Style>
+                            <!-- Marcado = tema escuro: thumb desliza p/ direita, sol some, lua aparece -->
+                            <Style Selector="ToggleButton:checked /template/ Border#Thumb">
+                                <Setter Property="RenderTransform" Value="translateX(32px)"/>
+                            </Style>
+                            <Style Selector="ToggleButton:checked /template/ Path#Sun">
+                                <Setter Property="Opacity" Value="0"/>
+                            </Style>
+                            <Style Selector="ToggleButton:checked /template/ Path#Moon">
+                                <Setter Property="Opacity" Value="1"/>
+                            </Style>
+                        </ToggleButton.Styles>
+                    </ToggleButton>
+                </Grid>
+            </Border>
 
             <Border Theme="{StaticResource Card}" CornerRadius="12" Padding="25">
                 <StackPanel Spacing="20">
-                    <TextBlock Text="DIRETÓRIOS E FOLDERS PADRÃO" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" LetterSpacing="0.5"/>
+                    <TextBlock Text="DIRETÓRIOS E FOLDERS PADRÃO" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" LetterSpacing="0.5"/>
 
                     <StackPanel Spacing="8">
-                        <TextBlock Text="Pasta padrão de saída de casos" FontSize="11" Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold"/>
-                        <TextBox Text="{Binding DefaultCaseFolder, Mode=TwoWay}" Classes="mono" Background="{StaticResource BgInputBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" Padding="12" CornerRadius="6" FontSize="12"/>
+                        <TextBlock Text="Pasta padrão de saída de casos" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" FontWeight="Bold"/>
+                        <TextBox Text="{Binding DefaultCaseFolder, Mode=TwoWay}" Classes="mono" Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" Padding="12" CornerRadius="6" FontSize="12"/>
                     </StackPanel>
 
                     <StackPanel Spacing="8">
-                        <TextBlock Text="Pasta padrão do Corpus de Testes" FontSize="11" Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold"/>
-                        <TextBox Text="{Binding DefaultCorpusPath, Mode=TwoWay}" Classes="mono" Background="{StaticResource BgInputBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" Padding="12" CornerRadius="6" FontSize="12"/>
+                        <TextBlock Text="Pasta padrão do Corpus de Testes" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" FontWeight="Bold"/>
+                        <TextBox Text="{Binding DefaultCorpusPath, Mode=TwoWay}" Classes="mono" Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" Padding="12" CornerRadius="6" FontSize="12"/>
                     </StackPanel>
                 </StackPanel>
             </Border>
 
             <Border Theme="{StaticResource Card}" CornerRadius="12" Padding="25">
                 <StackPanel Spacing="20">
-                    <TextBlock Text="PREFERÊNCIAS E MODO DIAGNÓSTICO" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" LetterSpacing="0.5"/>
+                    <TextBlock Text="PREFERÊNCIAS E MODO DIAGNÓSTICO" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" LetterSpacing="0.5"/>
 
-                    <CheckBox IsChecked="{Binding AdvancedMode}" Content="Modo diagnóstico — exibe Test Lab, Validação e Relatórios do Caso na navegação (ferramentas técnicas/de suporte)" Foreground="{StaticResource TextPrimaryBrush}" FontSize="12"/>
+                    <CheckBox IsChecked="{Binding AdvancedMode}" Content="Modo diagnóstico — exibe Test Lab, Validação e Relatórios do Caso na navegação (ferramentas técnicas/de suporte)" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12"/>
                 </StackPanel>
             </Border>
 
             <Grid ColumnDefinitions="*, Auto">
-                <Button Grid.Column="0" Theme="{StaticResource OutlineButton}" Foreground="{StaticResource DangerBrush}" Content="Limpar Cache Operacional e Recentes" Command="{Binding PurgeCacheCommand}" Padding="15,10" FontSize="12" HorizontalAlignment="Left"/>
+                <Button Grid.Column="0" Theme="{StaticResource OutlineButton}" Foreground="{DynamicResource DangerBrush}" Content="Limpar Cache Operacional e Recentes" Command="{Binding PurgeCacheCommand}" Padding="15,10" FontSize="12" HorizontalAlignment="Left"/>
                 <Button Grid.Column="1" Theme="{StaticResource PrimaryButton}" Content="Salvar Preferências" Command="{Binding SaveCommand}" Padding="20,10" FontSize="12" Margin="10,0,0,0"/>
             </Grid>
         </StackPanel>

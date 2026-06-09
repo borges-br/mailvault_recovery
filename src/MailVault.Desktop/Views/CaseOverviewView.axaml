@@ -7,13 +7,13 @@
              mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="700"
              x:Class="MailVault.Desktop.Views.CaseOverviewView"
              x:DataType="vm:CaseOverviewViewModel">
-    <ScrollViewer Padding="30" Background="{StaticResource BgAppBrush}">
+    <ScrollViewer Padding="30" Background="{DynamicResource BgAppBrush}">
         <StackPanel Spacing="25">
-            <TextBlock Text="Dashboard do Caso" FontSize="26" FontWeight="Black" Foreground="{StaticResource TextPrimaryBrush}"/>
+            <TextBlock Text="Dashboard do Caso" FontSize="26" FontWeight="Black" Foreground="{DynamicResource TextPrimaryBrush}"/>
 
-            <Border Background="{StaticResource WarningSubtleBrush}" CornerRadius="6" Padding="14" BorderBrush="{StaticResource WarningBrush}" BorderThickness="1" IsVisible="{Binding HasWarnings}">
+            <Border Background="{DynamicResource WarningSubtleBrush}" CornerRadius="6" Padding="14" BorderBrush="{DynamicResource WarningBrush}" BorderThickness="1" IsVisible="{Binding HasWarnings}">
                 <StackPanel Spacing="6">
-                    <TextBlock Text="Avisos do workspace" FontSize="12" FontWeight="Bold" Foreground="{StaticResource WarningBrush}"/>
+                    <TextBlock Text="Avisos do workspace" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource WarningBrush}"/>
                     <ItemsControl ItemsSource="{Binding Warnings}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
@@ -24,14 +24,14 @@
                 </StackPanel>
             </Border>
 
-            <Border Background="{StaticResource BgElevatedBrush}" CornerRadius="6" Padding="14" BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" IsVisible="{Binding IsEmpty}">
+            <Border Background="{DynamicResource BgElevatedBrush}" CornerRadius="6" Padding="14" BorderBrush="{DynamicResource BorderStrongBrush}" BorderThickness="1" IsVisible="{Binding IsEmpty}">
                 <StackPanel Spacing="6">
-                    <TextBlock Text="case.db foi aberto, mas não há mensagens indexadas." FontSize="13" FontWeight="Bold" Foreground="{StaticResource WarningBrush}"/>
-                    <TextBlock Text="{Binding SuggestedAction}" FontSize="12" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
+                    <TextBlock Text="case.db foi aberto, mas não há mensagens indexadas." FontSize="13" FontWeight="Bold" Foreground="{DynamicResource WarningBrush}"/>
+                    <TextBlock Text="{Binding SuggestedAction}" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
                 </StackPanel>
             </Border>
 
-            <Border Background="{StaticResource DangerSubtleBrush}" CornerRadius="6" Padding="14" BorderBrush="{StaticResource DangerBrush}" BorderThickness="1" IsVisible="{Binding HasError}">
+            <Border Background="{DynamicResource DangerSubtleBrush}" CornerRadius="6" Padding="14" BorderBrush="{DynamicResource DangerBrush}" BorderThickness="1" IsVisible="{Binding HasError}">
                 <StackPanel Spacing="6">
                     <TextBlock Text="Erro ao carregar Overview" FontSize="13" FontWeight="Bold" Foreground="#FCA5A5"/>
                     <TextBlock Text="{Binding ErrorMessage}" FontSize="12" Foreground="#FCA5A5" TextWrapping="Wrap"/>
@@ -42,50 +42,50 @@
             <Grid ColumnDefinitions="*, *" RowDefinitions="Auto, Auto" Margin="0,5,0,0">
                 <Border Grid.Row="0" Grid.Column="0" Theme="{StaticResource Card}" Margin="5">
                     <StackPanel>
-                        <TextBlock Text="Caso ID" FontSize="11" Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold"/>
-                        <TextBlock Text="{Binding CaseId}" Classes="mono" FontSize="18" FontWeight="Black" Foreground="{StaticResource AccentBrush}" Margin="0,5,0,0"/>
+                        <TextBlock Text="Caso ID" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding CaseId}" Classes="mono" FontSize="18" FontWeight="Black" Foreground="{DynamicResource AccentBrush}" Margin="0,5,0,0"/>
                     </StackPanel>
                 </Border>
                 <Border Grid.Row="0" Grid.Column="1" Theme="{StaticResource Card}" Margin="5">
                     <StackPanel>
-                        <TextBlock Text="Motor / Adaptador Utilizado" FontSize="11" Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold"/>
-                        <TextBlock Text="{Binding AdapterNameVersion}" FontSize="18" FontWeight="Black" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,5,0,0"/>
+                        <TextBlock Text="Motor / Adaptador Utilizado" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding AdapterNameVersion}" FontSize="18" FontWeight="Black" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,5,0,0"/>
                     </StackPanel>
                 </Border>
                 <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Theme="{StaticResource Card}" Margin="5">
                     <StackPanel>
-                        <TextBlock Text="Arquivo de Origem" FontSize="11" Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold"/>
-                        <TextBlock Text="{Binding SourceFileMasked}" Classes="mono" FontSize="14" FontWeight="Medium" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,5,0,0"/>
+                        <TextBlock Text="Arquivo de Origem" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding SourceFileMasked}" Classes="mono" FontSize="14" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,5,0,0"/>
                     </StackPanel>
                 </Border>
             </Grid>
 
-            <TextBlock Text="Inventário Estatístico do SQLite" FontSize="18" FontWeight="ExtraBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="5,15,0,0"/>
+            <TextBlock Text="Inventário Estatístico do SQLite" FontSize="18" FontWeight="ExtraBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="5,15,0,0"/>
 
             <Grid ColumnDefinitions="*, *, *, *">
-                <ctl:MetricCard Grid.Column="0" Margin="5" Glyph="📁" Label="Pastas" Value="{Binding FolderCount, StringFormat={}{0}}" Accent="{StaticResource AccentBrush}"/>
-                <ctl:MetricCard Grid.Column="1" Margin="5" Glyph="📧" Label="Mensagens" Value="{Binding MessageCount, StringFormat={}{0}}" Accent="{StaticResource AccentBrush}"/>
-                <ctl:MetricCard Grid.Column="2" Margin="5" Glyph="📎" Label="Anexos" Value="{Binding AttachmentCount, StringFormat={}{0}}" Accent="{StaticResource AccentBrush}"/>
-                <ctl:MetricCard Grid.Column="3" Margin="5" Glyph="⚠" Label="Divergências / Alertas" Value="{Binding IssueCount, StringFormat={}{0}}" Accent="{StaticResource WarningBrush}"/>
+                <ctl:MetricCard Grid.Column="0" Margin="5" Glyph="📁" Label="Pastas" Value="{Binding FolderCount, StringFormat={}{0}}" Accent="{DynamicResource AccentBrush}"/>
+                <ctl:MetricCard Grid.Column="1" Margin="5" Glyph="📧" Label="Mensagens" Value="{Binding MessageCount, StringFormat={}{0}}" Accent="{DynamicResource AccentBrush}"/>
+                <ctl:MetricCard Grid.Column="2" Margin="5" Glyph="📎" Label="Anexos" Value="{Binding AttachmentCount, StringFormat={}{0}}" Accent="{DynamicResource AccentBrush}"/>
+                <ctl:MetricCard Grid.Column="3" Margin="5" Glyph="⚠" Label="Divergências / Alertas" Value="{Binding IssueCount, StringFormat={}{0}}" Accent="{DynamicResource WarningBrush}"/>
             </Grid>
 
             <Grid ColumnDefinitions="*, *, *" Margin="5,15,5,0">
                 <Border Grid.Column="0" Theme="{StaticResource Card}" Margin="0,0,5,0" Padding="20">
                     <StackPanel>
-                        <TextBlock Text="Tamanho de Anexos Extraídos" FontSize="11" Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold"/>
-                        <TextBlock Text="{Binding TotalAttachmentSizeFormatted}" Classes="mono" FontSize="24" FontWeight="Black" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,8,0,0"/>
+                        <TextBlock Text="Tamanho de Anexos Extraídos" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding TotalAttachmentSizeFormatted}" Classes="mono" FontSize="24" FontWeight="Black" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,8,0,0"/>
                     </StackPanel>
                 </Border>
                 <Border Grid.Column="1" Theme="{StaticResource Card}" Margin="5,0,5,0" Padding="20">
                     <StackPanel>
-                        <TextBlock Text="Estado" FontSize="11" Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold"/>
-                        <TextBlock Text="{Binding HealthStatus}" FontSize="24" FontWeight="Black" Foreground="{StaticResource AccentBrush}" Margin="0,8,0,0"/>
+                        <TextBlock Text="Estado" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding HealthStatus}" FontSize="24" FontWeight="Black" Foreground="{DynamicResource AccentBrush}" Margin="0,8,0,0"/>
                     </StackPanel>
                 </Border>
                 <Border Grid.Column="2" Theme="{StaticResource Card}" Margin="5,0,0,0" Padding="20">
                     <StackPanel>
-                        <TextBlock Text="Assinatura Hash de Integridade" FontSize="11" Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold"/>
-                        <TextBlock Text="{Binding SourceSha256}" FontSize="12" Classes="mono" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" Margin="0,12,0,0" TextWrapping="Wrap"/>
+                        <TextBlock Text="Assinatura Hash de Integridade" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding SourceSha256}" FontSize="12" Classes="mono" FontWeight="Bold" Foreground="{DynamicResource TextMutedBrush}" Margin="0,12,0,0" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
             </Grid>

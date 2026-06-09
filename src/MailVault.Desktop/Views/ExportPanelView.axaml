@@ -6,68 +6,68 @@
              mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="800"
              x:Class="MailVault.Desktop.Views.ExportPanelView"
              x:DataType="vm:ExportPanelViewModel">
-    <ScrollViewer Padding="30" Background="{StaticResource BgAppBrush}">
+    <ScrollViewer Padding="30" Background="{DynamicResource BgAppBrush}">
         <StackPanel Spacing="25" MaxWidth="700" HorizontalAlignment="Left">
-            <TextBlock Text="Exportar E-mails" FontSize="26" FontWeight="Black" Foreground="{StaticResource TextPrimaryBrush}"/>
-            <TextBlock Text="Gere cópias das mensagens recuperadas em EML ou MBOX, prontas para abrir em qualquer cliente de e-mail." FontSize="13" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
+            <TextBlock Text="Exportar E-mails" FontSize="26" FontWeight="Black" Foreground="{DynamicResource TextPrimaryBrush}"/>
+            <TextBlock Text="Gere cópias das mensagens recuperadas em EML ou MBOX, prontas para abrir em qualquer cliente de e-mail." FontSize="13" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
 
             <Border Theme="{StaticResource Card}" CornerRadius="12" Padding="25">
                 <StackPanel Spacing="20">
-                    <TextBlock Text="CONFIGURAÇÕES DO JOB DE EXPORTAÇÃO" FontSize="12" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" LetterSpacing="0.5"/>
+                    <TextBlock Text="CONFIGURAÇÕES DO JOB DE EXPORTAÇÃO" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" LetterSpacing="0.5"/>
 
                     <StackPanel Spacing="8">
-                        <TextBlock Text="Formato de Destino" FontSize="11" Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold"/>
-                        <ComboBox SelectedItem="{Binding ExportFormat, Mode=TwoWay}" Background="{StaticResource BgInputBrush}" Foreground="{StaticResource TextPrimaryBrush}" Width="200" Padding="10">
+                        <TextBlock Text="Formato de Destino" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" FontWeight="Bold"/>
+                        <ComboBox SelectedItem="{Binding ExportFormat, Mode=TwoWay}" Background="{DynamicResource BgInputBrush}" Foreground="{DynamicResource TextPrimaryBrush}" Width="200" Padding="10">
                             <x:String>eml</x:String>
                             <x:String>mbox</x:String>
                         </ComboBox>
                     </StackPanel>
 
                     <StackPanel Spacing="8">
-                        <TextBlock Text="Caminho da Pasta de Exportação" FontSize="11" Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold"/>
+                        <TextBlock Text="Caminho da Pasta de Exportação" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" FontWeight="Bold"/>
                         <TextBox Text="{Binding ExportPath, Mode=TwoWay}" Watermark="Ex: C:\cases\CASE-001\exports" Classes="mono"
-                                 Background="{StaticResource BgInputBrush}" Foreground="{StaticResource TextPrimaryBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" Padding="12" CornerRadius="6" FontSize="13"/>
+                                 Background="{DynamicResource BgInputBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" Padding="12" CornerRadius="6" FontSize="13"/>
                     </StackPanel>
 
-                    <CheckBox Content="Incluir e extrair anexos fisicamente" IsChecked="{Binding IncludeAttachments}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="13"/>
+                    <CheckBox Content="Incluir e extrair anexos fisicamente" IsChecked="{Binding IncludeAttachments}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"/>
 
                     <Button Theme="{StaticResource PrimaryButton}" Content="Iniciar Exportação" Command="{Binding RunExportCommand}"
                             Padding="14,10" FontSize="13" HorizontalAlignment="Left"/>
                 </StackPanel>
             </Border>
 
-            <Border Background="{StaticResource BgInputBrush}" CornerRadius="8" Padding="15" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1">
+            <Border Background="{DynamicResource BgInputBrush}" CornerRadius="8" Padding="15" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
                 <StackPanel Spacing="8">
-                    <TextBlock Text="CONSOLE FORENSE &amp; STATUS DE EXECUÇÃO" FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" LetterSpacing="0.5"/>
-                    <TextBlock Text="{Binding ExportStatus}" Classes="mono" FontSize="12" Foreground="{StaticResource WarningBrush}" TextWrapping="Wrap" LineHeight="18"/>
+                    <TextBlock Text="CONSOLE FORENSE &amp; STATUS DE EXECUÇÃO" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextMutedBrush}" LetterSpacing="0.5"/>
+                    <TextBlock Text="{Binding ExportStatus}" Classes="mono" FontSize="12" Foreground="{DynamicResource WarningBrush}" TextWrapping="Wrap" LineHeight="18"/>
                 </StackPanel>
             </Border>
 
             <!-- RECOVERY DIRECT EXPORT -->
-            <Border Background="{StaticResource BgSurfaceBrush}" CornerRadius="12" Padding="25" BorderBrush="{StaticResource SuccessBrush}" BorderThickness="1">
+            <Border Background="{DynamicResource BgSurfaceBrush}" CornerRadius="12" Padding="25" BorderBrush="{DynamicResource SuccessBrush}" BorderThickness="1">
                 <StackPanel Spacing="16">
                     <StackPanel Orientation="Horizontal" Spacing="10">
-                        <TextBlock Text="RECUPERAÇÃO DIRETA" FontSize="12" FontWeight="Bold" Foreground="{StaticResource SuccessBrush}" LetterSpacing="0.5"/>
+                        <TextBlock Text="RECUPERAÇÃO DIRETA" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource SuccessBrush}" LetterSpacing="0.5"/>
                         <ContentControl Theme="{StaticResource Badge}" Classes="success" Content="EML / MBOX"/>
                     </StackPanel>
 
                     <TextBlock Text="Extrai e-mails diretamente do arquivo de origem, sem depender do banco SQLite indexado. Ideal para recuperação rápida."
-                               FontSize="12" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
+                               FontSize="12" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
 
                     <!-- Source file -->
                     <StackPanel Spacing="6">
-                        <TextBlock Text="Arquivo de origem (do caso ativo)" FontSize="11" Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold"/>
-                        <Border Background="{StaticResource BgInputBrush}" CornerRadius="6" Padding="12,8" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1">
-                            <TextBlock Text="{Binding RecoverySourcePath}" Classes="mono" FontSize="11" Foreground="{StaticResource AccentBrush}"
+                        <TextBlock Text="Arquivo de origem (do caso ativo)" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" FontWeight="Bold"/>
+                        <Border Background="{DynamicResource BgInputBrush}" CornerRadius="6" Padding="12,8" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
+                            <TextBlock Text="{Binding RecoverySourcePath}" Classes="mono" FontSize="11" Foreground="{DynamicResource AccentBrush}"
                                        TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding RecoverySourcePath}"/>
                         </Border>
                     </StackPanel>
 
                     <!-- Output folder -->
                     <StackPanel Spacing="6">
-                        <TextBlock Text="Pasta de destino" FontSize="11" Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold"/>
+                        <TextBlock Text="Pasta de destino" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" FontWeight="Bold"/>
                         <TextBox Text="{Binding RecoveryOutputPath, Mode=TwoWay}" Classes="mono"
-                                 Background="{StaticResource BgInputBrush}" Foreground="{StaticResource TextPrimaryBrush}" BorderBrush="{StaticResource BorderSubtleBrush}"
+                                 Background="{DynamicResource BgInputBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
                                  Padding="12" CornerRadius="6" FontSize="13"/>
                     </StackPanel>
 
@@ -76,48 +76,48 @@
                         <Button Content="⬇ Exportar tudo para EML"
                                 Command="{Binding RecoverToEmlCommand}"
                                 IsEnabled="{Binding IsRecoveryIdle}"
-                                Background="{StaticResource SuccessBrush}" Foreground="White" FontWeight="Bold"
+                                Background="{DynamicResource SuccessBrush}" Foreground="White" FontWeight="Bold"
                                 Padding="14,10" CornerRadius="6" FontSize="13"/>
                         <Button Content="⬇ Exportar tudo para MBOX"
                                 Command="{Binding RecoverToMboxCommand}"
                                 IsEnabled="{Binding IsRecoveryIdle}"
-                                Background="{StaticResource InfoBrush}" Foreground="White" FontWeight="Bold"
+                                Background="{DynamicResource InfoBrush}" Foreground="White" FontWeight="Bold"
                                 Padding="14,10" CornerRadius="6" FontSize="13"/>
                     </StackPanel>
 
                     <!-- Progress counters (visible while running) -->
                     <Grid ColumnDefinitions="*, *, *, *" IsVisible="{Binding IsRecoveryRunning}" Margin="0,4,0,0">
-                        <Border Grid.Column="0" Background="{StaticResource SuccessSubtleBrush}" CornerRadius="6" Padding="10,8" Margin="0,0,4,0" BorderBrush="{StaticResource SuccessBrush}" BorderThickness="1">
+                        <Border Grid.Column="0" Background="{DynamicResource SuccessSubtleBrush}" CornerRadius="6" Padding="10,8" Margin="0,0,4,0" BorderBrush="{DynamicResource SuccessBrush}" BorderThickness="1">
                             <StackPanel Spacing="2">
-                                <TextBlock Text="Exportados" FontSize="10" Foreground="{StaticResource TextMutedBrush}"/>
-                                <TextBlock Text="{Binding RecoveryExported}" FontSize="20" FontWeight="Black" Foreground="{StaticResource SuccessBrush}"/>
+                                <TextBlock Text="Exportados" FontSize="10" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock Text="{Binding RecoveryExported}" FontSize="20" FontWeight="Black" Foreground="{DynamicResource SuccessBrush}"/>
                             </StackPanel>
                         </Border>
-                        <Border Grid.Column="1" Background="{StaticResource DangerSubtleBrush}" CornerRadius="6" Padding="10,8" Margin="4,0,4,0" BorderBrush="{StaticResource DangerBrush}" BorderThickness="1">
+                        <Border Grid.Column="1" Background="{DynamicResource DangerSubtleBrush}" CornerRadius="6" Padding="10,8" Margin="4,0,4,0" BorderBrush="{DynamicResource DangerBrush}" BorderThickness="1">
                             <StackPanel Spacing="2">
-                                <TextBlock Text="Falhas" FontSize="10" Foreground="{StaticResource TextMutedBrush}"/>
-                                <TextBlock Text="{Binding RecoveryFailed}" FontSize="20" FontWeight="Black" Foreground="{StaticResource DangerBrush}"/>
+                                <TextBlock Text="Falhas" FontSize="10" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock Text="{Binding RecoveryFailed}" FontSize="20" FontWeight="Black" Foreground="{DynamicResource DangerBrush}"/>
                             </StackPanel>
                         </Border>
-                        <Border Grid.Column="2" Background="{StaticResource InfoSubtleBrush}" CornerRadius="6" Padding="10,8" Margin="4,0,4,0" BorderBrush="{StaticResource InfoBrush}" BorderThickness="1">
+                        <Border Grid.Column="2" Background="{DynamicResource InfoSubtleBrush}" CornerRadius="6" Padding="10,8" Margin="4,0,4,0" BorderBrush="{DynamicResource InfoBrush}" BorderThickness="1">
                             <StackPanel Spacing="2">
-                                <TextBlock Text="Anexos" FontSize="10" Foreground="{StaticResource TextMutedBrush}"/>
-                                <TextBlock Text="{Binding RecoveryAttachmentsExported}" FontSize="20" FontWeight="Black" Foreground="{StaticResource InfoBrush}"/>
+                                <TextBlock Text="Anexos" FontSize="10" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock Text="{Binding RecoveryAttachmentsExported}" FontSize="20" FontWeight="Black" Foreground="{DynamicResource InfoBrush}"/>
                             </StackPanel>
                         </Border>
-                        <Border Grid.Column="3" Background="{StaticResource ExperimentalSubtleBrush}" CornerRadius="6" Padding="10,8" Margin="4,0,0,0" BorderBrush="{StaticResource ExperimentalBrush}" BorderThickness="1">
+                        <Border Grid.Column="3" Background="{DynamicResource ExperimentalSubtleBrush}" CornerRadius="6" Padding="10,8" Margin="4,0,0,0" BorderBrush="{DynamicResource ExperimentalBrush}" BorderThickness="1">
                             <StackPanel Spacing="2">
-                                <TextBlock Text="Tempo" FontSize="10" Foreground="{StaticResource TextMutedBrush}"/>
-                                <TextBlock Text="{Binding RecoveryElapsedText}" Classes="mono" FontSize="14" FontWeight="Bold" Foreground="{StaticResource ExperimentalBrush}" VerticalAlignment="Center"/>
+                                <TextBlock Text="Tempo" FontSize="10" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock Text="{Binding RecoveryElapsedText}" Classes="mono" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource ExperimentalBrush}" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Border>
                     </Grid>
 
                     <!-- Status console -->
-                    <Border Background="{StaticResource BgInputBrush}" CornerRadius="6" Padding="12,8" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1"
+                    <Border Background="{DynamicResource BgInputBrush}" CornerRadius="6" Padding="12,8" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
                             IsVisible="{Binding RecoveryStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                         <TextBlock Text="{Binding RecoveryStatus}" Classes="mono" FontSize="12"
-                                   Foreground="{StaticResource WarningBrush}" TextWrapping="Wrap" LineHeight="18"/>
+                                   Foreground="{DynamicResource WarningBrush}" TextWrapping="Wrap" LineHeight="18"/>
                     </Border>
 
                     <!-- Cancel / open folder -->

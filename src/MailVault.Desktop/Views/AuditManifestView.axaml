@@ -6,47 +6,47 @@
              mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="700"
              x:Class="MailVault.Desktop.Views.AuditManifestView"
              x:DataType="vm:AuditManifestViewModel">
-    <Border Background="{StaticResource BgAppBrush}" Padding="30">
+    <Border Background="{DynamicResource BgAppBrush}" Padding="30">
         <Grid RowDefinitions="Auto, *">
             <StackPanel Grid.Row="0" Spacing="8" Margin="0,0,0,20">
-                <TextBlock Text="Relatórios do Caso" FontSize="26" FontWeight="Black" Foreground="{StaticResource TextPrimaryBrush}"/>
-                <TextBlock Text="Consulte o registro de atividades e os relatórios gerados para este caso." FontSize="13" Foreground="{StaticResource TextMutedBrush}"/>
-                <TextBlock Text="{Binding StatusText}" FontSize="12" Foreground="{StaticResource AccentBrush}"/>
+                <TextBlock Text="Relatórios do Caso" FontSize="26" FontWeight="Black" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <TextBlock Text="Consulte o registro de atividades e os relatórios gerados para este caso." FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                <TextBlock Text="{Binding StatusText}" FontSize="12" Foreground="{DynamicResource AccentBrush}"/>
             </StackPanel>
 
             <!-- Multi-tab file viewer -->
-            <TabControl Grid.Row="1" Background="{StaticResource BgSurfaceBrush}">
-                <TabItem Header="📄 audit.log" Foreground="{StaticResource TextPrimaryBrush}">
+            <TabControl Grid.Row="1" Background="{DynamicResource BgSurfaceBrush}">
+                <TabItem Header="📄 audit.log" Foreground="{DynamicResource TextPrimaryBrush}">
                     <Grid RowDefinitions="Auto, *">
                         <Button Grid.Row="0" Theme="{StaticResource OutlineButton}" Content="Copiar para Área de Transferência" Command="{Binding CopyAuditCommand}" Margin="10" Padding="12,6" HorizontalAlignment="Right"/>
-                        <Border Grid.Row="1" Background="{StaticResource BgInputBrush}" CornerRadius="8" Padding="15" Margin="10">
+                        <Border Grid.Row="1" Background="{DynamicResource BgInputBrush}" CornerRadius="8" Padding="15" Margin="10">
                             <ScrollViewer>
-                                <TextBlock Text="{Binding AuditLogContent}" Classes="mono" FontSize="12" Foreground="{StaticResource SuccessBrush}" TextWrapping="Wrap"/>
+                                <TextBlock Text="{Binding AuditLogContent}" Classes="mono" FontSize="12" Foreground="{DynamicResource SuccessBrush}" TextWrapping="Wrap"/>
                             </ScrollViewer>
                         </Border>
                     </Grid>
                 </TabItem>
-                <TabItem Header="⚙️ manifest.json" Foreground="{StaticResource TextPrimaryBrush}">
+                <TabItem Header="⚙️ manifest.json" Foreground="{DynamicResource TextPrimaryBrush}">
                     <Grid RowDefinitions="Auto, *">
                         <Button Grid.Row="0" Theme="{StaticResource OutlineButton}" Content="Copiar Manifesto" Command="{Binding CopyManifestCommand}" Margin="10" Padding="12,6" HorizontalAlignment="Right"/>
-                        <Border Grid.Row="1" Background="{StaticResource BgInputBrush}" CornerRadius="8" Padding="15" Margin="10">
+                        <Border Grid.Row="1" Background="{DynamicResource BgInputBrush}" CornerRadius="8" Padding="15" Margin="10">
                             <ScrollViewer>
-                                <TextBlock Text="{Binding ManifestContent}" Classes="mono" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+                                <TextBlock Text="{Binding ManifestContent}" Classes="mono" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
                             </ScrollViewer>
                         </Border>
                     </Grid>
                 </TabItem>
-                <TabItem Header="📦 export-manifest.json" Foreground="{StaticResource TextPrimaryBrush}">
-                    <Border Background="{StaticResource BgInputBrush}" CornerRadius="8" Padding="15" Margin="10">
+                <TabItem Header="📦 export-manifest.json" Foreground="{DynamicResource TextPrimaryBrush}">
+                    <Border Background="{DynamicResource BgInputBrush}" CornerRadius="8" Padding="15" Margin="10">
                         <ScrollViewer>
-                            <TextBlock Text="{Binding ExportManifestContent}" Classes="mono" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding ExportManifestContent}" Classes="mono" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
                         </ScrollViewer>
                     </Border>
                 </TabItem>
-                <TabItem Header="✔️ validation-report.json" Foreground="{StaticResource TextPrimaryBrush}">
-                    <Border Background="{StaticResource BgInputBrush}" CornerRadius="8" Padding="15" Margin="10">
+                <TabItem Header="✔️ validation-report.json" Foreground="{DynamicResource TextPrimaryBrush}">
+                    <Border Background="{DynamicResource BgInputBrush}" CornerRadius="8" Padding="15" Margin="10">
                         <ScrollViewer>
-                            <TextBlock Text="{Binding ValidationReportContent}" Classes="mono" FontSize="12" Foreground="{StaticResource WarningBrush}" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding ValidationReportContent}" Classes="mono" FontSize="12" Foreground="{DynamicResource WarningBrush}" TextWrapping="Wrap"/>
                         </ScrollViewer>
                     </Border>
                 </TabItem>

@@ -7,12 +7,12 @@
              mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="700"
              x:Class="MailVault.Desktop.Views.SearchView"
              x:DataType="vm:SearchViewModel">
-    <Grid RowDefinitions="Auto, *" Background="{StaticResource BgAppBrush}">
+    <Grid RowDefinitions="Auto, *" Background="{DynamicResource BgAppBrush}">
         <!-- Top Search Bar -->
-        <Border Grid.Row="0" Background="{StaticResource BgSurfaceAltBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="0,0,0,1" Padding="20">
+        <Border Grid.Row="0" Background="{DynamicResource BgSurfaceAltBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,0,1" Padding="20">
             <Grid ColumnDefinitions="*, Auto">
                 <TextBox Grid.Column="0" Text="{Binding SearchQuery, Mode=TwoWay}" Watermark="Digite um termo de busca nos e-mails indexados..."
-                         Background="{StaticResource BgInputBrush}" Foreground="{StaticResource TextPrimaryBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" Padding="12" CornerRadius="6" FontSize="13">
+                         Background="{DynamicResource BgInputBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" Padding="12" CornerRadius="6" FontSize="13">
                     <TextBox.KeyBindings>
                         <KeyBinding Gesture="Enter" Command="{Binding SearchCommand}"/>
                     </TextBox.KeyBindings>
@@ -24,22 +24,22 @@
 
         <Grid Grid.Row="1" ColumnDefinitions="450, 4, *">
             <!-- Left: Results List -->
-            <Border Grid.Column="0" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="0,0,1,0">
+            <Border Grid.Column="0" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,1,0">
                 <Grid RowDefinitions="Auto, *">
-                    <Border Grid.Row="0" Height="30" Background="{StaticResource BgInputBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="0,0,0,1" Padding="12,0">
-                        <TextBlock Text="{Binding StatusText}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center"/>
+                    <Border Grid.Row="0" Height="30" Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,0,1" Padding="12,0">
+                        <TextBlock Text="{Binding StatusText}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"/>
                     </Border>
                     <ListBox Grid.Row="1" ItemsSource="{Binding Results}" SelectedItem="{Binding SelectedMessage, Mode=TwoWay}" Background="Transparent">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="domain:MailItem">
-                                <Border BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="0,0,0,1" Padding="5,8">
+                                <Border BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,0,1" Padding="5,8">
                                     <Grid RowDefinitions="Auto, Auto, Auto" ColumnDefinitions="*, Auto">
-                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Subject}" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" FontSize="13" TextTrimming="CharacterEllipsis"/>
-                                        <TextBlock Grid.Row="0" Grid.Column="1" Text="📎" IsVisible="{Binding Attachments.Count}" Foreground="{StaticResource AccentBrush}" Margin="5,0,0,0"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Subject}" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="1" Text="📎" IsVisible="{Binding Attachments.Count}" Foreground="{DynamicResource AccentBrush}" Margin="5,0,0,0"/>
 
-                                        <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding From.Address}" Foreground="{StaticResource TextMutedBrush}" FontSize="11" TextTrimming="CharacterEllipsis" Margin="0,3,0,0"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding From.Address}" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" TextTrimming="CharacterEllipsis" Margin="0,3,0,0"/>
 
-                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding SentAt, StringFormat='\{0:g\}'}" Classes="mono" Foreground="{StaticResource TextMutedBrush}" FontSize="10" Margin="0,3,0,0"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding SentAt, StringFormat='\{0:g\}'}" Classes="mono" Foreground="{DynamicResource TextMutedBrush}" FontSize="10" Margin="0,3,0,0"/>
                                     </Grid>
                                 </Border>
                             </DataTemplate>
@@ -48,7 +48,7 @@
                 </Grid>
             </Border>
 
-            <GridSplitter Grid.Column="1" Width="4" Background="{StaticResource BorderSubtleBrush}" ResizeBehavior="PreviousAndNext"/>
+            <GridSplitter Grid.Column="1" Width="4" Background="{DynamicResource BorderSubtleBrush}" ResizeBehavior="PreviousAndNext"/>
 
             <!-- Right: Preview Panel -->
             <ContentControl Grid.Column="2" Content="{ReflectionBinding $parent[Window].DataContext.MessagePreviewVm}"/>

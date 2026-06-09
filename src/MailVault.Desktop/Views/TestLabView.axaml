@@ -7,15 +7,15 @@
              mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="700"
              x:Class="MailVault.Desktop.Views.TestLabView"
              x:DataType="vm:TestLabViewModel">
-    <Border Background="{StaticResource BgAppBrush}" Padding="30">
+    <Border Background="{DynamicResource BgAppBrush}" Padding="30">
         <Grid ColumnDefinitions="280, 4, *">
             <!-- Left: Corpus Explorer -->
             <Border Grid.Column="0" Theme="{StaticResource Card}" Padding="14">
                 <Grid RowDefinitions="Auto, Auto, *">
-                    <TextBlock Grid.Row="0" Text="TEST LAB CORPUS" FontSize="11" FontWeight="Black" Foreground="{StaticResource ExperimentalBrush}" Margin="0,0,0,10" LetterSpacing="1"/>
+                    <TextBlock Grid.Row="0" Text="TEST LAB CORPUS" FontSize="11" FontWeight="Black" Foreground="{DynamicResource ExperimentalBrush}" Margin="0,0,0,10" LetterSpacing="1"/>
 
                     <StackPanel Grid.Row="1" Spacing="10" Margin="0,0,0,15">
-                        <TextBox Text="{Binding CorpusFolderPath, Mode=TwoWay}" Watermark="Pasta do Corpus local" Classes="mono" FontSize="11" Background="{StaticResource BgInputBrush}" BorderBrush="{StaticResource BorderSubtleBrush}"/>
+                        <TextBox Text="{Binding CorpusFolderPath, Mode=TwoWay}" Watermark="Pasta do Corpus local" Classes="mono" FontSize="11" Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"/>
                         <Button Theme="{StaticResource OutlineButton}" Content="Criar estrutura padrão" Command="{Binding SetupStructureCommand}" HorizontalAlignment="Stretch" FontSize="11"/>
                         <Button Theme="{StaticResource GhostButton}" Content="Escanear pasta" Command="{Binding ScanCorpusCommand}" HorizontalAlignment="Stretch" FontSize="11"/>
                     </StackPanel>
@@ -23,11 +23,11 @@
                     <ListBox Grid.Row="2" ItemsSource="{Binding AvailableFiles}" SelectedItem="{Binding SelectedFile, Mode=TwoWay}" Background="Transparent">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="svc:CorpusFileRecord">
-                                <Border BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="0,0,0,1" Padding="4,8">
+                                <Border BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,0,1" Padding="4,8">
                                     <StackPanel Spacing="2">
-                                        <TextBlock Text="{Binding FileName}" Foreground="{StaticResource TextPrimaryBrush}" FontWeight="Bold" FontSize="12" TextTrimming="CharacterEllipsis"/>
-                                        <TextBlock Text="{Binding Category}" Foreground="{StaticResource ExperimentalBrush}" FontSize="10"/>
-                                        <TextBlock Text="{Binding SizeBytes, StringFormat='\{0:N0\} bytes'}" Classes="mono" Foreground="{StaticResource TextMutedBrush}" FontSize="9"/>
+                                        <TextBlock Text="{Binding FileName}" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="Bold" FontSize="12" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding Category}" Foreground="{DynamicResource ExperimentalBrush}" FontSize="10"/>
+                                        <TextBlock Text="{Binding SizeBytes, StringFormat='\{0:N0\} bytes'}" Classes="mono" Foreground="{DynamicResource TextMutedBrush}" FontSize="9"/>
                                     </StackPanel>
                                 </Border>
                             </DataTemplate>
@@ -44,24 +44,24 @@
                     <!-- Runner controls -->
                     <StackPanel Grid.Row="0" Spacing="10" Margin="0,0,0,15">
                         <StackPanel Orientation="Horizontal" Spacing="10">
-                            <TextBlock Text="TEST RUNNER E PIPELINES" FontSize="18" FontWeight="Black" Foreground="{StaticResource TextPrimaryBrush}"/>
+                            <TextBlock Text="TEST RUNNER E PIPELINES" FontSize="18" FontWeight="Black" Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <ContentControl Theme="{StaticResource Badge}" Classes="exp" Content="EXPERIMENTAL" VerticalAlignment="Center"/>
                         </StackPanel>
-                        <TextBlock Text="Configure a execução de rodadas completas no cofre local de testes." FontSize="12" Foreground="{StaticResource TextMutedBrush}"/>
+                        <TextBlock Text="Configure a execução de rodadas completas no cofre local de testes." FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
 
-                        <Border Background="{StaticResource WarningSubtleBrush}" BorderBrush="{StaticResource WarningBrush}" BorderThickness="1" CornerRadius="6" Padding="12">
-                            <TextBlock Text="⚠ SEGURANÇA: Use apenas arquivos de corpus locais não-confidenciais para testes técnicos." FontSize="11" Foreground="{StaticResource WarningBrush}" FontWeight="Bold"/>
+                        <Border Background="{DynamicResource WarningSubtleBrush}" BorderBrush="{DynamicResource WarningBrush}" BorderThickness="1" CornerRadius="6" Padding="12">
+                            <TextBlock Text="⚠ SEGURANÇA: Use apenas arquivos de corpus locais não-confidenciais para testes técnicos." FontSize="11" Foreground="{DynamicResource WarningBrush}" FontWeight="Bold"/>
                         </Border>
 
                         <Grid ColumnDefinitions="*, Auto, Auto" Margin="0,5,0,0">
-                            <TextBlock Grid.Column="0" Text="{Binding SelectedFile.FileName, FallbackValue='Selecione um arquivo de teste...'}" Foreground="{StaticResource TextPrimaryBrush}" FontWeight="Bold" VerticalAlignment="Center" FontSize="14"/>
-                            <Button Grid.Column="1" Content="Rodar Pipeline" Command="{Binding RunPipelineCommand}" IsEnabled="{Binding !IsPipelineRunning}" Background="{StaticResource SuccessBrush}" Foreground="White" FontWeight="Bold" Padding="16,8" CornerRadius="6" Margin="10,0,0,0"/>
+                            <TextBlock Grid.Column="0" Text="{Binding SelectedFile.FileName, FallbackValue='Selecione um arquivo de teste...'}" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="Bold" VerticalAlignment="Center" FontSize="14"/>
+                            <Button Grid.Column="1" Content="Rodar Pipeline" Command="{Binding RunPipelineCommand}" IsEnabled="{Binding !IsPipelineRunning}" Background="{DynamicResource SuccessBrush}" Foreground="White" FontWeight="Bold" Padding="16,8" CornerRadius="6" Margin="10,0,0,0"/>
                             <Button Grid.Column="2" Theme="{StaticResource DangerButton}" Content="Parar" Command="{Binding CancelPipelineCommand}" IsEnabled="{Binding IsPipelineRunning}" Padding="16,8" Margin="6,0,0,0"/>
                         </Grid>
 
                         <!-- Progress -->
                         <ProgressBar Theme="{StaticResource ProgressBarStripe}" Value="{Binding PipelinePercentage}" Margin="0,5,0,0"/>
-                        <TextBlock Text="{Binding PipelineStatusText}" FontSize="11" Foreground="{StaticResource ExperimentalBrush}" HorizontalAlignment="Center"/>
+                        <TextBlock Text="{Binding PipelineStatusText}" FontSize="11" Foreground="{DynamicResource ExperimentalBrush}" HorizontalAlignment="Center"/>
                     </StackPanel>
 
                     <!-- Middle: Logs & Summary -->
@@ -69,42 +69,42 @@
                         <!-- Summary & Engines diagnostic -->
                         <StackPanel Grid.Column="0" Spacing="10" Margin="0,0,6,0">
                             <!-- Summary result -->
-                            <Border Background="{StaticResource BgInputBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="6" Padding="15">
+                            <Border Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="6" Padding="15">
                                 <ScrollViewer Height="185">
                                     <StackPanel Spacing="12">
-                                        <TextBlock Text="RESUMO DA ÚLTIMA PIPELINE" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
+                                        <TextBlock Text="RESUMO DA ÚLTIMA PIPELINE" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextMutedBrush}"/>
 
-                                        <TextBlock Text="Nenhum pipeline rodado nesta sessão." Foreground="{StaticResource TextDisabledBrush}" FontSize="12" IsVisible="{Binding PipelineSummaryResult, Converter={x:Static ObjectConverters.IsNull}}"/>
+                                        <TextBlock Text="Nenhum pipeline rodado nesta sessão." Foreground="{DynamicResource TextDisabledBrush}" FontSize="12" IsVisible="{Binding PipelineSummaryResult, Converter={x:Static ObjectConverters.IsNull}}"/>
 
                                         <StackPanel Spacing="10" IsVisible="{Binding PipelineSummaryResult, Converter={x:Static ObjectConverters.IsNotNull}}">
-                                            <TextBlock Text="{Binding PipelineSummaryResult.CaseId, StringFormat='Case ID: \{0\}'}" Classes="mono" Foreground="{StaticResource TextPrimaryBrush}" FontWeight="Bold" FontSize="14"/>
-                                            <TextBlock Text="{Binding PipelineSummaryResult.Status, StringFormat='Status Pipeline: \{0\}'}" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" FontSize="12"/>
-                                            <TextBlock Text="{Binding PipelineSummaryResult.ValidationStatus, StringFormat='Status Validação: \{0\}'}" Foreground="{StaticResource SuccessBrush}" FontSize="12"/>
-                                            <TextBlock Text="{Binding PipelineSummaryResult.TotalDurationMs, StringFormat='Tempo Total: \{0\} ms'}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="12"/>
+                                            <TextBlock Text="{Binding PipelineSummaryResult.CaseId, StringFormat='Case ID: \{0\}'}" Classes="mono" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="Bold" FontSize="14"/>
+                                            <TextBlock Text="{Binding PipelineSummaryResult.Status, StringFormat='Status Pipeline: \{0\}'}" Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" FontSize="12"/>
+                                            <TextBlock Text="{Binding PipelineSummaryResult.ValidationStatus, StringFormat='Status Validação: \{0\}'}" Foreground="{DynamicResource SuccessBrush}" FontSize="12"/>
+                                            <TextBlock Text="{Binding PipelineSummaryResult.TotalDurationMs, StringFormat='Tempo Total: \{0\} ms'}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12"/>
 
-                                            <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,5"/>
+                                            <Border Height="1" Background="{DynamicResource BorderSubtleBrush}" Margin="0,5"/>
 
-                                            <TextBlock Text="{Binding PipelineSummaryResult.FoldersIndexed, StringFormat='Pastas Indexadas: \{0\}'}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="12"/>
-                                            <TextBlock Text="{Binding PipelineSummaryResult.MessagesIndexed, StringFormat='E-mails Mapeados: \{0\}'}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="12"/>
-                                            <TextBlock Text="{Binding PipelineSummaryResult.AttachmentsIndexed, StringFormat='Anexos Localizados: \{0\}'}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="12"/>
-                                            <TextBlock Text="{Binding PipelineSummaryResult.IssuesDetected, StringFormat='Divergências/Alertas: \{0\}'}" Foreground="{StaticResource WarningBrush}" FontSize="12"/>
-                                            <TextBlock Text="{Binding PipelineSummaryResult.MessagesExportedEml, StringFormat='Exportados EML: \{0\}'}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="12"/>
-                                            <TextBlock Text="{Binding PipelineSummaryResult.MessagesExportedMbox, StringFormat='Exportados MBOX: \{0\}'}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="12"/>
+                                            <TextBlock Text="{Binding PipelineSummaryResult.FoldersIndexed, StringFormat='Pastas Indexadas: \{0\}'}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12"/>
+                                            <TextBlock Text="{Binding PipelineSummaryResult.MessagesIndexed, StringFormat='E-mails Mapeados: \{0\}'}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12"/>
+                                            <TextBlock Text="{Binding PipelineSummaryResult.AttachmentsIndexed, StringFormat='Anexos Localizados: \{0\}'}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12"/>
+                                            <TextBlock Text="{Binding PipelineSummaryResult.IssuesDetected, StringFormat='Divergências/Alertas: \{0\}'}" Foreground="{DynamicResource WarningBrush}" FontSize="12"/>
+                                            <TextBlock Text="{Binding PipelineSummaryResult.MessagesExportedEml, StringFormat='Exportados EML: \{0\}'}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12"/>
+                                            <TextBlock Text="{Binding PipelineSummaryResult.MessagesExportedMbox, StringFormat='Exportados MBOX: \{0\}'}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12"/>
                                         </StackPanel>
                                     </StackPanel>
                                 </ScrollViewer>
                             </Border>
 
                             <!-- Reader Engines Diagnostic Panel -->
-                            <Border Background="{StaticResource BgInputBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="6" Padding="15">
+                            <Border Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="6" Padding="15">
                                 <StackPanel Spacing="10">
-                                    <TextBlock Text="MOTORES DE LEITURA REGISTRADOS" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
+                                    <TextBlock Text="MOTORES DE LEITURA REGISTRADOS" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextMutedBrush}"/>
 
                                     <!-- XstReader -->
                                     <Grid ColumnDefinitions="*, Auto" Margin="0,2">
                                         <StackPanel Grid.Column="0">
-                                            <TextBlock Text="XstReader Engine (.NET Native)" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
-                                            <TextBlock Text="{Binding XstVersion, StringFormat='Versão: \{0\}'}" FontSize="10" Foreground="{StaticResource TextMutedBrush}"/>
+                                            <TextBlock Text="XstReader Engine (.NET Native)" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <TextBlock Text="{Binding XstVersion, StringFormat='Versão: \{0\}'}" FontSize="10" Foreground="{DynamicResource TextMutedBrush}"/>
                                         </StackPanel>
                                         <ContentControl Grid.Column="1" Theme="{StaticResource Badge}" Classes="success" Content="ATIVO" IsVisible="{Binding XstAvailable}" VerticalAlignment="Top"/>
                                     </Grid>
@@ -112,9 +112,9 @@
                                     <!-- pffexport (libpff) -->
                                     <Grid ColumnDefinitions="*, Auto" Margin="0,2">
                                         <StackPanel Grid.Column="0">
-                                            <TextBlock Text="pffexport Engine (libpff)" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
-                                            <TextBlock Text="{Binding PffVersion, StringFormat='Versão: \{0\}'}" FontSize="10" Foreground="{StaticResource TextMutedBrush}"/>
-                                            <TextBlock Text="{Binding PffWarning}" FontSize="9" Foreground="{StaticResource WarningBrush}" TextWrapping="Wrap" IsVisible="{Binding PffWarning, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                            <TextBlock Text="pffexport Engine (libpff)" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <TextBlock Text="{Binding PffVersion, StringFormat='Versão: \{0\}'}" FontSize="10" Foreground="{DynamicResource TextMutedBrush}"/>
+                                            <TextBlock Text="{Binding PffWarning}" FontSize="9" Foreground="{DynamicResource WarningBrush}" TextWrapping="Wrap" IsVisible="{Binding PffWarning, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                                         </StackPanel>
                                         <ContentControl Grid.Column="1" Theme="{StaticResource Badge}" Classes="success" Content="DISPONÍVEL" IsVisible="{Binding PffAvailable}" VerticalAlignment="Top"/>
                                         <ContentControl Grid.Column="1" Theme="{StaticResource Badge}" Classes="danger" Content="AUSENTE" IsVisible="{Binding !PffAvailable}" VerticalAlignment="Top"/>
@@ -123,36 +123,36 @@
                                     <!-- readpst -->
                                     <Grid ColumnDefinitions="*, Auto" Margin="0,2">
                                         <StackPanel Grid.Column="0">
-                                            <TextBlock Text="readpst Engine (GPL Utility)" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
-                                            <TextBlock Text="{Binding ReadPstVersion, StringFormat='Versão: \{0\}'}" FontSize="10" Foreground="{StaticResource TextMutedBrush}"/>
-                                            <TextBlock Text="{Binding ReadPstWarning}" FontSize="9" Foreground="{StaticResource WarningBrush}" TextWrapping="Wrap" IsVisible="{Binding ReadPstWarning, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                            <TextBlock Text="readpst Engine (GPL Utility)" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <TextBlock Text="{Binding ReadPstVersion, StringFormat='Versão: \{0\}'}" FontSize="10" Foreground="{DynamicResource TextMutedBrush}"/>
+                                            <TextBlock Text="{Binding ReadPstWarning}" FontSize="9" Foreground="{DynamicResource WarningBrush}" TextWrapping="Wrap" IsVisible="{Binding ReadPstWarning, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                                         </StackPanel>
                                         <ContentControl Grid.Column="1" Theme="{StaticResource Badge}" Classes="success" Content="DISPONÍVEL" IsVisible="{Binding ReadPstAvailable}" VerticalAlignment="Top"/>
                                         <ContentControl Grid.Column="1" Theme="{StaticResource Badge}" Classes="danger" Content="AUSENTE" IsVisible="{Binding !ReadPstAvailable}" VerticalAlignment="Top"/>
                                     </Grid>
 
-                                    <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,5"/>
+                                    <Border Height="1" Background="{DynamicResource BorderSubtleBrush}" Margin="0,5"/>
 
                                     <!-- MailVault CLI Worker -->
                                     <Grid ColumnDefinitions="*, Auto" Margin="0,2">
                                         <StackPanel Grid.Column="0" Spacing="4">
-                                            <TextBlock Text="CLI Worker (MailVault.Cli)" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
-                                            <TextBlock Text="{Binding CliLaunchMode, StringFormat='Modo de Inicialização: \{0\}'}" FontSize="10" Foreground="{StaticResource TextMutedBrush}"/>
-                                            <TextBlock Text="{Binding CliResolvedPath, StringFormat='Executável Resolvido: \{0\}'}" Classes="mono" FontSize="9" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
-                                            <TextBlock Text="{Binding CliWorkingDirectory, StringFormat='Diretório de Trabalho: \{0\}'}" Classes="mono" FontSize="9" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
-                                            <TextBlock Text="{Binding CliAppBaseDir, StringFormat='App Base Dir: \{0\}'}" Classes="mono" FontSize="8" Foreground="{StaticResource TextDisabledBrush}" TextWrapping="Wrap"/>
-                                            <TextBlock Text="{Binding CliCurrentDir, StringFormat='Current Dir: \{0\}'}" Classes="mono" FontSize="8" Foreground="{StaticResource TextDisabledBrush}" TextWrapping="Wrap"/>
+                                            <TextBlock Text="CLI Worker (MailVault.Cli)" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <TextBlock Text="{Binding CliLaunchMode, StringFormat='Modo de Inicialização: \{0\}'}" FontSize="10" Foreground="{DynamicResource TextMutedBrush}"/>
+                                            <TextBlock Text="{Binding CliResolvedPath, StringFormat='Executável Resolvido: \{0\}'}" Classes="mono" FontSize="9" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
+                                            <TextBlock Text="{Binding CliWorkingDirectory, StringFormat='Diretório de Trabalho: \{0\}'}" Classes="mono" FontSize="9" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
+                                            <TextBlock Text="{Binding CliAppBaseDir, StringFormat='App Base Dir: \{0\}'}" Classes="mono" FontSize="8" Foreground="{DynamicResource TextDisabledBrush}" TextWrapping="Wrap"/>
+                                            <TextBlock Text="{Binding CliCurrentDir, StringFormat='Current Dir: \{0\}'}" Classes="mono" FontSize="8" Foreground="{DynamicResource TextDisabledBrush}" TextWrapping="Wrap"/>
 
-                                            <TextBlock Text="Caminhos de busca (Probed Paths):" FontSize="9" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" Margin="0,4,0,0"/>
+                                            <TextBlock Text="Caminhos de busca (Probed Paths):" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource TextMutedBrush}" Margin="0,4,0,0"/>
                                             <ItemsControl ItemsSource="{Binding ProbedPaths}">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate>
-                                                        <TextBlock Text="{Binding}" Classes="mono" FontSize="8" Foreground="{StaticResource TextDisabledBrush}" Margin="10,1,0,1" TextWrapping="Wrap"/>
+                                                        <TextBlock Text="{Binding}" Classes="mono" FontSize="8" Foreground="{DynamicResource TextDisabledBrush}" Margin="10,1,0,1" TextWrapping="Wrap"/>
                                                     </DataTemplate>
                                                 </ItemsControl.ItemTemplate>
                                             </ItemsControl>
 
-                                            <TextBlock Text="{Binding CliWarning}" FontSize="9" Foreground="{StaticResource WarningBrush}" TextWrapping="Wrap" IsVisible="{Binding CliWarning, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Margin="0,4,0,0"/>
+                                            <TextBlock Text="{Binding CliWarning}" FontSize="9" Foreground="{DynamicResource WarningBrush}" TextWrapping="Wrap" IsVisible="{Binding CliWarning, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Margin="0,4,0,0"/>
                                             <TextBlock Text="{Binding CliError}" FontSize="9" Foreground="#FCA5A5" TextWrapping="Wrap" IsVisible="{Binding CliError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Margin="0,4,0,0"/>
                                         </StackPanel>
 
@@ -164,9 +164,9 @@
                         </StackPanel>
 
                         <!-- Pipeline live logs -->
-                        <Border Grid.Column="1" Background="{StaticResource BgInputBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="6,0,0,0">
+                        <Border Grid.Column="1" Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="6,0,0,0">
                             <ScrollViewer>
-                                <TextBlock Text="{Binding PipelineLogsText}" Classes="mono" FontSize="11" Foreground="{StaticResource SuccessBrush}" TextWrapping="Wrap"/>
+                                <TextBlock Text="{Binding PipelineLogsText}" Classes="mono" FontSize="11" Foreground="{DynamicResource SuccessBrush}" TextWrapping="Wrap"/>
                             </ScrollViewer>
                         </Border>
                     </Grid>

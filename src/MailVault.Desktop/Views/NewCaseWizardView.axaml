@@ -6,29 +6,29 @@
              mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="700"
              x:Class="MailVault.Desktop.Views.NewCaseWizardView"
              x:DataType="vm:NewCaseWizardViewModel">
-    <Grid RowDefinitions="Auto, *" Background="{StaticResource BgAppBrush}" Margin="30">
+    <Grid RowDefinitions="Auto, *" Background="{DynamicResource BgAppBrush}" Margin="30">
         <!-- Header / Steps visualizer -->
         <Border Grid.Row="0" Theme="{StaticResource Card}" Margin="0,0,0,25" CornerRadius="10" Padding="20">
             <Grid ColumnDefinitions="*, *, *, *, *">
                 <StackPanel Grid.Column="0" HorizontalAlignment="Center">
-                    <TextBlock Text="STEP 1" FontSize="9" FontWeight="Black" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center"/>
-                    <TextBlock Text="Selecionar Origem" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="STEP 1" FontSize="9" FontWeight="Black" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Selecionar Origem" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1" HorizontalAlignment="Center">
-                    <TextBlock Text="STEP 2" FontSize="9" FontWeight="Black" Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Center"/>
-                    <TextBlock Text="Configurar Destino" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="STEP 2" FontSize="9" FontWeight="Black" Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Configurar Destino" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
                 </StackPanel>
                 <StackPanel Grid.Column="2" HorizontalAlignment="Center">
-                    <TextBlock Text="STEP 3" FontSize="9" FontWeight="Black" Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Center"/>
-                    <TextBlock Text="Confirmação" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="STEP 3" FontSize="9" FontWeight="Black" Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Confirmação" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
                 </StackPanel>
                 <StackPanel Grid.Column="3" HorizontalAlignment="Center">
-                    <TextBlock Text="STEP 4" FontSize="9" FontWeight="Black" Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Center"/>
-                    <TextBlock Text="Indexação Local" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="STEP 4" FontSize="9" FontWeight="Black" Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Indexação Local" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
                 </StackPanel>
                 <StackPanel Grid.Column="4" HorizontalAlignment="Center">
-                    <TextBlock Text="STEP 5" FontSize="9" FontWeight="Black" Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Center"/>
-                    <TextBlock Text="Conclusão" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="STEP 5" FontSize="9" FontWeight="Black" Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Conclusão" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -36,22 +36,22 @@
         <Grid Grid.Row="1" MaxWidth="800" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
             <!-- STEP 1 CONTENT -->
             <StackPanel Spacing="20" IsVisible="{Binding IsStep1}">
-                <TextBlock Text="1. Selecione o arquivo de e-mails" FontSize="20" FontWeight="Black" Foreground="{StaticResource TextPrimaryBrush}"/>
-                <TextBlock Text="O MailVault Recovery abre arquivos OST e PST em modo somente leitura. Nenhuma alteração é gravada no arquivo original." FontSize="13" Foreground="{StaticResource TextMutedBrush}"/>
+                <TextBlock Text="1. Selecione o arquivo de e-mails" FontSize="20" FontWeight="Black" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <TextBlock Text="O MailVault Recovery abre arquivos OST e PST em modo somente leitura. Nenhuma alteração é gravada no arquivo original." FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
 
                 <Grid ColumnDefinitions="*, Auto, Auto">
                     <TextBox Grid.Column="0" Text="{Binding SourcePath, Mode=TwoWay}" Watermark="Ex: C:\evidences\backup.ost ou diretório Thunderbird/MBOX/Maildir/EML" Classes="mono"
-                             Background="{StaticResource BgInputBrush}" Foreground="{StaticResource TextPrimaryBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" Padding="14" CornerRadius="6"/>
+                             Background="{DynamicResource BgInputBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" Padding="14" CornerRadius="6"/>
                     <Button Grid.Column="1" Theme="{StaticResource OutlineButton}" Content="Procurar Arquivo..." Command="{Binding SelectSourceFileCommand}" Margin="10,0,0,0" Padding="15,14"/>
                     <Button Grid.Column="2" Theme="{StaticResource OutlineButton}" Content="Procurar Pasta..." Command="{Binding SelectSourceFolderCommand}" Margin="10,0,0,0" Padding="15,14"/>
                 </Grid>
 
                 <Border Theme="{StaticResource Card}" Padding="15">
                     <StackPanel Spacing="8">
-                        <TextBlock Text="DETALHES DO ARQUIVO DE ORIGEM" FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
-                        <TextBlock Text="{Binding MaskedSourcePath, StringFormat='Caminho: \{0\}'}" Classes="mono" FontSize="12" Foreground="{StaticResource TextPrimaryBrush}"/>
-                        <TextBlock Text="{Binding SourceExtension, StringFormat='Formato Detectado: \{0\}'}" FontSize="12" Foreground="{StaticResource AccentBrush}"/>
-                        <TextBlock Text="{Binding SourceSize, StringFormat='Tamanho Físico: \{0:N0\} bytes'}" Classes="mono" FontSize="12" Foreground="{StaticResource TextPrimaryBrush}"/>
+                        <TextBlock Text="DETALHES DO ARQUIVO DE ORIGEM" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextMutedBrush}"/>
+                        <TextBlock Text="{Binding MaskedSourcePath, StringFormat='Caminho: \{0\}'}" Classes="mono" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="{Binding SourceExtension, StringFormat='Formato Detectado: \{0\}'}" FontSize="12" Foreground="{DynamicResource AccentBrush}"/>
+                        <TextBlock Text="{Binding SourceSize, StringFormat='Tamanho Físico: \{0:N0\} bytes'}" Classes="mono" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}"/>
                     </StackPanel>
                 </Border>
 
@@ -61,33 +61,33 @@
 
             <!-- STEP 2 CONTENT -->
             <StackPanel Spacing="20" IsVisible="{Binding IsStep2}">
-                <TextBlock Text="2. Configurações de Destino e Caso" FontSize="20" FontWeight="Black" Foreground="{StaticResource TextPrimaryBrush}"/>
+                <TextBlock Text="2. Configurações de Destino e Caso" FontSize="20" FontWeight="Black" Foreground="{DynamicResource TextPrimaryBrush}"/>
 
                 <StackPanel Spacing="8">
-                    <TextBlock Text="Identificador do Caso (Case ID)" FontSize="11" Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold"/>
+                    <TextBlock Text="Identificador do Caso (Case ID)" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" FontWeight="Bold"/>
                     <TextBox Text="{Binding CaseId, Mode=TwoWay}" Watermark="Ex: CASE-001" Classes="mono"
-                             Background="{StaticResource BgInputBrush}" Foreground="{StaticResource TextPrimaryBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" Padding="14" CornerRadius="6"/>
+                             Background="{DynamicResource BgInputBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" Padding="14" CornerRadius="6"/>
                 </StackPanel>
 
                 <StackPanel Spacing="8">
-                    <TextBlock Text="Motor de Leitura (Reader Engine)" FontSize="11" Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold"/>
+                    <TextBlock Text="Motor de Leitura (Reader Engine)" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" FontWeight="Bold"/>
                     <ComboBox ItemsSource="{Binding AvailableReaderEngines}" SelectedItem="{Binding SelectedReaderEngine, Mode=TwoWay}"
-                              Background="{StaticResource BgInputBrush}" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Stretch" Padding="10" CornerRadius="6">
+                              Background="{DynamicResource BgInputBrush}" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Stretch" Padding="10" CornerRadius="6">
                     </ComboBox>
                     <!-- Engine Description Panel -->
-                    <Border Background="{StaticResource InfoSubtleBrush}" BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" Padding="12" CornerRadius="6" Margin="0,5,0,0">
+                    <Border Background="{DynamicResource InfoSubtleBrush}" BorderBrush="{DynamicResource BorderStrongBrush}" BorderThickness="1" Padding="12" CornerRadius="6" Margin="0,5,0,0">
                         <StackPanel Spacing="4">
-                            <TextBlock Text="{Binding SelectedReaderEngineDisplayName}" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" FontSize="12"/>
-                            <TextBlock Text="{Binding SelectedReaderEngineDescription}" Foreground="{StaticResource TextMutedBrush}" FontSize="11" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding SelectedReaderEngineDisplayName}" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" FontSize="12"/>
+                            <TextBlock Text="{Binding SelectedReaderEngineDescription}" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" TextWrapping="Wrap"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>
 
                 <StackPanel Spacing="8">
-                    <TextBlock Text="Diretório de Armazenamento do Caso" FontSize="11" Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold"/>
+                    <TextBlock Text="Diretório de Armazenamento do Caso" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" FontWeight="Bold"/>
                     <Grid ColumnDefinitions="*, Auto">
                         <TextBox Grid.Column="0" Text="{Binding DestinationPath, Mode=TwoWay}" Watermark="Ex: C:\cases" Classes="mono"
-                                 Background="{StaticResource BgInputBrush}" Foreground="{StaticResource TextPrimaryBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" Padding="14" CornerRadius="6"/>
+                                 Background="{DynamicResource BgInputBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" Padding="14" CornerRadius="6"/>
                         <Button Grid.Column="1" Theme="{StaticResource OutlineButton}" Content="Procurar..." Command="{Binding SelectDestinationFolderCommand}" Margin="10,0,0,0" Padding="15,14"/>
                     </Grid>
                 </StackPanel>
@@ -100,42 +100,42 @@
 
             <!-- STEP 3 CONTENT -->
             <StackPanel Spacing="20" IsVisible="{Binding IsStep3}">
-                <TextBlock Text="3. Confirmação e privacidade" FontSize="20" FontWeight="Black" Foreground="{StaticResource TextPrimaryBrush}"/>
+                <TextBlock Text="3. Confirmação e privacidade" FontSize="20" FontWeight="Black" Foreground="{DynamicResource TextPrimaryBrush}"/>
 
-                <Border Background="{StaticResource WarningSubtleBrush}" BorderBrush="{StaticResource WarningBrush}" BorderThickness="1" CornerRadius="8" Padding="18">
+                <Border Background="{DynamicResource WarningSubtleBrush}" BorderBrush="{DynamicResource WarningBrush}" BorderThickness="1" CornerRadius="8" Padding="18">
                     <StackPanel Spacing="10">
-                        <TextBlock Text="🔒 PROCESSAMENTO LOCAL E PRIVACIDADE" FontSize="11" FontWeight="Bold" Foreground="{StaticResource WarningBrush}" LetterSpacing="0.5"/>
+                        <TextBlock Text="🔒 PROCESSAMENTO LOCAL E PRIVACIDADE" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource WarningBrush}" LetterSpacing="0.5"/>
                         <TextBlock Text="Ao prosseguir, o MailVault Recovery lê o arquivo original de forma offline e somente leitura. Nenhum e-mail é enviado para fora do seu computador. O corpo das mensagens é armazenado localmente no banco SQLite do caso." FontSize="12" Foreground="#FDE68A" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
 
-                <CheckBox IsChecked="{Binding DisclaimerAccepted}" Content="Compreendo que o arquivo será lido localmente, sem modificação e sem envio externo." Foreground="{StaticResource TextPrimaryBrush}" FontSize="13" Margin="0,10"/>
+                <CheckBox IsChecked="{Binding DisclaimerAccepted}" Content="Compreendo que o arquivo será lido localmente, sem modificação e sem envio externo." Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13" Margin="0,10"/>
 
                 <Grid ColumnDefinitions="Auto, *, Auto">
                     <Button Grid.Column="0" Theme="{StaticResource OutlineButton}" Content="Voltar" Command="{Binding BackCommand}" Padding="20,12"/>
                     <Button Grid.Column="2" Content="Iniciar Indexação" Command="{Binding NextCommand}" IsEnabled="{Binding CanProceedStep3}"
-                            Background="{StaticResource SuccessBrush}" Foreground="White" FontWeight="Bold" Padding="25,12" CornerRadius="6"/>
+                            Background="{DynamicResource SuccessBrush}" Foreground="White" FontWeight="Bold" Padding="25,12" CornerRadius="6"/>
                 </Grid>
             </StackPanel>
 
             <!-- STEP 4 CONTENT -->
             <Grid RowDefinitions="Auto, *, Auto" IsVisible="{Binding IsStep4}" Height="550">
                 <StackPanel Grid.Row="0" Spacing="8" Margin="0,0,0,15">
-                    <TextBlock Text="4. Processando indexação no SQLite..." FontSize="20" FontWeight="Black" Foreground="{StaticResource TextPrimaryBrush}"/>
+                    <TextBlock Text="4. Processando indexação no SQLite..." FontSize="20" FontWeight="Black" Foreground="{DynamicResource TextPrimaryBrush}"/>
                     <ProgressBar Theme="{StaticResource ProgressBarStripe}" Value="{Binding ProgressPercent}" Minimum="0" Maximum="100" Height="20" CornerRadius="10"/>
                     <Grid ColumnDefinitions="*, Auto, Auto, Auto" Margin="4,0">
-                        <TextBlock Text="{Binding ProgressDetailText}" FontSize="12" Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center"/>
-                        <TextBlock Grid.Column="1" Text="{Binding ElapsedText, StringFormat='⏱ \{0\}'}" FontSize="11" Foreground="{StaticResource TextMutedBrush}" FontWeight="Bold" Margin="15,0,0,0" IsVisible="{Binding ElapsedText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" VerticalAlignment="Center"/>
-                        <TextBlock Grid.Column="2" Text="{Binding ThroughputText, StringFormat='Velocidade: \{0\}'}" FontSize="11" Foreground="{StaticResource SuccessBrush}" FontWeight="Bold" Margin="15,0,0,0" IsVisible="{Binding ThroughputText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" VerticalAlignment="Center"/>
-                        <TextBlock Grid.Column="3" Text="{Binding EtaText, StringFormat='ETA: \{0\}'}" FontSize="11" Foreground="{StaticResource WarningBrush}" FontWeight="Bold" Margin="15,0,0,0" IsVisible="{Binding EtaText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding ProgressDetailText}" FontSize="12" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" Text="{Binding ElapsedText, StringFormat='⏱ \{0\}'}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" FontWeight="Bold" Margin="15,0,0,0" IsVisible="{Binding ElapsedText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="2" Text="{Binding ThroughputText, StringFormat='Velocidade: \{0\}'}" FontSize="11" Foreground="{DynamicResource SuccessBrush}" FontWeight="Bold" Margin="15,0,0,0" IsVisible="{Binding ThroughputText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="3" Text="{Binding EtaText, StringFormat='ETA: \{0\}'}" FontSize="11" Foreground="{DynamicResource WarningBrush}" FontWeight="Bold" Margin="15,0,0,0" IsVisible="{Binding EtaText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" VerticalAlignment="Center"/>
                     </Grid>
 
                     <!-- Watchdog Warning Card/Banner -->
-                    <Border Background="{StaticResource WarningSubtleBrush}" BorderBrush="{StaticResource WarningBrush}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,10,0,0" IsVisible="{Binding ShowWatchdogWarning}">
+                    <Border Background="{DynamicResource WarningSubtleBrush}" BorderBrush="{DynamicResource WarningBrush}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,10,0,0" IsVisible="{Binding ShowWatchdogWarning}">
                         <StackPanel Orientation="Horizontal" Spacing="10">
                             <TextBlock Text="⚠️" FontSize="18" VerticalAlignment="Center"/>
                             <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="LEITOR SEM RESPOSTA" FontSize="11" FontWeight="Bold" Foreground="{StaticResource WarningBrush}" LetterSpacing="0.5"/>
+                                <TextBlock Text="LEITOR SEM RESPOSTA" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource WarningBrush}" LetterSpacing="0.5"/>
                                 <TextBlock Text="O arquivo pode ser grande, moderno, corrompido ou incompatível com este motor. Aguardando atividade técnica..." FontSize="11" Foreground="#FDE68A" TextWrapping="Wrap" Width="500"/>
                                 <TextBlock Text="{Binding HeartbeatAge, StringFormat='Inatividade: \{0\} segundos'}" FontSize="10" Foreground="#FFE082" FontWeight="SemiBold" Margin="0,4,0,0"/>
                             </StackPanel>
@@ -147,68 +147,68 @@
                     <!-- Counters -->
                     <Border Grid.Column="0" Theme="{StaticResource Card}" Padding="15" Margin="0,0,5,0">
                         <StackPanel Spacing="10" VerticalAlignment="Center">
-                            <TextBlock Text="STATUS DAS MÉTRICAS" FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
+                            <TextBlock Text="STATUS DAS MÉTRICAS" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextMutedBrush}"/>
 
                             <Grid ColumnDefinitions="*, *" RowDefinitions="Auto, Auto">
                                 <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,3">
-                                    <TextBlock Text="Pastas" FontSize="10" Foreground="{StaticResource TextMutedBrush}"/>
-                                    <TextBlock Text="{Binding FoldersIndexed}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                    <TextBlock Text="Pastas" FontSize="10" Foreground="{DynamicResource TextMutedBrush}"/>
+                                    <TextBlock Text="{Binding FoldersIndexed}" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,3">
-                                    <TextBlock Text="Mensagens" FontSize="10" Foreground="{StaticResource TextMutedBrush}"/>
-                                    <TextBlock Text="{Binding MessagesIndexed}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                    <TextBlock Text="Mensagens" FontSize="10" Foreground="{DynamicResource TextMutedBrush}"/>
+                                    <TextBlock Text="{Binding MessagesIndexed}" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,3">
-                                    <TextBlock Text="Anexos" FontSize="10" Foreground="{StaticResource TextMutedBrush}"/>
-                                    <TextBlock Text="{Binding AttachmentsIndexed}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                    <TextBlock Text="Anexos" FontSize="10" Foreground="{DynamicResource TextMutedBrush}"/>
+                                    <TextBlock Text="{Binding AttachmentsIndexed}" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,3">
-                                    <TextBlock Text="Divergências" FontSize="10" Foreground="{StaticResource TextMutedBrush}"/>
-                                    <TextBlock Text="{Binding IssuesDetected}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource WarningBrush}"/>
+                                    <TextBlock Text="Divergências" FontSize="10" Foreground="{DynamicResource TextMutedBrush}"/>
+                                    <TextBlock Text="{Binding IssuesDetected}" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource WarningBrush}"/>
                                 </StackPanel>
                             </Grid>
 
-                            <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8"/>
-                            <TextBlock Text="TELEMETRIA DO LEITOR ISOLADO" FontSize="9" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
+                            <Border Height="1" Background="{DynamicResource BorderSubtleBrush}" Margin="0,8"/>
+                            <TextBlock Text="TELEMETRIA DO LEITOR ISOLADO" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource TextMutedBrush}"/>
 
                             <Grid ColumnDefinitions="*, *" RowDefinitions="Auto, Auto, Auto">
                                 <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,2">
-                                    <TextBlock Text="PID do Processo" FontSize="9" Foreground="{StaticResource TextMutedBrush}"/>
-                                    <TextBlock Text="{Binding WorkerPid, FallbackValue='N/A'}" Classes="mono" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}"/>
+                                    <TextBlock Text="PID do Processo" FontSize="9" Foreground="{DynamicResource TextMutedBrush}"/>
+                                    <TextBlock Text="{Binding WorkerPid, FallbackValue='N/A'}" Classes="mono" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,2">
-                                    <TextBlock Text="Motor de Leitura" FontSize="9" Foreground="{StaticResource TextMutedBrush}"/>
-                                    <TextBlock Text="{Binding WorkerEngine, FallbackValue='N/A'}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                    <TextBlock Text="Motor de Leitura" FontSize="9" Foreground="{DynamicResource TextMutedBrush}"/>
+                                    <TextBlock Text="{Binding WorkerEngine, FallbackValue='N/A'}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,2">
-                                    <TextBlock Text="Tipo de Trabalho" FontSize="9" Foreground="{StaticResource TextMutedBrush}"/>
-                                    <TextBlock Text="{Binding WorkerJobKind, FallbackValue='N/A'}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                    <TextBlock Text="Tipo de Trabalho" FontSize="9" Foreground="{DynamicResource TextMutedBrush}"/>
+                                    <TextBlock Text="{Binding WorkerJobKind, FallbackValue='N/A'}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,2">
-                                    <TextBlock Text="Fase Atual" FontSize="9" Foreground="{StaticResource TextMutedBrush}"/>
+                                    <TextBlock Text="Fase Atual" FontSize="9" Foreground="{DynamicResource TextMutedBrush}"/>
                                     <TextBlock Text="{Binding WorkerPhase, FallbackValue='N/A'}" FontSize="11" FontWeight="SemiBold" Foreground="#FFE082"/>
                                 </StackPanel>
                                 <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,2">
-                                    <TextBlock Text="Último Heartbeat" FontSize="9" Foreground="{StaticResource TextMutedBrush}"/>
-                                    <TextBlock Text="{Binding HeartbeatAge, StringFormat='\{0\}s'}" Classes="mono" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}"/>
+                                    <TextBlock Text="Último Heartbeat" FontSize="9" Foreground="{DynamicResource TextMutedBrush}"/>
+                                    <TextBlock Text="{Binding HeartbeatAge, StringFormat='\{0\}s'}" Classes="mono" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Row="2" Grid.Column="1" Margin="0,2">
-                                    <TextBlock Text="Timestamp Evento" FontSize="9" Foreground="{StaticResource TextMutedBrush}"/>
-                                    <TextBlock Text="{Binding WorkerLastEventTime, FallbackValue='N/A'}" Classes="mono" FontSize="9" FontWeight="SemiBold" Foreground="{StaticResource TextMutedBrush}" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="Timestamp Evento" FontSize="9" Foreground="{DynamicResource TextMutedBrush}"/>
+                                    <TextBlock Text="{Binding WorkerLastEventTime, FallbackValue='N/A'}" Classes="mono" FontSize="9" FontWeight="SemiBold" Foreground="{DynamicResource TextMutedBrush}" TextTrimming="CharacterEllipsis"/>
                                 </StackPanel>
                             </Grid>
                         </StackPanel>
                     </Border>
 
                     <!-- Live logs -->
-                    <Border Grid.Column="1" Background="{StaticResource BgInputBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="8" Padding="8" Margin="5,0,0,0">
+                    <Border Grid.Column="1" Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="8" Padding="8" Margin="5,0,0,0">
                         <ListBox Name="LogsListBox" ItemsSource="{Binding LogLines}"
                                  AttachedToVisualTree="LogsListBox_AttachedToVisualTree"
                                  DetachedFromVisualTree="LogsListBox_DetachedFromVisualTree"
                                  Background="Transparent" BorderThickness="0" Padding="0">
                             <ListBox.ItemTemplate>
                                 <DataTemplate DataType="{x:Type vm:LogLineViewModel}">
-                                    <TextBlock Text="{Binding Message}" Classes="mono" FontSize="11" Foreground="{StaticResource SuccessBrush}" TextWrapping="Wrap"/>
+                                    <TextBlock Text="{Binding Message}" Classes="mono" FontSize="11" Foreground="{DynamicResource SuccessBrush}" TextWrapping="Wrap"/>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                             <ListBox.Styles>
@@ -233,9 +233,9 @@
 
             <!-- STEP 5 CONTENT -->
             <StackPanel Spacing="20" IsVisible="{Binding IsStep5}">
-                <TextBlock Text="5. Resultado da Indexação" FontSize="20" FontWeight="Black" Foreground="{StaticResource TextPrimaryBrush}"/>
+                <TextBlock Text="5. Resultado da Indexação" FontSize="20" FontWeight="Black" Foreground="{DynamicResource TextPrimaryBrush}"/>
 
-                <Border Background="{StaticResource SuccessSubtleBrush}" BorderBrush="{StaticResource SuccessBrush}" BorderThickness="1" CornerRadius="8" Padding="20" IsVisible="{Binding IndexingError, Converter={x:Static ObjectConverters.IsNull}}">
+                <Border Background="{DynamicResource SuccessSubtleBrush}" BorderBrush="{DynamicResource SuccessBrush}" BorderThickness="1" CornerRadius="8" Padding="20" IsVisible="{Binding IndexingError, Converter={x:Static ObjectConverters.IsNull}}">
                     <StackPanel Spacing="10">
                         <TextBlock Text="✓ ÍNDICE GERADO COM SUCESSO!" FontSize="16" FontWeight="Black" Foreground="#A5D6A7"/>
                         <TextBlock Text="O cofre SQLite foi construído e validado com sucesso. Todos os e-mails estão mapeados e prontos para navegação offline." FontSize="12" Foreground="#A5D6A7" TextWrapping="Wrap"/>
@@ -243,7 +243,7 @@
                 </Border>
 
                 <!-- Standard Failure border -->
-                <Border Background="{StaticResource DangerSubtleBrush}" BorderBrush="{StaticResource DangerBrush}" BorderThickness="1" CornerRadius="8" Padding="20" IsVisible="{Binding ShowStandardFailureButtons}">
+                <Border Background="{DynamicResource DangerSubtleBrush}" BorderBrush="{DynamicResource DangerBrush}" BorderThickness="1" CornerRadius="8" Padding="20" IsVisible="{Binding ShowStandardFailureButtons}">
                     <StackPanel Spacing="10">
                         <TextBlock Text="❌ FALHA NO PROCESSAMENTO" FontSize="16" FontWeight="Black" Foreground="#FCA5A5"/>
                         <TextBlock Text="{Binding IndexingError}" FontSize="12" Foreground="#FCA5A5" TextWrapping="Wrap"/>
@@ -251,7 +251,7 @@
                 </Border>
 
                 <!-- NATIVE FALLBACK FAILURE PANEL -->
-                <Border Background="#2D1B1B" BorderBrush="{StaticResource DangerBrush}" BorderThickness="1" CornerRadius="8" Padding="20" IsVisible="{Binding IsNativeToolFailure}">
+                <Border Background="#2D1B1B" BorderBrush="{DynamicResource DangerBrush}" BorderThickness="1" CornerRadius="8" Padding="20" IsVisible="{Binding IsNativeToolFailure}">
                     <StackPanel Spacing="15">
                         <StackPanel Spacing="5">
                             <TextBlock Text="⚠️ Recuperação nativa não conseguiu exportar este OST" FontSize="16" FontWeight="Black" Foreground="#FCA5A5"/>
@@ -260,27 +260,27 @@
 
                         <Border Background="#1E1313" CornerRadius="6" Padding="12">
                             <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto, Auto, Auto, Auto" Margin="0">
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="pffinfo reconheceu o arquivo:  " Foreground="{StaticResource TextMutedBrush}" FontSize="11" FontWeight="Bold" Margin="0,4"/>
-                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding PffInfoRecognized}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" Margin="0,4"/>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="pffinfo reconheceu o arquivo:  " Foreground="{DynamicResource TextMutedBrush}" FontSize="11" FontWeight="Bold" Margin="0,4"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding PffInfoRecognized}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="11" Margin="0,4"/>
 
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Tipo estrutural:  " Foreground="{StaticResource TextMutedBrush}" FontSize="11" FontWeight="Bold" Margin="0,4"/>
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding PffInfoFileType}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" Margin="0,4"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Tipo estrutural:  " Foreground="{DynamicResource TextMutedBrush}" FontSize="11" FontWeight="Bold" Margin="0,4"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding PffInfoFileType}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="11" Margin="0,4"/>
 
-                                <TextBlock Grid.Row="2" Grid.Column="0" Text="pffexport exit code:  " Foreground="{StaticResource TextMutedBrush}" FontSize="11" FontWeight="Bold" Margin="0,4"/>
-                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding PffExportExitCode}" Classes="mono" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" Margin="0,4"/>
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="pffexport exit code:  " Foreground="{DynamicResource TextMutedBrush}" FontSize="11" FontWeight="Bold" Margin="0,4"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding PffExportExitCode}" Classes="mono" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="11" Margin="0,4"/>
 
-                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Arquivos úteis gerados:  " Foreground="{StaticResource TextMutedBrush}" FontSize="11" FontWeight="Bold" Margin="0,4"/>
-                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding PffExportFileCount}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" Margin="0,4"/>
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Arquivos úteis gerados:  " Foreground="{DynamicResource TextMutedBrush}" FontSize="11" FontWeight="Bold" Margin="0,4"/>
+                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding PffExportFileCount}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="11" Margin="0,4"/>
                             </Grid>
                         </Border>
 
                         <StackPanel Spacing="5">
-                            <TextBlock Text="Causa Provável:" FontSize="11" Foreground="{StaticResource DangerBrush}" FontWeight="Bold"/>
+                            <TextBlock Text="Causa Provável:" FontSize="11" Foreground="{DynamicResource DangerBrush}" FontWeight="Bold"/>
                             <TextBlock Text="{Binding NativeFailureCause}" FontSize="12" Foreground="#FCA5A5" TextWrapping="Wrap"/>
                         </StackPanel>
 
                         <StackPanel Spacing="5">
-                            <TextBlock Text="Recomendação:" FontSize="11" Foreground="{StaticResource SuccessBrush}" FontWeight="Bold"/>
+                            <TextBlock Text="Recomendação:" FontSize="11" Foreground="{DynamicResource SuccessBrush}" FontWeight="Bold"/>
                             <TextBlock Text="{Binding NativeFailureRecommendation}" FontSize="12" Foreground="#A5D6A7" TextWrapping="Wrap"/>
                         </StackPanel>
                     </StackPanel>
@@ -288,10 +288,10 @@
 
                 <Border Theme="{StaticResource Card}" Padding="15">
                     <Grid ColumnDefinitions="*, *" RowDefinitions="Auto, Auto">
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding FoldersIndexed, StringFormat='Pastas Indexadas: \{0\}'}" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,5"/>
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding MessagesIndexed, StringFormat='E-mails Mapeados: \{0\}'}" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,5"/>
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding AttachmentsIndexed, StringFormat='Anexos Localizados: \{0\}'}" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,5"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding IssuesDetected, StringFormat='Divergências: \{0\}'}" Foreground="{StaticResource WarningBrush}" Margin="0,5"/>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding FoldersIndexed, StringFormat='Pastas Indexadas: \{0\}'}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,5"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding MessagesIndexed, StringFormat='E-mails Mapeados: \{0\}'}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,5"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding AttachmentsIndexed, StringFormat='Anexos Localizados: \{0\}'}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,5"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding IssuesDetected, StringFormat='Divergências: \{0\}'}" Foreground="{DynamicResource WarningBrush}" Margin="0,5"/>
                     </Grid>
                 </Border>
 
@@ -305,9 +305,9 @@
                 <StackPanel Spacing="12" IsVisible="{Binding ShowStandardFailureButtons}">
                     <WrapPanel HorizontalAlignment="Center" Margin="0,10,0,0">
                         <Button Content="🔄 Tentar Novamente" Command="{Binding RetryIndexingCommand}"
-                                Background="{StaticResource SuccessBrush}" Foreground="White" FontWeight="Bold" Padding="18,10" CornerRadius="6" Margin="6"/>
+                                Background="{DynamicResource SuccessBrush}" Foreground="White" FontWeight="Bold" Padding="18,10" CornerRadius="6" Margin="6"/>
                         <Button Content="➕ Novo Caso" Command="{Binding StartNewCaseCommand}"
-                                Background="{StaticResource InfoBrush}" Foreground="White" FontWeight="Bold" Padding="18,10" CornerRadius="6" Margin="6"/>
+                                Background="{DynamicResource InfoBrush}" Foreground="White" FontWeight="Bold" Padding="18,10" CornerRadius="6" Margin="6"/>
                         <Button Theme="{StaticResource OutlineButton}" Content="↩ Voltar ao Início" Command="{Binding BackToFirstStepCommand}" Padding="18,10" Margin="6"/>
                         <Button Theme="{StaticResource OutlineButton}" Content="📋 Copiar Erro Técnico" Command="{Binding CopyTechnicalErrorCommand}" Padding="18,10" Margin="6"/>
                         <Button Theme="{StaticResource OutlineButton}" Content="📂 Abrir Pasta do Caso" Command="{Binding OpenCaseFolderCommand}" Padding="18,10" Margin="6"/>
@@ -320,9 +320,9 @@
                         <Button Theme="{StaticResource OutlineButton}" Content="📄 Abrir Relatório Nativo" Command="{Binding OpenNativeReportCommand}" Padding="18,10" Margin="6"/>
                         <Button Theme="{StaticResource OutlineButton}" Content="📋 Copiar Diagnóstico" Command="{Binding CopyTechnicalErrorCommand}" Padding="18,10" Margin="6"/>
                         <Button Content="⚡ Tentar XstReader (Metadados)" Command="{Binding TryXstReaderCommand}"
-                                Background="{StaticResource SuccessBrush}" Foreground="White" FontWeight="Bold" Padding="18,10" CornerRadius="6" Margin="6"/>
+                                Background="{DynamicResource SuccessBrush}" Foreground="White" FontWeight="Bold" Padding="18,10" CornerRadius="6" Margin="6"/>
                         <Button Content="🔍 Tentar Modo Recuperado" Command="{Binding TryDeepRecoveryCommand}"
-                                Background="{StaticResource WarningBrush}" Foreground="White" FontWeight="Bold" Padding="18,10" CornerRadius="6" Margin="6"/>
+                                Background="{DynamicResource WarningBrush}" Foreground="White" FontWeight="Bold" Padding="18,10" CornerRadius="6" Margin="6"/>
                         <Button Theme="{StaticResource DangerButton}" Content="🔥 Tentar Modo Profundo (Tudo)" Command="{Binding TriggerDeepRecoveryWarningCommand}" Padding="18,10" Margin="6"/>
                         <Button Theme="{StaticResource OutlineButton}" Content="📂 Abrir Pasta do Caso" Command="{Binding OpenCaseFolderCommand}" Padding="18,10" Margin="6"/>
                         <Button Theme="{StaticResource OutlineButton}" Content="↩ Voltar ao Início" Command="{Binding BackToFirstStepCommand}" Padding="18,10" Margin="6"/>
@@ -333,11 +333,11 @@
 
         <!-- Deep Recovery Warning Confirmation Overlay -->
         <Grid Grid.Row="0" Grid.RowSpan="2" Background="#D8000000" IsVisible="{Binding ShowDeepRecoveryWarning}" VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
-            <Border Background="#1A0D0D" BorderBrush="{StaticResource DangerBrush}" BorderThickness="1.5" CornerRadius="12" Padding="25" Width="550" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Border Background="#1A0D0D" BorderBrush="{DynamicResource DangerBrush}" BorderThickness="1.5" CornerRadius="12" Padding="25" Width="550" HorizontalAlignment="Center" VerticalAlignment="Center">
                 <StackPanel Spacing="20">
                     <StackPanel Spacing="5">
-                        <TextBlock Text="🔥 CONFIRMAÇÃO OPERACIONAL EXPLICITA" FontSize="18" FontWeight="Black" Foreground="{StaticResource DangerBrush}" HorizontalAlignment="Center"/>
-                        <Border Height="2" Background="{StaticResource DangerBrush}" Margin="0,5"/>
+                        <TextBlock Text="🔥 CONFIRMAÇÃO OPERACIONAL EXPLICITA" FontSize="18" FontWeight="Black" Foreground="{DynamicResource DangerBrush}" HorizontalAlignment="Center"/>
+                        <Border Height="2" Background="{DynamicResource DangerBrush}" Margin="0,5"/>
                         <TextBlock Text="MODO DE RECUPERAÇÃO PROFUNDA (ALL)" FontSize="12" FontWeight="Bold" Foreground="#FCA5A5" HorizontalAlignment="Center"/>
                     </StackPanel>
 
@@ -345,17 +345,17 @@
                         <TextBlock Text="Você está prestes a ativar a extração nativa em modo irrestrito ('all'). Este modo possui as seguintes implicações técnicas e forenses:" FontSize="12" Foreground="#D1D5DB" TextWrapping="Wrap"/>
 
                         <Grid ColumnDefinitions="Auto, *" Margin="10,2">
-                            <TextBlock Grid.Column="0" Text="• " Foreground="{StaticResource DangerBrush}" Margin="0,0,8,0"/>
-                            <TextBlock Grid.Column="1" Text="A ferramenta tentará reconstruir órfãos e itens deletados diretamente das tabelas físicas do OST/PST." FontSize="11" Foreground="{StaticResource DangerBrush}" TextWrapping="Wrap"/>
+                            <TextBlock Grid.Column="0" Text="• " Foreground="{DynamicResource DangerBrush}" Margin="0,0,8,0"/>
+                            <TextBlock Grid.Column="1" Text="A ferramenta tentará reconstruir órfãos e itens deletados diretamente das tabelas físicas do OST/PST." FontSize="11" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap"/>
                         </Grid>
 
                         <Grid ColumnDefinitions="Auto, *" Margin="10,2">
-                            <TextBlock Grid.Column="0" Text="• " Foreground="{StaticResource DangerBrush}" Margin="0,0,8,0"/>
+                            <TextBlock Grid.Column="0" Text="• " Foreground="{DynamicResource DangerBrush}" Margin="0,0,8,0"/>
                             <TextBlock Grid.Column="1" Text="Risco aumentado de arquivos de saída corrompidos ou incoerentes fora do índice relacional principal." FontSize="11" Foreground="#D1D5DB" TextWrapping="Wrap"/>
                         </Grid>
 
                         <Grid ColumnDefinitions="Auto, *" Margin="10,2">
-                            <TextBlock Grid.Column="0" Text="• " Foreground="{StaticResource DangerBrush}" Margin="0,0,8,0"/>
+                            <TextBlock Grid.Column="0" Text="• " Foreground="{DynamicResource DangerBrush}" Margin="0,0,8,0"/>
                             <TextBlock Grid.Column="1" Text="O tempo de processamento pode aumentar significativamente em bases volumosas." FontSize="11" Foreground="#D1D5DB" TextWrapping="Wrap"/>
                         </Grid>
                     </StackPanel>

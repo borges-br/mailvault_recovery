@@ -6,8 +6,8 @@
 
     <!-- ===== Card — Border de superfície padrão ===== -->
     <ControlTheme x:Key="Card" TargetType="Border">
-        <Setter Property="Background" Value="{StaticResource BgSurfaceBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource BorderSubtleBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource BgSurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="8"/>
         <Setter Property="Padding" Value="16"/>
@@ -16,7 +16,7 @@
 
     <!-- Card elevado (hero / destaque) -->
     <ControlTheme x:Key="CardElevated" TargetType="Border" BasedOn="{StaticResource Card}">
-        <Setter Property="Background" Value="{StaticResource BgElevatedBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource BgElevatedBrush}"/>
         <Setter Property="CornerRadius" Value="12"/>
         <Setter Property="BoxShadow" Value="0 6 20 0 #73000000"/>
     </ControlTheme>
@@ -27,12 +27,12 @@
         <Setter Property="FontFamily" Value="{StaticResource FontUI}"/>
         <Setter Property="FontSize" Value="10"/>
         <Setter Property="FontWeight" Value="Bold"/>
-        <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
         <Setter Property="Template">
             <ControlTemplate>
                 <Border Name="PART_Badge"
-                        Background="{StaticResource BgElevatedBrush}"
-                        BorderBrush="{StaticResource BorderSubtleBrush}"
+                        Background="{DynamicResource BgElevatedBrush}"
+                        BorderBrush="{DynamicResource BorderSubtleBrush}"
                         BorderThickness="1"
                         CornerRadius="4"
                         Padding="8,3">
@@ -47,45 +47,45 @@
 
         <!-- variantes -->
         <Style Selector="^.accent">
-            <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
             <Style Selector="^ /template/ Border#PART_Badge">
-                <Setter Property="Background" Value="{StaticResource AccentGlowBrush}"/>
-                <Setter Property="BorderBrush" Value="{StaticResource AccentLineBrush}"/>
+                <Setter Property="Background" Value="{DynamicResource AccentGlowBrush}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource AccentLineBrush}"/>
             </Style>
         </Style>
         <Style Selector="^.success">
-            <Setter Property="Foreground" Value="{StaticResource SuccessBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}"/>
             <Style Selector="^ /template/ Border#PART_Badge">
-                <Setter Property="Background" Value="{StaticResource SuccessSubtleBrush}"/>
-                <Setter Property="BorderBrush" Value="{StaticResource SuccessBrush}"/>
+                <Setter Property="Background" Value="{DynamicResource SuccessSubtleBrush}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource SuccessBrush}"/>
             </Style>
         </Style>
         <Style Selector="^.warning">
-            <Setter Property="Foreground" Value="{StaticResource WarningBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource WarningBrush}"/>
             <Style Selector="^ /template/ Border#PART_Badge">
-                <Setter Property="Background" Value="{StaticResource WarningSubtleBrush}"/>
-                <Setter Property="BorderBrush" Value="{StaticResource WarningBrush}"/>
+                <Setter Property="Background" Value="{DynamicResource WarningSubtleBrush}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource WarningBrush}"/>
             </Style>
         </Style>
         <Style Selector="^.danger">
-            <Setter Property="Foreground" Value="{StaticResource DangerBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
             <Style Selector="^ /template/ Border#PART_Badge">
-                <Setter Property="Background" Value="{StaticResource DangerSubtleBrush}"/>
-                <Setter Property="BorderBrush" Value="{StaticResource DangerBrush}"/>
+                <Setter Property="Background" Value="{DynamicResource DangerSubtleBrush}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}"/>
             </Style>
         </Style>
         <Style Selector="^.info">
-            <Setter Property="Foreground" Value="{StaticResource InfoBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource InfoBrush}"/>
             <Style Selector="^ /template/ Border#PART_Badge">
-                <Setter Property="Background" Value="{StaticResource InfoSubtleBrush}"/>
-                <Setter Property="BorderBrush" Value="{StaticResource InfoBrush}"/>
+                <Setter Property="Background" Value="{DynamicResource InfoSubtleBrush}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource InfoBrush}"/>
             </Style>
         </Style>
         <Style Selector="^.exp">
-            <Setter Property="Foreground" Value="{StaticResource ExperimentalBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ExperimentalBrush}"/>
             <Style Selector="^ /template/ Border#PART_Badge">
-                <Setter Property="Background" Value="{StaticResource ExperimentalSubtleBrush}"/>
-                <Setter Property="BorderBrush" Value="{StaticResource ExperimentalBrush}"/>
+                <Setter Property="Background" Value="{DynamicResource ExperimentalSubtleBrush}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource ExperimentalBrush}"/>
             </Style>
         </Style>
     </ControlTheme>
@@ -94,13 +94,13 @@
     <ControlTheme x:Key="StatusDot" TargetType="Ellipse">
         <Setter Property="Width" Value="7"/>
         <Setter Property="Height" Value="7"/>
-        <Setter Property="Fill" Value="{StaticResource TextMutedBrush}"/>
-        <Style Selector="^.accent"><Setter Property="Fill" Value="{StaticResource AccentBrush}"/></Style>
-        <Style Selector="^.success"><Setter Property="Fill" Value="{StaticResource SuccessBrush}"/></Style>
-        <Style Selector="^.warning"><Setter Property="Fill" Value="{StaticResource WarningBrush}"/></Style>
-        <Style Selector="^.danger"><Setter Property="Fill" Value="{StaticResource DangerBrush}"/></Style>
-        <Style Selector="^.info"><Setter Property="Fill" Value="{StaticResource InfoBrush}"/></Style>
-        <Style Selector="^.exp"><Setter Property="Fill" Value="{StaticResource ExperimentalBrush}"/></Style>
+        <Setter Property="Fill" Value="{DynamicResource TextMutedBrush}"/>
+        <Style Selector="^.accent"><Setter Property="Fill" Value="{DynamicResource AccentBrush}"/></Style>
+        <Style Selector="^.success"><Setter Property="Fill" Value="{DynamicResource SuccessBrush}"/></Style>
+        <Style Selector="^.warning"><Setter Property="Fill" Value="{DynamicResource WarningBrush}"/></Style>
+        <Style Selector="^.danger"><Setter Property="Fill" Value="{DynamicResource DangerBrush}"/></Style>
+        <Style Selector="^.info"><Setter Property="Fill" Value="{DynamicResource InfoBrush}"/></Style>
+        <Style Selector="^.exp"><Setter Property="Fill" Value="{DynamicResource ExperimentalBrush}"/></Style>
     </ControlTheme>
 
     <!-- ===== NavButton — item de navegação da sidebar ===== -->
@@ -108,7 +108,7 @@
          Classe "active" marca o módulo atual com barra esquerda cyan. -->
     <ControlTheme x:Key="NavButton" TargetType="Button">
         <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
         <Setter Property="FontFamily" Value="{StaticResource FontUI}"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="FontWeight" Value="Medium"/>
@@ -137,21 +137,21 @@
         </Setter>
 
         <Style Selector="^:pointerover /template/ Border#PART_Root">
-            <Setter Property="Background" Value="{StaticResource BgElevatedBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource BgElevatedBrush}"/>
         </Style>
         <Style Selector="^:pointerover">
-            <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
         </Style>
 
         <!-- estado ativo -->
         <Style Selector="^.active /template/ Border#PART_Root">
-            <Setter Property="Background" Value="{StaticResource AccentGlowBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource AccentGlowBrush}"/>
         </Style>
         <Style Selector="^.active /template/ Border#PART_Bar">
-            <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
         </Style>
         <Style Selector="^.active">
-            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
 
@@ -162,14 +162,14 @@
 
     <!-- ===== ProgressBarStripe — barra com gradiente accent ===== -->
     <ControlTheme x:Key="ProgressBarStripe" TargetType="ProgressBar" BasedOn="{StaticResource {x:Type ProgressBar}}">
-        <Setter Property="Background" Value="{StaticResource BgInputBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource BgInputBrush}"/>
         <Setter Property="MinHeight" Value="10"/>
         <Setter Property="CornerRadius" Value="6"/>
         <Setter Property="Foreground">
             <Setter.Value>
                 <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
-                    <GradientStop Offset="0" Color="{StaticResource AccentStrongColor}"/>
-                    <GradientStop Offset="1" Color="{StaticResource AccentColor}"/>
+                    <GradientStop Offset="0" Color="{DynamicResource AccentStrongColor}"/>
+                    <GradientStop Offset="1" Color="{DynamicResource AccentColor}"/>
                 </LinearGradientBrush>
             </Setter.Value>
         </Setter>

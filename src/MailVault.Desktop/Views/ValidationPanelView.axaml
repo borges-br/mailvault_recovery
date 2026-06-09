@@ -6,51 +6,51 @@
              mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="700"
              x:Class="MailVault.Desktop.Views.ValidationPanelView"
              x:DataType="vm:ValidationPanelViewModel">
-    <ScrollViewer Padding="30" Background="{StaticResource BgAppBrush}">
+    <ScrollViewer Padding="30" Background="{DynamicResource BgAppBrush}">
         <StackPanel Spacing="25" MaxWidth="750" HorizontalAlignment="Left">
-            <TextBlock Text="Laboratório de Validação e Conformidade" FontSize="26" FontWeight="Black" Foreground="{StaticResource TextPrimaryBrush}"/>
-            <TextBlock Text="Compare a integridade estrutural e quantitativa entre os e-mails indexados no SQLite e os e-mails exportados física ou logicamente." FontSize="13" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
+            <TextBlock Text="Laboratório de Validação e Conformidade" FontSize="26" FontWeight="Black" Foreground="{DynamicResource TextPrimaryBrush}"/>
+            <TextBlock Text="Compare a integridade estrutural e quantitativa entre os e-mails indexados no SQLite e os e-mails exportados física ou logicamente." FontSize="13" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
 
             <Grid ColumnDefinitions="*, 15, *">
                 <!-- Validation Control Panel -->
                 <Border Grid.Column="0" Theme="{StaticResource Card}" CornerRadius="12" Padding="20">
                     <StackPanel Spacing="20">
-                        <TextBlock Text="ORQUESTRAÇÃO DE CONFORMIDADE" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" LetterSpacing="0.5"/>
-                        <TextBlock Text="Execute uma rodada completa de validação de dados em memória contra a pasta do caso ativa." FontSize="12" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
+                        <TextBlock Text="ORQUESTRAÇÃO DE CONFORMIDADE" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" LetterSpacing="0.5"/>
+                        <TextBlock Text="Execute uma rodada completa de validação de dados em memória contra a pasta do caso ativa." FontSize="12" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
 
                         <Button Content="Rodar Validação Completa" Command="{Binding RunValidationCommand}"
-                                Background="{StaticResource WarningBrush}" Foreground="White" FontWeight="Bold" Padding="14,10" CornerRadius="6" FontSize="13" HorizontalAlignment="Left"/>
+                                Background="{DynamicResource WarningBrush}" Foreground="White" FontWeight="Bold" Padding="14,10" CornerRadius="6" FontSize="13" HorizontalAlignment="Left"/>
                     </StackPanel>
                 </Border>
 
                 <!-- Summary Status Panel -->
                 <Border Grid.Column="2" Theme="{StaticResource Card}" CornerRadius="12" Padding="20">
                     <StackPanel Spacing="10">
-                        <TextBlock Text="STATUS DO RELATÓRIO" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" LetterSpacing="0.5"/>
+                        <TextBlock Text="STATUS DO RELATÓRIO" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextMutedBrush}" LetterSpacing="0.5"/>
 
-                        <Border CornerRadius="4" Padding="12,6" HorizontalAlignment="Left" Background="{StaticResource WarningSubtleBrush}" BorderBrush="{StaticResource WarningBrush}" BorderThickness="1">
-                            <TextBlock Text="{Binding ReportStatus}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource WarningBrush}"/>
+                        <Border CornerRadius="4" Padding="12,6" HorizontalAlignment="Left" Background="{DynamicResource WarningSubtleBrush}" BorderBrush="{DynamicResource WarningBrush}" BorderThickness="1">
+                            <TextBlock Text="{Binding ReportStatus}" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource WarningBrush}"/>
                         </Border>
 
-                        <TextBlock Text="{Binding ValidationStatus}" FontSize="12" Foreground="{StaticResource WarningBrush}" TextWrapping="Wrap" Margin="0,5,0,0"/>
+                        <TextBlock Text="{Binding ValidationStatus}" FontSize="12" Foreground="{DynamicResource WarningBrush}" TextWrapping="Wrap" Margin="0,5,0,0"/>
                     </StackPanel>
                 </Border>
             </Grid>
 
             <Border Theme="{StaticResource Card}" CornerRadius="12" Padding="20">
                 <StackPanel Spacing="15">
-                    <TextBlock Text="MÉTRICAS DETALHADAS DE RECUPERAÇÃO" FontSize="12" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" LetterSpacing="0.5"/>
-                    <Border Background="{StaticResource BgInputBrush}" CornerRadius="8" Padding="15" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1">
-                        <TextBlock Text="{Binding ReportMetrics}" Classes="mono" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" LineHeight="18"/>
+                    <TextBlock Text="MÉTRICAS DETALHADAS DE RECUPERAÇÃO" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" LetterSpacing="0.5"/>
+                    <Border Background="{DynamicResource BgInputBrush}" CornerRadius="8" Padding="15" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
+                        <TextBlock Text="{Binding ReportMetrics}" Classes="mono" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" LineHeight="18"/>
                     </Border>
                 </StackPanel>
             </Border>
 
             <Border Theme="{StaticResource Card}" CornerRadius="12" Padding="20">
                 <StackPanel Spacing="15">
-                    <TextBlock Text="ALERTAS E DIVERGÊNCIAS DETECTADAS" FontSize="12" FontWeight="Bold" Foreground="{StaticResource DangerBrush}" LetterSpacing="0.5"/>
-                    <Border Background="{StaticResource BgInputBrush}" CornerRadius="8" Padding="15" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1">
-                        <TextBlock Text="{Binding ReportWarningsErrors}" Classes="mono" FontSize="12" Foreground="{StaticResource WarningBrush}" TextWrapping="Wrap" LineHeight="18"/>
+                    <TextBlock Text="ALERTAS E DIVERGÊNCIAS DETECTADAS" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource DangerBrush}" LetterSpacing="0.5"/>
+                    <Border Background="{DynamicResource BgInputBrush}" CornerRadius="8" Padding="15" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
+                        <TextBlock Text="{Binding ReportWarningsErrors}" Classes="mono" FontSize="12" Foreground="{DynamicResource WarningBrush}" TextWrapping="Wrap" LineHeight="18"/>
                     </Border>
                 </StackPanel>
             </Border>

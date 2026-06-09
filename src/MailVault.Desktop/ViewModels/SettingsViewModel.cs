@@ -16,6 +16,7 @@ public sealed class SettingsViewModel : ViewModelBase
     private bool _darkTheme;
     private bool _advancedMode;
     private string _statusMessage = "";
+    private bool _themeInitialized;
 
     public string DefaultCaseFolder
     {
@@ -32,7 +33,16 @@ public sealed class SettingsViewModel : ViewModelBase
     public bool DarkTheme
     {
         get => _darkTheme;
-        set => this.RaiseAndSetIfChanged(ref _darkTheme, value);
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _darkTheme, value);
+            // Aplica e persiste na hora (toggle ao vivo), mas não durante o load inicial.
+            if (_themeInitialized)
+            {
+                ThemeService.Apply(value);
+                PersistThemeChoice();
+            }
+        }
     }
 
     public bool AdvancedMode
@@ -64,6 +74,14 @@ public sealed class SettingsViewModel : ViewModelBase
         PurgeCacheCommand = ReactiveCommand.Create(PurgeCache);
 
         LoadSettings();
+        _themeInitialized = true;
+    }
+
+    private void PersistThemeChoice()
+    {
+        var s = _settingsService.Load();
+        s.DarkTheme = DarkTheme;
+        _settingsService.Save(s);
     }
 
     private void LoadSettings()

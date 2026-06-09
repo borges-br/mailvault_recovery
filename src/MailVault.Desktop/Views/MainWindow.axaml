@@ -13,58 +13,61 @@
         Icon="/Assets/logo.png"
         Width="1200" Height="800"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource BgAppBrush}">
+        Background="{DynamicResource BgAppBrush}">
 
     <!-- Tipografia, transições e tema de navegação agora vêm de
          App.axaml + Assets/Tokens.axaml + Assets/Controls/*.axaml. -->
 
     <Grid RowDefinitions="Auto, Auto, *, Auto">
         <!-- FIXED TOPBAR (54px) -->
-        <Border Grid.Row="0" Height="54" Background="{StaticResource BgSurfaceAltBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="0,0,0,1">
+        <Border Grid.Row="0" Height="54" Background="{DynamicResource BgSurfaceAltBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,0,1">
             <Grid ColumnDefinitions="Auto, Auto, *, Auto">
-                <!-- Logo -->
-                <Image Grid.Column="0" Source="/Assets/logo.png" Width="34" Height="34" Margin="18,0,10,0" VerticalAlignment="Center"
-                       RenderOptions.BitmapInterpolationMode="HighQuality"/>
+                <!-- Logo em container escuro-violeta (premium e visível em ambos os temas) -->
+                <Border Grid.Column="0" Background="{DynamicResource LogoContainerBrush}" BorderBrush="{DynamicResource LogoContainerBorderBrush}" BorderThickness="1"
+                        CornerRadius="9" Width="40" Height="40" Margin="14,0,10,0" VerticalAlignment="Center">
+                    <Image Source="/Assets/logo.png" Width="28" Height="28" VerticalAlignment="Center" HorizontalAlignment="Center"
+                           RenderOptions.BitmapInterpolationMode="HighQuality"/>
+                </Border>
 
                 <!-- Brand + subtitle -->
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="MAILVAULT" FontWeight="ExtraBold" FontSize="15" Foreground="{StaticResource TextPrimaryBrush}" LetterSpacing="1.5"/>
-                        <TextBlock Text=" RECOVERY" FontWeight="ExtraBold" FontSize="15" Foreground="{StaticResource AccentBrush}" LetterSpacing="1.5"/>
+                        <TextBlock Text="MAILVAULT" FontWeight="ExtraBold" FontSize="15" Foreground="{DynamicResource TextPrimaryBrush}" LetterSpacing="1.5"/>
+                        <TextBlock Text=" RECOVERY" FontWeight="ExtraBold" FontSize="15" Foreground="{DynamicResource AccentBrush}" LetterSpacing="1.5"/>
                     </StackPanel>
-                    <TextBlock Text="Professional Email Recovery Console" FontSize="10" Foreground="{StaticResource TextMutedBrush}"/>
+                    <TextBlock Text="Professional Email Recovery Console" FontSize="10" Foreground="{DynamicResource TextMutedBrush}"/>
                 </StackPanel>
 
                 <!-- Breadcrumb + indicador global de indexação -->
                 <Grid Grid.Column="2" ColumnDefinitions="*, Auto" Margin="28,0">
-                    <TextBlock Grid.Column="0" Text="{Binding Breadcrumb}" Foreground="{StaticResource TextMutedBrush}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Grid.Column="0" Text="{Binding Breadcrumb}" Foreground="{DynamicResource TextMutedBrush}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
 
                     <!-- Em andamento: pílula accent, clicável para voltar ao progresso SEM reiniciar -->
                     <Button Grid.Column="1" Command="{Binding ShowIndexingProgressCommand}"
                             IsVisible="{Binding IsIndexingRunningIndicator}"
-                            Background="{StaticResource AccentGlowBrush}" BorderBrush="{StaticResource AccentBrush}" BorderThickness="1"
+                            Background="{DynamicResource AccentGlowBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
                             CornerRadius="14" Padding="12,5" Cursor="Hand" VerticalAlignment="Center"
                             ToolTip.Tip="Indexação em andamento — clique para voltar ao progresso">
                         <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                             <Ellipse Theme="{StaticResource StatusDot}" Classes="accent" VerticalAlignment="Center"/>
-                            <TextBlock Text="{Binding IndexingIndicatorText}" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding IndexingIndicatorText}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
 
                     <!-- Terminou enquanto o usuário estava em outra página: aviso clicável -->
                     <Button Grid.Column="1" Command="{Binding ShowIndexingProgressCommand}"
                             IsVisible="{Binding IsIndexingTerminalIndicator}"
-                            Background="{StaticResource BgElevatedBrush}" BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1"
+                            Background="{DynamicResource BgElevatedBrush}" BorderBrush="{DynamicResource BorderStrongBrush}" BorderThickness="1"
                             CornerRadius="14" Padding="12,5" Cursor="Hand" VerticalAlignment="Center"
                             ToolTip.Tip="Clique para ver o resultado da indexação">
-                        <TextBlock Text="{Binding IndexingIndicatorText}" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding IndexingIndicatorText}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                     </Button>
                 </Grid>
 
                 <!-- Actions -->
                 <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,18,0" Spacing="7">
                     <ContentControl Theme="{StaticResource Badge}" Content="🔒 Não altera o arquivo original"/>
-                    <Border Width="1" Height="22" Background="{StaticResource BorderSubtleBrush}" Margin="4,0"/>
+                    <Border Width="1" Height="22" Background="{DynamicResource BorderSubtleBrush}" Margin="4,0"/>
                     <Button Theme="{StaticResource PrimaryButton}" Content="Novo Caso" Command="{Binding ShowNewCaseWizardCommand}" Padding="14,7" FontSize="12"/>
                     <Button Theme="{StaticResource OutlineButton}" Content="Abrir" Command="{Binding OpenCaseFromTopbarCommand}" Padding="14,7" FontSize="12"/>
                     <Button Theme="{StaticResource GhostButton}" Content="⚙" Command="{Binding ShowSettingsCommand}" Padding="11,7" FontSize="14" ToolTip.Tip="Configurações"/>
@@ -103,26 +106,26 @@
         <!-- MAIN LAYOUT -->
         <Grid Grid.Row="2" ColumnDefinitions="Auto, *">
             <!-- SIDEBAR -->
-            <Border Grid.Column="0" Width="260" Background="{StaticResource BgSurfaceAltBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="0,0,1,0">
+            <Border Grid.Column="0" Width="260" Background="{DynamicResource BgSurfaceAltBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,1,0">
                 <Grid RowDefinitions="Auto, *, Auto">
                     <!-- Workspace Status Card -->
                     <Border Grid.Row="0" Theme="{StaticResource Card}" Margin="14,16,14,12">
                         <StackPanel Spacing="8">
-                            <TextBlock Text="WORKSPACE ATIVO" FontSize="10" FontWeight="Black" Foreground="{StaticResource TextMutedBrush}" LetterSpacing="1.2"/>
+                            <TextBlock Text="WORKSPACE ATIVO" FontSize="10" FontWeight="Black" Foreground="{DynamicResource TextMutedBrush}" LetterSpacing="1.2"/>
 
                             <StackPanel Spacing="3">
-                                <TextBlock Text="Case ID" FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
-                                <TextBlock Text="{Binding CaseId, FallbackValue='Sem caso ativo'}" Classes="mono" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="Case ID" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock Text="{Binding CaseId, FallbackValue='Sem caso ativo'}" Classes="mono" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
                             </StackPanel>
 
                             <Grid ColumnDefinitions="*, *">
                                 <StackPanel Grid.Column="0">
-                                    <TextBlock Text="Integridade" FontSize="10" Foreground="{StaticResource TextMutedBrush}"/>
-                                    <TextBlock Text="{Binding HealthStatus, FallbackValue='Desconectado'}" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
+                                    <TextBlock Text="Integridade" FontSize="10" Foreground="{DynamicResource TextMutedBrush}"/>
+                                    <TextBlock Text="{Binding HealthStatus, FallbackValue='Desconectado'}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" HorizontalAlignment="Right">
-                                    <TextBlock Text="Avisos" FontSize="10" Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Right"/>
-                                    <TextBlock Text="{Binding WarningsCount, FallbackValue='0'}" FontSize="11" FontWeight="Bold" Foreground="{StaticResource WarningBrush}" HorizontalAlignment="Right"/>
+                                    <TextBlock Text="Avisos" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Right"/>
+                                    <TextBlock Text="{Binding WarningsCount, FallbackValue='0'}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource WarningBrush}" HorizontalAlignment="Right"/>
                                 </StackPanel>
                             </Grid>
 
@@ -137,7 +140,7 @@
                     <!-- Nav Module Links -->
                     <ScrollViewer Grid.Row="1" Padding="10,0">
                         <StackPanel Spacing="2">
-                            <TextBlock Text="CASO" FontSize="9" FontWeight="Black" Foreground="{StaticResource TextDisabledBrush}" Margin="10,8,0,8" LetterSpacing="1.4"/>
+                            <TextBlock Text="CASO" FontSize="9" FontWeight="Black" Foreground="{DynamicResource TextDisabledBrush}" Margin="10,8,0,8" LetterSpacing="1.4"/>
 
                             <Button Theme="{StaticResource NavButton}" Content="📊 Dashboard do Caso" Command="{Binding ShowOverviewCommand}" IsEnabled="{Binding IsCaseLoaded}"/>
                             <Button Theme="{StaticResource NavButton}" Content="📁 Navegador de E-mails" Command="{Binding ShowBrowserCommand}" IsEnabled="{Binding IsCaseLoaded}"/>
@@ -146,31 +149,31 @@
                             <Button Theme="{StaticResource NavButton}" Content="✔️ Validação" Command="{Binding ShowValidationCommand}" IsEnabled="{Binding IsCaseLoaded}" IsVisible="{Binding IsDiagnosticModeEnabled}"/>
                             <Button Theme="{StaticResource NavButton}" Content="📄 Relatórios do Caso" Command="{Binding ShowAuditManifestCommand}" IsEnabled="{Binding IsCaseLoaded}" IsVisible="{Binding IsDiagnosticModeEnabled}"/>
 
-                            <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="8,8,8,8"/>
+                            <Border Height="1" Background="{DynamicResource BorderSubtleBrush}" Margin="8,8,8,8"/>
 
-                            <TextBlock Text="OPERAÇÕES" FontSize="9" FontWeight="Black" Foreground="{StaticResource TextDisabledBrush}" Margin="10,2,0,8" LetterSpacing="1.4"/>
+                            <TextBlock Text="OPERAÇÕES" FontSize="9" FontWeight="Black" Foreground="{DynamicResource TextDisabledBrush}" Margin="10,2,0,8" LetterSpacing="1.4"/>
 
                             <Button Theme="{StaticResource NavButton}" Content="⚡ Recuperação Rápida" Command="{Binding ShowQuickRecoveryCommand}"/>
                             <Button Theme="{StaticResource NavButton}" Content="🧪 Test Lab &amp; Pipelines" Command="{Binding ShowTestLabCommand}" IsVisible="{Binding IsDiagnosticModeEnabled}"/>
 
-                            <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="8,8,8,8"/>
+                            <Border Height="1" Background="{DynamicResource BorderSubtleBrush}" Margin="8,8,8,8"/>
 
-                            <TextBlock Text="SISTEMA" FontSize="9" FontWeight="Black" Foreground="{StaticResource TextDisabledBrush}" Margin="10,2,0,8" LetterSpacing="1.4"/>
+                            <TextBlock Text="SISTEMA" FontSize="9" FontWeight="Black" Foreground="{DynamicResource TextDisabledBrush}" Margin="10,2,0,8" LetterSpacing="1.4"/>
 
                             <Button Theme="{StaticResource NavButton}" Content="⚙️ Configurações" Command="{Binding ShowSettingsCommand}"/>
-                            <Button Theme="{StaticResource NavButton}" Content="❌ Fechar Caso" Command="{Binding CloseCaseCommand}" IsVisible="{Binding IsCaseLoaded}" Foreground="{StaticResource DangerBrush}"/>
+                            <Button Theme="{StaticResource NavButton}" Content="❌ Fechar Caso" Command="{Binding CloseCaseCommand}" IsVisible="{Binding IsCaseLoaded}" Foreground="{DynamicResource DangerBrush}"/>
                         </StackPanel>
                     </ScrollViewer>
 
                     <!-- Sidebar Footer -->
-                    <Border Grid.Row="2" Padding="14,14" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="0,1,0,0">
+                    <Border Grid.Row="2" Padding="14,14" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,1,0,0">
                         <StackPanel Spacing="4">
-                            <TextBlock Text="STATUS" FontSize="9" FontWeight="Bold" Foreground="{StaticResource TextDisabledBrush}"/>
+                            <TextBlock Text="STATUS" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource TextDisabledBrush}"/>
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <Ellipse Theme="{StaticResource StatusDot}" Classes.success="{Binding IsCaseLoaded}" VerticalAlignment="Center"/>
-                                <TextBlock Text="{Binding SystemStateText}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" FontWeight="Medium"/>
+                                <TextBlock Text="{Binding SystemStateText}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" FontWeight="Medium"/>
                             </StackPanel>
-                            <TextBlock Text="{Binding AppVersion, StringFormat='MailVault Recovery {0}'}" Classes="mono" FontSize="10" Foreground="{StaticResource TextDisabledBrush}"/>
+                            <TextBlock Text="{Binding AppVersion, StringFormat='MailVault Recovery {0}'}" Classes="mono" FontSize="10" Foreground="{DynamicResource TextDisabledBrush}"/>
                         </StackPanel>
                     </Border>
                 </Grid>
@@ -245,43 +248,43 @@
         </Grid>
 
         <!-- BOTTOM STATUS BAR (30px) -->
-        <Border Grid.Row="3" Height="30" Background="{StaticResource BgSurfaceAltBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="0,1,0,0">
+        <Border Grid.Row="3" Height="30" Background="{DynamicResource BgSurfaceAltBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,1,0,0">
             <Grid ColumnDefinitions="*, Auto" Margin="16,0">
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding StatusBarText}" FontSize="11" Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding StatusBarText}" FontSize="11" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
 
-                    <Border Width="1" Height="14" Background="{StaticResource BorderSubtleBrush}"/>
+                    <Border Width="1" Height="14" Background="{DynamicResource BorderSubtleBrush}"/>
                     <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
-                        <TextBlock Text="SQLite" FontSize="10" Foreground="{StaticResource TextDisabledBrush}" FontWeight="Bold" VerticalAlignment="Center"/>
+                        <TextBlock Text="SQLite" FontSize="10" Foreground="{DynamicResource TextDisabledBrush}" FontWeight="Bold" VerticalAlignment="Center"/>
                         <Ellipse Theme="{StaticResource StatusDot}" Classes.success="{Binding SqliteOk}" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding SqliteStatus}" Classes="mono" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding SqliteStatus}" Classes="mono" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                     </StackPanel>
 
-                    <Border Width="1" Height="14" Background="{StaticResource BorderSubtleBrush}"/>
+                    <Border Width="1" Height="14" Background="{DynamicResource BorderSubtleBrush}"/>
                     <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
-                        <TextBlock Text="Manifest" FontSize="10" Foreground="{StaticResource TextDisabledBrush}" FontWeight="Bold" VerticalAlignment="Center"/>
+                        <TextBlock Text="Manifest" FontSize="10" Foreground="{DynamicResource TextDisabledBrush}" FontWeight="Bold" VerticalAlignment="Center"/>
                         <Ellipse Theme="{StaticResource StatusDot}" Classes.success="{Binding ManifestOk}" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding ManifestStatus}" Classes="mono" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding ManifestStatus}" Classes="mono" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                     </StackPanel>
 
-                    <Border Width="1" Height="14" Background="{StaticResource BorderSubtleBrush}"/>
+                    <Border Width="1" Height="14" Background="{DynamicResource BorderSubtleBrush}"/>
                     <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
-                        <TextBlock Text="Audit" FontSize="10" Foreground="{StaticResource TextDisabledBrush}" FontWeight="Bold" VerticalAlignment="Center"/>
+                        <TextBlock Text="Audit" FontSize="10" Foreground="{DynamicResource TextDisabledBrush}" FontWeight="Bold" VerticalAlignment="Center"/>
                         <Ellipse Theme="{StaticResource StatusDot}" Classes.success="{Binding AuditOk}" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding AuditStatus}" Classes="mono" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding AuditStatus}" Classes="mono" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                     </StackPanel>
 
-                    <Border Width="1" Height="14" Background="{StaticResource BorderSubtleBrush}"/>
+                    <Border Width="1" Height="14" Background="{DynamicResource BorderSubtleBrush}"/>
                     <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
-                        <TextBlock Text="Schema" FontSize="10" Foreground="{StaticResource TextDisabledBrush}" FontWeight="Bold" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding SchemaVersion}" Classes="mono" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="Schema" FontSize="10" Foreground="{DynamicResource TextDisabledBrush}" FontWeight="Bold" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding SchemaVersion}" Classes="mono" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding LastActionTime, StringFormat='Última ação: \{0\}'}" FontSize="11" Foreground="{StaticResource TextDisabledBrush}" VerticalAlignment="Center"/>
-                    <Border Width="1" Height="14" Background="{StaticResource BorderSubtleBrush}"/>
-                    <TextBlock Text="{Binding AppVersion, StringFormat='MailVault {0}'}" Classes="mono" FontSize="11" Foreground="{StaticResource TextDisabledBrush}" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding LastActionTime, StringFormat='Última ação: \{0\}'}" FontSize="11" Foreground="{DynamicResource TextDisabledBrush}" VerticalAlignment="Center"/>
+                    <Border Width="1" Height="14" Background="{DynamicResource BorderSubtleBrush}"/>
+                    <TextBlock Text="{Binding AppVersion, StringFormat='MailVault {0}'}" Classes="mono" FontSize="11" Foreground="{DynamicResource TextDisabledBrush}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Grid>
         </Border>
