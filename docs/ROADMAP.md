@@ -26,7 +26,7 @@ Este roadmap separa o que está implementado, o que está parcial e o que é pr�
 | Plug and play completo | Partial | Publish inclui Desktop/CLI/XstReader, mas não empacota ferramentas externas nativas. |
 | MBOX/EML como entrada | Partial | Corpus scan e validação reconhecem; não há ingestão/indexação completa. |
 | MSG como entrada | Planned | Arquivos `.msg` são ignorados pelo `.gitignore`, mas não há reader implementado. |
-| Segurança forense formal | Partial | Há hash, manifest e audit log; cadeia de custódia formal é externa ao app. |
+| Rastreabilidade (hash + trilha) | Partial | Há hash SHA-256, `manifest.json` e `audit.log`; cadeia de custódia formal continua externa ao app. |
 
 ## Próximos passos recomendados
 
@@ -65,7 +65,7 @@ Status: Planned
 
 - Padronizar códigos de issue.
 - Documentar schema SQLite com migrações.
-- Consolidar docs históricas de milestones em documentação de produto.
+- Assinatura de código do release Windows (remover o aviso do SmartScreen).
 - Adicionar validação automatizada de Markdown/Mermaid em CI quando houver workflow.
 
 ## Critérios para marcar uma feature como Done

@@ -28,7 +28,7 @@ public static class BodyPreviewSanitizer
         string preview = string.Join("\n", resultLines);
         if (lines.Length > maxLines)
         {
-            preview += $"\n[... TEXTO TRUNCADO SEGURAMENTE PARA COMPLIANCE FORENSE - {lines.Length - maxLines} LINHAS OCULTAS ...]";
+            preview += $"\n[... PREVIEW TRUNCADO - {lines.Length - maxLines} LINHAS OCULTAS ...]";
         }
 
         return preview;

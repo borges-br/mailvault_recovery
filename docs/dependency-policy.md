@@ -13,7 +13,7 @@ Este documento descreve as diretrizes mandatórias para adição e gestão de de
    - Bibliotecas específicas de interface com o usuário (UI), infraestrutura de linha de comando ou leitores externos de PST/OST (como `System.CommandLine`, `Avalonia`, `XstReader.Api`) devem ficar estritamente contidas em seus respectivos projetos de borda (`Cli`, `Desktop`, `Adapters`).
    - Nenhuma dependência externa deve vazar para as camadas puras do domínio (`MailVault.Domain`) ou orquestração principal (`MailVault.Core`).
 
-## Dependências Homologadas (Milestone 3)
+## Dependências homologadas
 
 1. **`Microsoft.Data.Sqlite`**
    - **Escopo**: Restrito exclusivamente à camada de persistência (`MailVault.Indexing`).

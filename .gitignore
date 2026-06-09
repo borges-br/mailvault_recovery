@@ -55,6 +55,23 @@ artifacts/
 /scratch/
 scratch/
 
+# Notas internas / markdowns de processo (ficam locais, fora do GitHub)
+/notes/
+/task.md
+/docs/milestone-*.md
+
+# Markdown de instrução de agente de IA (defensivo)
+/CLAUDE.md
+CLAUDE.local.md
+.cursorrules
+.aider*
+.github/copilot-instructions.md
+
+# Backups de binários e artefatos temporários
+*.bak
+*.orig
+*.tmp
+
 # Milestone 2 — corpus de teste e saídas de recuperação
 # (*.ost/*.pst/*.eml/*.mbox, exports/ e mailvault-cases/ já cobertos acima)
 /exports/

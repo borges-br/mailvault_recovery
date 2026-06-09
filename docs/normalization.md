@@ -1,4 +1,4 @@
-# MailVault Recovery — Pipeline de Normalização Forense
+# Pipeline de Normalização
 
 Este documento descreve as políticas de normalização de dados forenses, sanitização técnica e privacidade implementadas no núcleo (`MailVault.Core`) do produto.
 
@@ -47,14 +47,14 @@ Os arquivos anexados às mensagens podem conter caracteres inválidos para siste
 ### 4. BodyPreviewSanitizer
 Garante que a CLI exiba informações suficientes de preview sem armazenar arquivos imensos ou dados completos de e-mails em um formato relacional plano.
 * **Regra**: Limita rigorosamente o preview de texto a no máximo **30 linhas** e trunca linhas excessivamente largas (máximo de 200 caracteres por linha).
-* **Compliance Forense**: Se o texto exceder 30 linhas, o preview é interrompido e um aviso explícito de truncamento é injetado:
-  `[... TEXTO TRUNCADO SEGURAMENTE PARA COMPLIANCE FORENSE - X LINHAS OCULTAS ...]`
+* **Truncamento de preview**: Se o texto exceder 30 linhas, o preview é interrompido e um aviso explícito de truncamento é injetado:
+  `[... PREVIEW TRUNCADO - X LINHAS OCULTAS ...]`
 
 ---
 
 ## Sanitização de Dados Técnicos (Issues)
 
-Atendendo ao Gate 4 da Milestone 3, as falhas de extração registradas no banco de dados (`issues.technical_details`) sofrem higienização estrita antes da gravação em disco no construtor `SqliteCaseIndexWriter.SaveIssueAsync`:
+As falhas de extração registradas no banco de dados (`issues.technical_details`) sofrem higienização estrita antes da gravação em disco no construtor `SqliteCaseIndexWriter.SaveIssueAsync`:
 * **Caminhos de Usuário**: Substitui referências dinâmicas a pastas privadas locais do Windows (`C:\Users\nomedousuario\...`) por uma tag genérica inofensiva `C:\Users\<USER>\...`.
 * **Vazamentos de E-mail**: Expressões regulares detectam e filtram endereços de e-mail no log técnico substituindo-os por `<email_masked>`.
 * **MAPI dumps**: Dumps de propriedades internas MAPI que excedam 200 caracteres são resumidos e rotulados como `[MAPI Dump Sanitized] ...`.

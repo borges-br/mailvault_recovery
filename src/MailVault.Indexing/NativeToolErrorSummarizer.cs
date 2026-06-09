@@ -139,7 +139,7 @@ public static class NativeToolErrorSummarizer
                 truncatedString = truncatedString.Substring(0, lastNewLine);
             }
             
-            return truncatedString + Environment.NewLine + "[TECHNICAL WARNING: RAW STDERR TRUNCATED DUE TO 2MB FORENSIC LIMIT]";
+            return truncatedString + Environment.NewLine + "[TECHNICAL WARNING: RAW STDERR TRUNCATED DUE TO 2MB LIMIT]";
         }
 
         return result;

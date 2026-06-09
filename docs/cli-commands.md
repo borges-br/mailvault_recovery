@@ -1,229 +1,271 @@
-# Manual de Comandos CLI — MailVault Recovery
+# 💻 Manual do CLI — MailVault Recovery
 
-Este manual descreve a sintaxe, opções e exemplos de uso dos novos comandos de inspeção e leitura introduzidos na **Milestone 2** do **MailVault Recovery**.
+O `mailvault` é a interface de linha de comando do MailVault Recovery: ideal para automação, lotes grandes e scripts. Tudo que o Desktop faz, o CLI também faz.
+
+```text
+mailvault <comando> [argumentos] [opções]
+mailvault --help
+mailvault <comando> --help
+```
+
+> No release publicado o executável é **`mailvault.exe`**. Em desenvolvimento, troque `mailvault` por:
+> `dotnet run --project src/MailVault.Cli/MailVault.Cli.csproj -- <comando> ...`
+
+## 🧭 Dois jeitos de recuperar
+
+```mermaid
+flowchart TB
+    subgraph Rapido["⚡ Recuperação direta — 1 comando"]
+        R1["recover-eml / recover-mbox"] --> R2["arquivos EML/MBOX + relatório"]
+    end
+    subgraph Caso["🗂️ Fluxo de caso — navegar, buscar, validar"]
+        C1["index"] --> C2["search / stats"] --> C3["export"] --> C4["validate"]
+    end
+
+    classDef a fill:#9283F4,stroke:#7C6BEF,color:#15132A,stroke-width:2px;
+    classDef b fill:#2A2350,stroke:#7C6BEF,color:#E9E5FF,stroke-width:1.5px;
+    class R1,R2 a;
+    class C1,C2,C3,C4 b;
+```
+
+- **Recuperação direta** — você só quer os e-mails para fora, rápido. Não cria banco nem índice.
+- **Fluxo de caso** — você quer navegar, buscar, exportar subconjuntos e validar a integridade do que saiu.
+
+## 📋 Índice de comandos
+
+| Comando | Grupo | O que faz |
+| :--- | :--- | :--- |
+| [`recover-eml`](#recover-eml) | ⚡ Direto | OST/PST → arquivos `.eml`, sem indexar antes. |
+| [`recover-mbox`](#recover-mbox) | ⚡ Direto | OST/PST → arquivos `.mbox`, sem indexar antes. |
+| [`recover-pst`](#recover-pst) | ⚡ Direto | Geração de PST — **não suportado** nesta build (explica o porquê). |
+| [`inspect`](#inspect) | 🔎 Inspeção | Calcula SHA-256 e cria manifesto/trilha do arquivo. |
+| [`tree`](#tree) | 🔎 Inspeção | Mostra a árvore de pastas do arquivo. |
+| [`list`](#list) | 🔎 Inspeção | Lista mensagens de uma pasta. |
+| [`preview`](#preview) | 🔎 Inspeção | Mostra os detalhes de uma mensagem. |
+| [`index`](#index) | 🗂️ Caso | Indexa metadados em `case.db`. |
+| [`stats`](#stats) | 🗂️ Caso | Estatísticas do índice. |
+| [`search`](#search) | 🗂️ Caso | Busca mensagens no índice. |
+| [`export`](#export) | 🗂️ Caso | Exporta do índice para EML/MBOX. |
+| [`validate`](#validate) | 🗂️ Caso | Valida a integridade da exportação. |
+| [`carve`](#carve) | 🧪 Avançado | Varredura física por assinaturas (somente relatório). |
+| [`corpus scan`](#corpus-scan) | 🧪 Avançado | Inventaria uma pasta de arquivos de e-mail. |
 
 ---
 
-## 1. `mailvault tree`
+## ⚡ Recuperação direta
 
-Exibe a estrutura hierárquica completa de pastas contidas em um arquivo de dados do Outlook (`.ost` ou `.pst`).
+### `recover-eml`
 
-### Sintaxe
-```bash
-mailvault tree <file> [options]
-```
+Recupera e-mails direto de um `OST/PST` para arquivos `.eml` (um por mensagem), **sem indexação prévia**.
 
-### Argumentos
-- `file` (Obrigatório): O caminho para o arquivo OST ou PST.
-
-### Opções
-- `--out <directory>`: O diretório de saída base para a pasta do caso de recuperação. Por padrão, cria a pasta `./mailvault-cases/`.
-- `--max-depth <depth>`: Profundidade máxima de exibição de subpastas (padrão `99`).
-
-### Exemplo
-```bash
-mailvault tree "C:\Evidencias\backup.pst" --max-depth 3
-```
-
-### Saída Típica
 ```text
-================================================================================
-                  MailVault Recovery — Árvore de Pastas                         
-================================================================================
-[*] Caso Inicializado: CASE-2026-05-26-093012
-[*] Operador: nathan
-[*] Arquivo: C:\Evidencias\backup.pst
-[*] Calculando hash de integridade (SHA-256 por streaming)...
-[*] SHA-256: 4e9c71a39f60d4b8f...
-
-Estrutura Hierárquica de Pastas:
---------------------------------------------------------------------------------
-├── Top of Outlook Data Store (Mensagens: 0)
-│   ├── Inbox (Mensagens: 1240)
-│   │   └── Financeiro (Mensagens: 120)
-│   ├── Sent Items (Mensagens: 890)
-│   └── Deleted Items (Mensagens: 42)
---------------------------------------------------------------------------------
-[x] Varredura Concluída.
-[*] Total de Pastas: 5
-[*] Manifesto e trilha gravados em: ./mailvault-cases/CASE-2026-05-26-093012
-================================================================================
+mailvault recover-eml <file> --out <dir> [--folder <path>] [opções avançadas]
 ```
+
+| Argumento / Opção | Obrigatório | Descrição |
+| :--- | :---: | :--- |
+| `file` | ✅ | Caminho do `.ost`/`.pst` de origem. |
+| `--out <dir>` | ✅ | Pasta de destino dos `.eml`. |
+| `--folder <path>` | — | Recupera apenas uma pasta lógica (ex.: `Inbox/Financeiro`). |
+
+```powershell
+mailvault recover-eml "C:\backup\caixa.ost" --out "C:\recuperados\eml"
+```
+
+### `recover-mbox`
+
+Igual ao anterior, mas gera arquivos `.mbox` (uma caixa por pasta, com escape mboxrd).
+
+```text
+mailvault recover-mbox <file> --out <dir> [--folder <path>] [opções avançadas]
+```
+
+```powershell
+mailvault recover-mbox "C:\backup\caixa.pst" --out "C:\recuperados\mbox" --folder "Inbox"
+```
+
+#### Opções avançadas (válidas em `recover-eml` e `recover-mbox`)
+
+| Opção | Descrição |
+| :--- | :--- |
+| `--max-messages <n>` | Limite global de mensagens (escopo/teste). |
+| `--max-folder-messages <n>` | Limite por pasta. |
+| `--timeout <dur>` | Cancela a sessão após a duração (ex.: `30m`, `90s`, `1h`). |
+| `--checkpoint-interval <s>` | Segundos entre checkpoints de relatório parcial (padrão `30`). |
+| `--progress-json <path>` | Grava `progress.json` continuamente. |
+| `--deep-scan` | Após a leitura estrutural, aciona o Deep Scan (`libpff/pffexport`) para resgatar itens órfãos. Dispara automaticamente quando a leitura estrutural falha. Experimental. |
+
+> [!NOTE]
+> A recuperação é **resiliente**: mensagens ou anexos problemáticos são registrados e ignorados sem abortar o lote. Ao final, um relatório (`.json`/`.md`) lista totais, falhas e classificação (Completo / Parcial / Inconclusivo).
+
+### `recover-pst`
+
+```text
+mailvault recover-pst <file> [--out <dir>]
+```
+
+> [!WARNING]
+> **Não suportado** nesta build. Gerar um PST de saída exigiria um writer de PST próprio. O comando existe para ser honesto: ele explica a limitação e recomenda `recover-eml`/`recover-mbox`, que produzem formatos abertos e portáveis.
 
 ---
 
-## 2. `mailvault list`
+## 🔎 Inspeção (sem criar caso)
 
-Lista as mensagens de e-mail contidas em uma pasta específica do arquivo de dados, permitindo navegação tabular e alertas integrados.
+### `inspect`
 
-### Sintaxe
-```bash
-mailvault list <file> --folder <folder-id-or-path> [options]
-```
+Calcula o SHA-256 do arquivo de origem e grava o manifesto/trilha — o ponto de partida para rastreabilidade.
 
-### Argumentos
-- `file` (Obrigatório): O caminho para o arquivo OST ou PST.
-
-### Opções
-- `--folder <path>` (Obrigatório): O ID interno ou o caminho completo da pasta a ser listada (ex: `Inbox/Financeiro`).
-- `--limit <number>`: Quantidade máxima de e-mails a exibir (padrão `50`).
-- `--offset <number>`: Quantidade de e-mails a ignorar/pular na listagem para fins de paginação (padrão `0`).
-- `--out <directory>`: O diretório de saída base para salvar a pasta do caso.
-
-### Exemplo
-```bash
-mailvault list "C:\Evidencias\backup.pst" --folder "Inbox/Financeiro" --limit 10 --offset 20
-```
-
-### Saída Típica
 ```text
-================================================================================
-                  MailVault Recovery — Listagem de Mensagens                    
-================================================================================
-[*] Caso Inicializado: CASE-2026-05-26-093145
-...
-[*] Encontradas 120 mensagens no total. Exibindo 10 itens (limit=10, offset=20):
-
---------------------------------------------------------------------------------
-   ID INTERNO   |      DATA      |      REMETENTE      | ASSUNTO
---------------------------------------------------------------------------------
-msg-fin-021     | 2026-05-15 14:30 | Roberto Silva           | Relatório Trimestral | anexos: 1
-msg-fin-022     | 2026-05-15 15:02 | contabilidade@corp.c... | NF-e de Serviços M... | anexos: 2
-   --> ALERTA: [MV-WARN-DECODE] Falha ao decodificar codepage de anexo.
-msg-fin-023     | 2026-05-16 09:12 | diretoria@corp.com      | Reunião Orçamento    | anexos: 0
-...
---------------------------------------------------------------------------------
+mailvault inspect <file> [--out <dir>]
 ```
 
----
+### `tree`
 
-## 3. `mailvault preview`
+Exibe a hierarquia de pastas do arquivo.
 
-Apresenta detalhes estruturados, cabeçalhos, alertas específicos e uma visualização parcial e **segura/truncada** do corpo da mensagem para fins de conformidade e LGPD.
-
-### Sintaxe
-```bash
-mailvault preview <file> --message-id <id> [options]
-```
-
-### Argumentos
-- `file` (Obrigatório): O caminho para o arquivo OST ou PST.
-
-### Opções
-- `--message-id <id>` (Obrigatório): O ID interno único da mensagem a visualizar.
-- `--body-lines <number>`: Quantidade máxima de linhas do corpo a exibir no preview (padrão `30`), prevenindo vazamento massivo acidental de dados sensíveis no terminal.
-- `--out <directory>`: O diretório de saída base para salvar a pasta do caso.
-
-### Exemplo
-```bash
-mailvault preview "C:\Evidencias\backup.pst" --message-id "msg-fin-022" --body-lines 15
-```
-
-### Saída Típica
 ```text
-================================================================================
-                  MailVault Recovery — Visualização Segura                      
-================================================================================
-[*] Caso Inicializado: CASE-2026-05-26-093402
-...
-CABEÇALHOS E DADOS:
---------------------------------------------------------------------------------
-Internal ID   : msg-fin-022
-Message ID    : <NF-12345-2026@corp.com>
-Assunto       : NF-e de Serviços Maio/2026
-Remetente     : contabilidade@corp.com <contabilidade@corp.com>
-Para          : financeiro@corp.com
-Cc            : diretoria@corp.com
-Data Envio    : 2026-05-15 15:00:00 -03:00
-Data Recepção : 2026-05-15 15:02:00 -03:00
-Possui HTML   : Sim
-Possui Texto  : Sim
-MAPI Props    : 84 propriedades indexadas.
+mailvault tree <file> [--out <dir>] [--max-depth <n>]
+```
 
-ANEXOS:
---------------------------------------------------------------------------------
-  - Anexo ID    : att-fin-022-1
-    Nome        : NFe_Contabilidade_123.pdf
-    Tamanho     : 145,200 bytes
-    Inline      : Não
+```powershell
+mailvault tree "C:\backup\caixa.pst" --max-depth 3
+```
 
-PREVIEW DO CORPO DA MENSAGEM (Truncado em no máximo 15 linhas):
---------------------------------------------------------------------------------
-Prezada equipe do financeiro,
+### `list`
 
-Segue em anexo a Nota Fiscal de Prestação de Serviços referente ao período
-de faturamento de Maio de 2026.
+Lista as mensagens de uma pasta, com paginação.
 
-Por favor, procedam com o agendamento do pagamento conforme as condições
-pactuadas em contrato.
+```text
+mailvault list <file> --folder <path> [--limit <n>] [--offset <n>] [--out <dir>]
+```
 
-Qualquer dúvida, estou à disposição.
+| Opção | Padrão | Descrição |
+| :--- | :---: | :--- |
+| `--folder <path>` | (obrigatório) | ID ou caminho da pasta (ex.: `Inbox/Financeiro`). |
+| `--limit <n>` | `50` | Máximo de itens exibidos. |
+| `--offset <n>` | `0` | Quantos itens pular (paginação). |
 
-[... TEXTO TRUNCADO SEGURAMENTE PARA COMPLIANCE FORENSE - 4 LINHAS OCULTAS ...]
---------------------------------------------------------------------------------
+### `preview`
+
+Mostra os detalhes de uma mensagem específica (cabeçalhos, anexos e um trecho do corpo).
+
+```text
+mailvault preview <file> --message-id <id> [--body-lines <n>] [--out <dir>]
 ```
 
 ---
 
-## 4. `mailvault export`
+## 🗂️ Fluxo de caso
 
-Exporta mensagens de e-mail e anexos do caso de recuperação para formatos padrão de preservação de correio eletrônico (EML ou MBOX), mantendo a custódia, hashes originais e segurança ativa.
+### `index`
 
-### Sintaxe
-```bash
-mailvault export <case-folder> --format <eml|mbox> --out <directory> [options]
-```
+Lê o arquivo via adapter e indexa os metadados de pastas, mensagens e anexos num `case.db` (SQLite) persistente.
 
-### Argumentos
-- `case-folder` (Obrigatório): O caminho da pasta do caso contendo o arquivo `case.db`.
-
-### Opções
-- `--format <eml|mbox>` (Obrigatório): Formato de exportação forense homologado (`eml` ou `mbox`).
-- `--out <directory>` (Obrigatório): Diretório de destino físico para gravação dos arquivos exportados.
-- `--folder <path>`: Filtra a exportação para incluir apenas mensagens de um ID ou caminho de pasta específico (ex: `Inbox/Financeiro`).
-- `--limit <number>`: Quantidade máxima total de e-mails a exportar.
-- `--offset <number>`: Quantidade total de e-mails a pular (paginação global).
-- `--include-attachments <true|false>`: Define se anexa arquivos nas mensagens (padrão `true`).
-- `--extract-attachments`: Extrai e salva arquivos anexos individualmente como arquivos físicos avulsos adicionais (padrão `false`).
-- `--overwrite`: Permite sobrescrever arquivos que já existam no diretório de destino (padrão `false`).
-- `--dry-run`: Executa uma simulação técnica completa e validação de hash sem gravar arquivos físicos no disco.
-
-### Exemplo
-```bash
-mailvault export "./mailvault-cases/CASE-2026-05-26-093012" --format eml --out "./exports-case1" --extract-attachments --overwrite
-```
-
-### Saída Típica
 ```text
-================================================================================
-                  MailVault Recovery — Exportação Forense                       
-================================================================================
-[*] Pasta do Caso: ./mailvault-cases/CASE-2026-05-26-093012
-[*] Formato       : eml
-[*] Destino       : ./exports-case1
-[*] Inicializando motor de exportação forense...
-[*] Verificando integridade forense do arquivo de origem...
-[*] Recalculando hash SHA-256 da mídia original: C:\Evidencias\backup.pst
-[*] Hash validado com sucesso: 4e9c71a39f60d4b8f... (Cadeia de custódia íntegra)
-[*] Carregando escopo de exportação do índice relacional...
-[*] Pastas Selecionadas: 5
-[*] Mensagens Selecionadas: 2294
-[*] Iniciando gravação técnica física (EML)...
-[50%] Exportado e-mail 1147 de 2294...
-[100%] Exportação concluída.
-[*] Gerando manifesto forense da exportação...
-
-RELATÓRIO DE EXPORTAÇÃO:
---------------------------------------------------------------------------------
-ID do Job             : EXP-A5B2F90C12D4
-Format                : eml
-Pastas Processadas    : 5
-Mensagens Exportadas  : 2294 (Falhas: 0)
-Anexos Extraídos      : 421 (Falhas: 0)
-Manifesto Forense     : ./exports-case1/export-manifest.json
-Tempo Decorrido       : 12.45s
---------------------------------------------------------------------------------
-[x] Operação de exportação concluída e assinada forensicamente.
-================================================================================
+mailvault index <file> [--out <dir>] [--case-id <id>] [--force] [--limit <n>] [--no-preview-cache]
 ```
 
+| Opção | Descrição |
+| :--- | :--- |
+| `--out <dir>` | Pasta base dos casos (padrão `./mailvault-cases/`). |
+| `--case-id <id>` | Define um ID de caso em vez do gerado automaticamente. |
+| `--force` | Recria o índice se o caso já existir. |
+| `--limit <n>` | Limita as mensagens indexadas por pasta (útil em testes). |
+| `--no-preview-cache` | Não gera/armazena o preview do corpo no índice. |
+
+```powershell
+mailvault index "C:\backup\caixa.ost" --out ".\mailvault-cases" --case-id "CASE-001"
+```
+
+### `stats`
+
+```text
+mailvault stats <case-folder>
+```
+
+Mostra contagens consolidadas (pastas, mensagens, anexos, issues) do `case.db`.
+
+### `search`
+
+```text
+mailvault search <case-folder> --query <texto> [--folder <path>] [--limit <n>] [--offset <n>] [--include-preview]
+```
+
+```powershell
+mailvault search ".\mailvault-cases\CASE-001" --query "nota fiscal" --include-preview
+```
+
+### `export`
+
+Exporta as mensagens indexadas para EML ou MBOX. Antes de gravar, **recalcula o SHA-256 da origem** e aborta se o arquivo mudou desde a indexação.
+
+```text
+mailvault export <case-folder> --format <eml|mbox> --out <dir> [opções]
+```
+
+| Opção | Padrão | Descrição |
+| :--- | :---: | :--- |
+| `--format <eml\|mbox>` | (obrigatório) | Formato de saída. |
+| `--out <dir>` | (obrigatório) | Pasta de destino. |
+| `--folder <path>` | — | Exporta apenas uma pasta. |
+| `--limit` / `--offset` | — | Paginação global. |
+| `--include-attachments` | `true` | Incorpora anexos na estrutura MIME. |
+| `--extract-attachments` | `false` | Também salva anexos como arquivos avulsos. |
+| `--overwrite` | `false` | Sobrescreve uma exportação anterior. |
+| `--dry-run` | `false` | Simula e valida sem gravar em disco. |
+
+```powershell
+mailvault export ".\mailvault-cases\CASE-001" --format eml --out ".\exports\CASE-001" --extract-attachments
+```
+
+### `validate`
+
+Compara a exportação física com o índice e o manifesto, apontando arquivos ausentes, vazios, duplicados, MBOX mal-escapado e divergência de anexos.
+
+```text
+mailvault validate <case-folder> [--export-folder <dir>] [--format <eml|mbox|auto>] [--json] [--strict] [--out <dir>]
+```
+
+| Opção | Padrão | Descrição |
+| :--- | :---: | :--- |
+| `--export-folder <dir>` | — | Pasta com os arquivos exportados a validar. |
+| `--format` | `auto` | `eml`, `mbox` ou detecção automática. |
+| `--json` | `false` | Saída em JSON bruto. |
+| `--strict` | `false` | Qualquer warning estrutural vira falha. |
+| `--check-eml-parse` | `true` | Parse estrutural profundo dos EML. |
+| `--check-mbox-structure` | `true` | Auditoria de layout dos MBOX. |
+| `--check-attachments` | `true` | Validação cruzada física dos anexos. |
+| `--sample-size <n>` | — | Limita a amostragem física validada. |
+
+```powershell
+mailvault validate ".\mailvault-cases\CASE-001" --export-folder ".\exports\CASE-001" --format eml --json --out ".\exports\CASE-001-validation"
+```
+
+---
+
+## 🧪 Avançado
+
+### `carve`
+
+Varredura física (carving) por assinaturas em arquivos severamente corrompidos, **quando a leitura estrutural falha**. É **somente relatório**: lista candidatos físicos, não exporta e-mails por padrão.
+
+```text
+mailvault carve <file> --out <dir> [--timeout <dur>] [--export] [--min-confidence <0-100>] [...]
+```
+
+> [!NOTE]
+> O `carve` é uma ferramenta de diagnóstico/localização. Em arquivos com cabeçalho ou índice destruídos, o conteúdo costuma ser largamente irrecuperável sem reconstrução de bloco de nível comercial. Use-o para entender o que ainda existe fisicamente no arquivo.
+
+### `corpus scan`
+
+```text
+mailvault corpus scan <corpus-folder> [--out <dir>]
+```
+
+Inventaria e categoriza os arquivos de e-mail de uma pasta — útil para preparar lotes de teste/validação.
+
+---
+
+## ⚙️ Comandos internos
+
+`index-worker` e `worker --job <job.json>` são usados **pelo Desktop** para rodar indexação, exportação, preview e validação em subprocesso, sem travar a interface. Em uso normal, prefira os comandos públicos acima.

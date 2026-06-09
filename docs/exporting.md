@@ -1,10 +1,10 @@
-# Engine de Exportação Forense (Export Engine)
+# Engine de Exportação
 
 Esta documentação descreve o funcionamento, a arquitetura e os mecanismos de segurança da Engine de Exportação (`ExportJobRunner`) do MailVault Recovery.
 
 ## 1. Visão Geral
 
-O motor de exportação reside na camada `MailVault.Core` e é responsável por ler metadados do banco SQLite relacional (`case.db`), validar a integridade física do arquivo de origem contendo a evidência e orquestrar a exportação em lote de pastas e mensagens para formatos de preservação forense homologados (EML ou MBOX), mantendo a integridade de cadeia de custódia e prevenindo vazamentos de segurança física.
+O motor de exportação reside na camada `MailVault.Core` e é responsável por ler metadados do banco SQLite relacional (`case.db`), validar a integridade física do arquivo de origem contendo a evidência e orquestrar a exportação em lote de pastas e mensagens para formatos abertos de preservação (EML ou MBOX), mantendo a integridade verificável por hash e prevenindo gravação fora do diretório de destino.
 
 ```mermaid
 graph TD
@@ -30,7 +30,7 @@ graph TD
 
 ---
 
-## 3. Fluxo de Execução Forense
+## 3. Fluxo de execução
 
 1. **Verificação de Integridade Física (Gate 2)**:
    - Antes de iniciar a gravação física de qualquer arquivo, o runner calcula o hash SHA-256 da mídia original (`.pst`/`.ost`) e o compara com o hash registrado no início do caso.

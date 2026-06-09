@@ -1,52 +1,72 @@
-# Interface Gráfica Desktop & Visual Inspection Hub
+# 🖥️ Interface Desktop
 
-Este documento descreve a arquitetura, o design e o manual de operação da interface gráfica desktop profissional do **MailVault Recovery**.
+Este documento descreve a arquitetura e as telas do aplicativo desktop do **MailVault Recovery**, construído em Avalonia.
 
-## 1. Arquitetura e Stack Tecnológica
+## 1. Arquitetura e stack
 
-O módulo visual do MailVault Recovery é construído sob a pasta `src/MailVault.Desktop/` utilizando as seguintes premissas técnicas:
-- **Framework UI:** **Avalonia UI** (v11.0.10) estável, compatível com .NET 10 LTS.
-- **Design Pattern:** **MVVM (Model-View-ViewModel)** reativo com suporte de bindings nativos da engine do Avalonia.
-- **Princípio Clean Core (Isolamento):** A camada desktop (`MailVault.Desktop`) é estritamente uma camada de apresentação forense. Ela **não** faz referências diretas a SQLite, `XstReader`, `MimeKit` ou driver de bancos de dados físico. Todo o acesso a dados se dá através dos contratos abstratos de consulta (`ICaseIndexReader`) do Core/Domain.
+O módulo visual fica em `src/MailVault.Desktop/` e segue:
 
----
+- **Framework UI:** **Avalonia UI 11**, compatível com .NET 10.
+- **Padrão:** **MVVM** reativo, com bindings nativos do Avalonia.
+- **Temas:** **Dark e Light**, derivados da paleta da marca (violeta). A troca é feita em Configurações e aplicada em runtime.
+- **Clean Core (isolamento):** a camada desktop **não** referencia diretamente SQLite, `XstReader` ou `MimeKit`. Todo acesso a dados passa pelos contratos abstratos do Core/Domain (ex.: `ICaseIndexReader`).
+- **Worker isolado:** jobs pesados (indexação, exportação, validação) rodam no `MailVault.Cli` como subprocesso, mantendo a interface fluida. Veja [ARCHITECTURE.md](ARCHITECTURE.md).
 
-## 2. Visão Geral dos Módulos Forenses (Telas)
+## 2. Mapa de telas
 
-### 1. Home / Landing Page
-- Uma tela inicial limpa que possibilita ao operador especificar a pasta física do caso gerada no terminal.
-- Validação rápida do arquivo `case.db` para garantir que o caso relacional existe e é íntegro antes de inicializar o dashboard.
+```mermaid
+flowchart LR
+    Home["🏠 Início<br/>abrir/criar caso"] --> Wizard["🧙 Novo caso<br/>arquivo → indexação"]
+    Home --> Overview["📊 Visão do caso"]
+    Overview --> Browser["📨 Navegador de e-mails"]
+    Browser --> Preview["✉️ Pré-visualização"]
+    Overview --> Search["🔍 Busca"]
+    Overview --> Export["📤 Exportar e-mails"]
+    Export --> Diag["🧪 Validação / Relatórios<br/>(modo diagnóstico)"]
 
-### 2. Case Overview (Dashboard do Caso)
-- Apresentação de metadados gerais do caso: ID do caso, adaptador forense utilizado com versão e caminhos de arquivos desidentificados.
-- Inventário de dados consolidado direto do SQLite: contagem total de diretórios, mensagens, anexos e quantidade de anomalias/divergências registradas.
-- Assinatura Hash SHA-256 do arquivo original para auditoria imediata da integridade de cadeia de custódia.
+    classDef main fill:#9283F4,stroke:#7C6BEF,color:#15132A,stroke-width:2px;
+    classDef sub fill:#2A2350,stroke:#7C6BEF,color:#E9E5FF,stroke-width:1.5px;
+    class Home,Overview main;
+    class Wizard,Browser,Preview,Search,Export,Diag sub;
+```
 
-### 3. Folder Tree & Navegador de Correio
-- Layout de 3 painéis integrado no estilo cliente de e-mail de alta performance:
-  - **Painel Esquerdo (Árvore de Pastas):** Exibição hierárquica completa dos diretórios reais do arquivo de correio indexados no SQLite (`case.db`).
-  - **Painel Central (Lista de Mensagens):** Lista paginada (com limite dinâmico) das mensagens indexadas na pasta selecionada, exibindo assunto, remetente, data e badges de presença de anomalias (`ALERTA`) ou anexos (`📎`).
-  - **Painel Direito (Message Preview Safe):** O visualizador seguro do corpo da mensagem.
+### 🏠 Início
+Abrir um caso existente (pasta com `case.db`) ou iniciar um novo. Validação rápida do `case.db` antes de carregar.
 
-### 4. Message Preview Safe (Visualizador Seguro)
-- Exibe de forma organizada os metadados do e-mail (Assunto, Remetente, Destinatários, Cc, datas, lista de anexos extraídos com tamanhos).
-- **Safe View Rule (Segurança Forense):** Para garantir o sigilo operacional de dados sensíveis e manter o banco SQLite leve, o corpo do e-mail é automaticamente truncado em **400 caracteres**, acompanhado de um proeminente banner de privacidade forense:
-  > 🛡️ **AVISO DE SEGURANÇA E PRIVACIDADE FORENSE**  
-  > *Pré-visualização de mensagem limitada. O corpo completo não reside no índice relacional (case.db) para assegurar o sigilo operacional. Use a exportação forense para obter a integridade total do conteúdo.*
+### 🧙 Assistente de novo caso
+Guia o usuário: escolher o arquivo `OST/PST` → confirmação e privacidade → indexação. Durante a indexação mostra **timer, throughput (e-mails/s) e ETA**.
 
-### 5. Busca Integrada
-- Interface para buscas rápidas em tempo real sobre metadados indexados e previews de corpos das mensagens.
-- Apresentação de resultados em grade reativa, ligada ao visualizador reativo compartilhado.
+### 📊 Visão do caso
+Metadados do caso (ID, adapter usado, caminhos), inventário consolidado (pastas, mensagens, anexos, issues) e o hash SHA-256 da origem.
 
-### 6. Painéis de Exportação & Validação
-- **Exportação:** Configuração do formato pretendido de exportação (EML/MBOX), extração de anexos e indicação do status do job.
-- **Validação:** Visualização simplificada de status de integridade consolidada (Passed, PassedWithWarnings ou Failed), métricas estruturadas de correspondência e alertas técnicos mapeados.
+### 📨 Navegador de e-mails
+Layout de 3 painéis no estilo cliente de e-mail:
 
----
+| Painel | Conteúdo |
+| :--- | :--- |
+| Esquerdo | Árvore de pastas indexadas. |
+| Central | Lista paginada de mensagens (assunto, remetente, data, badges de anexo `📎` e de problema). |
+| Direito | Pré-visualização da mensagem. |
 
-## 3. Como Executar a Interface Desktop
+### ✉️ Pré-visualização
+Mostra metadados (assunto, remetentes, destinatários, datas, anexos) e o conteúdo da mensagem. O corpo completo das mensagens **não** é mantido no índice — é lido sob demanda a partir do arquivo de origem.
 
-Para rodar a interface gráfica localmente a partir da raiz do repositório:
-```bash
+### 🔍 Busca
+Busca rápida sobre os metadados indexados, com resultados ligados ao mesmo visualizador.
+
+### 📤 Exportar e-mails
+Configura formato (`EML`/`MBOX`), extração de anexos e acompanha o job: mensagens exportadas, falhas, anexos, timer e cancelamento. Ao final, abre o relatório da exportação.
+
+## 3. Indicador global de indexação
+
+Enquanto uma indexação está em andamento, uma **pílula clicável na barra superior** mostra o progresso em **qualquer tela**. Clicar volta ao assistente sem reiniciar o job. Estados terminais (concluído / cancelado / falhou) viram um aviso clicável.
+
+## 4. Modo diagnóstico
+
+Telas avançadas — **Validação**, **Relatórios do caso** e **Test Lab** — ficam ocultas por padrão e aparecem ao ativar o **modo diagnóstico** em Configurações. O fluxo principal do produto permanece enxuto para o usuário comum.
+
+## 5. Executar em desenvolvimento
+
+```powershell
 dotnet run --project src/MailVault.Desktop/MailVault.Desktop.csproj
 ```

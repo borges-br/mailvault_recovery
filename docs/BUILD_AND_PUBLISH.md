@@ -1,6 +1,23 @@
-# Build e Publicação
+# 🛠️ Build e publicação
 
-Este guia documenta apenas comandos e artefatos existentes no repositório.
+Este guia documenta apenas comandos e artefatos existentes no repositório, do código-fonte ao release que o usuário final executa.
+
+```mermaid
+flowchart LR
+    A["dotnet restore<br/>+ build"] --> B["scripts/publish-windows.ps1"]
+    B --> C["Publica CLI"]
+    B --> D["Publica Desktop"]
+    C --> E["artifacts/publish/<br/>MailVaultRecovery"]
+    D --> E
+    E --> F["Checks: exes, adapters,<br/>XstReader.Api, --help"]
+    F --> G["📦 .zip do release"]
+    G --> H["🖥️ Usuário executa<br/>MailVault.Desktop.exe"]
+
+    classDef hl fill:#9283F4,stroke:#7C6BEF,color:#15132A,stroke-width:2px;
+    classDef st fill:#2A2350,stroke:#7C6BEF,color:#E9E5FF,stroke-width:1.5px;
+    class A,B st;
+    class E,G,H hl;
+```
 
 ## Pré-requisitos
 
@@ -139,3 +156,30 @@ Para tornar o libpff plug and play de verdade, ainda é necessário:
 4. Registrar versão/licença no artefato publicado.
 5. Implementar parser da saída do `pffexport` para preencher `folders`, `messages`, `attachments` e `issues` no `case.db`.
 6. Criar testes cobrindo ferramenta ausente, ferramenta presente, timeout, exit code não zero e layout publicado.
+
+## 📦 Distribuição para o usuário final
+
+O release publicado é **self-contained** (`-SelfContained`): embute o runtime .NET, então a máquina de destino **não precisa** ter o .NET instalado.
+
+### Requisitos do sistema
+
+| Componente | Requisito |
+| :--- | :--- |
+| Sistema operacional | Windows 10 ou superior (64-bit) |
+| Arquitetura | x64 |
+| Runtime .NET | Não necessário (build self-contained embute o runtime) |
+| Visual C++ Redistributable | Pode ser necessário para o adapter nativo libpff (experimental) |
+| Espaço em disco | ~120 MB Desktop · ~70 MB CLI (aproximado, self-contained) |
+
+### Executar o release
+
+1. Baixe e extraia o `.zip` do [release](https://github.com/borges-br/mailvault_recovery/releases).
+2. **Desktop:** dê duplo clique em `MailVault.Desktop.exe`. O assistente guia: criar/abrir caso → escolher o `OST/PST` → indexar → navegar, buscar e exportar.
+3. **CLI:** use `MailVault.Cli.exe` (ou `mailvault.exe`) na mesma pasta. Veja o [Manual do CLI](cli-commands.md).
+
+> [!NOTE]
+> O binário ainda **não é assinado** — o SmartScreen/Windows pode exibir um aviso na primeira execução. Assinatura de código é um próximo passo do roadmap.
+
+### Script alternativo
+
+Além do `scripts/publish-windows.ps1` (oficial, saída em `artifacts/publish/MailVaultRecovery`), existe um `publish.ps1` simples na raiz que publica Desktop e CLI separadamente em `dist/`. Para releases, prefira o script oficial, que valida adapters e roda checks funcionais.

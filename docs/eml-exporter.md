@@ -31,7 +31,7 @@ graph LR
 ```
 
 ### Cabeçalhos Estruturados
-O gerador inicializa e preenche rigorosamente os metadados forenses da mensagem RFC 822:
+O gerador inicializa e preenche rigorosamente os metadados da mensagem RFC 822:
 - **Message-Id**: Preserva o ID original da mensagem de internet, ou gera um valor determinístico se nulo.
 - **Subject**: Sanitizado e codificado (UTF-8) para evitar corrupção de caracteres especiais.
 - **From / To / Cc / Bcc**: Converte os endereços de correio internos (`MailAddressRef`) para a estrutura do MimeKit (`MailboxAddress`), codificando nomes de exibição.

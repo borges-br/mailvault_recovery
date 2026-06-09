@@ -134,7 +134,7 @@ public class CliCommandsTests : IDisposable
 
         // Assert
         Assert.Equal(0, exitCode);
-        Assert.Contains("Visualização Segura", output);
+        Assert.Contains("Visualização de Mensagem", output);
         Assert.Contains("Internal ID   : msg-inbox-1", output);
         Assert.Contains("Message ID    : <inbox-1@fake.local>", output);
         Assert.Contains("Assunto       : Assunto do Fake Inbox 1", output);
@@ -148,8 +148,8 @@ public class CliCommandsTests : IDisposable
         Assert.Contains("Linha extra 4 do e-mail simulado.", output);
         Assert.Contains("Linha extra 5 do e-mail simulado.", output);
         
-        // Truncation compliance text
-        Assert.Contains("TEXTO TRUNCADO SEGURAMENTE PARA COMPLIANCE FORENSE", output);
+        // Truncation text
+        Assert.Contains("PREVIEW TRUNCADO", output);
         
         // Line 6 should not be printed
         Assert.DoesNotContain("Linha extra 6 do e-mail simulado.", output);

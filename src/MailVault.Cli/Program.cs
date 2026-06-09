@@ -33,7 +33,7 @@ public static class Program
         Console.OutputEncoding = System.Text.Encoding.UTF8;
         ExitCode = 0; // Reset for testing runner environments
 
-        var rootCommand = new RootCommand("MailVault Recovery CLI — Ferramenta local e offline de recuperação forense.");
+        var rootCommand = new RootCommand("MailVault Recovery CLI — Recuperação e exportação local de e-mails de arquivos OST/PST.");
 
         // Command: inspect
         var inspectCommand = new Command("inspect", "Inspeciona um arquivo .ost/.pst de origem, calcula seu hash SHA-256 e gera o manifesto.");
@@ -116,7 +116,7 @@ public static class Program
         }, fileArgIndex, outOptIndex, caseIdOpt, forceOpt, limitOptIndex, noPreviewCacheOpt);
 
         // NEW Command: stats
-        var statsCommand = new Command("stats", "Exibe estatísticas consolidadas e forenses a partir do índice case.db.");
+        var statsCommand = new Command("stats", "Exibe estatísticas consolidadas a partir do índice case.db.");
         var caseFolderArgStats = new Argument<DirectoryInfo>("case-folder", "A pasta de caso contendo o arquivo case.db.") { Arity = ArgumentArity.ExactlyOne };
         statsCommand.AddArgument(caseFolderArgStats);
         statsCommand.SetHandler(async (DirectoryInfo caseFolder) =>
@@ -144,7 +144,7 @@ public static class Program
         }, caseFolderArgSearch, queryOpt, folderOptSearch, limitOptSearch, offsetOptSearch, includePreviewOpt);
 
         // NEW Command: export
-        var exportCommand = new Command("export", "Exporta mensagens do caso para os formatos EML ou MBOX com suporte forense.");
+        var exportCommand = new Command("export", "Exporta mensagens do caso para os formatos EML ou MBOX.");
         var caseFolderArgExport = new Argument<DirectoryInfo>("case-folder", "A pasta de caso contendo o arquivo case.db.") { Arity = ArgumentArity.ExactlyOne };
         var formatOpt = new Option<string>("--format", "Formato de exportação: eml ou mbox.") { IsRequired = true };
         formatOpt.FromAmong("eml", "mbox");
@@ -186,7 +186,7 @@ public static class Program
         });
 
         // NEW Command: validate
-        var validateCommand = new Command("validate", "Valida a integridade técnica e conformidade forense de uma exportação.");
+        var validateCommand = new Command("validate", "Valida a integridade técnica de uma exportação.");
         var caseFolderArgValidate = new Argument<DirectoryInfo>("case-folder", "A pasta de caso contendo o case.db.") { Arity = ArgumentArity.ExactlyOne };
         var exportFolderOpt = new Option<DirectoryInfo?>("--export-folder", "Opcional: Diretório contendo os e-mails exportados.");
         var formatOptValidate = new Option<string>("--format", () => "auto", "Formato de exportação: eml, mbox ou auto.");
@@ -243,7 +243,7 @@ public static class Program
         corpusCommand.AddCommand(scanCommand);
 
         // Command: index-worker
-        var indexWorkerCommand = new Command("index-worker", "Comando interno isolado de processamento para indexação forense.");
+        var indexWorkerCommand = new Command("index-worker", "Comando interno isolado de processamento para indexação.");
         var jobOpt = new Option<FileInfo>("--job", "Caminho do arquivo job.json contendo as configurações da indexação.") { IsRequired = true };
         indexWorkerCommand.AddOption(jobOpt);
         indexWorkerCommand.SetHandler(async (FileInfo job) =>
@@ -373,7 +373,7 @@ public static class Program
         rootCommand.AddCommand(carveCommand);
 
         // Command: worker
-        var workerCommand = new Command("worker", "Comando unificado isolado de processamento para operações forenses.");
+        var workerCommand = new Command("worker", "Comando interno unificado de processamento de jobs.");
         var workerJobOpt = new Option<FileInfo>("--job", "Caminho do arquivo job.json contendo as configurações do job.") { IsRequired = true };
         workerCommand.AddOption(workerJobOpt);
         workerCommand.SetHandler(async (FileInfo job) =>
@@ -845,7 +845,7 @@ public static class Program
     {
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine("================================================================================");
-        Console.WriteLine("                  MailVault Recovery — Visualização Segura                      ");
+        Console.WriteLine("                  MailVault Recovery — Visualização de Mensagem                      ");
         Console.WriteLine("================================================================================");
         Console.ResetColor();
 
@@ -960,7 +960,7 @@ public static class Program
                 if (lines.Length > bodyLines)
                 {
                     Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine($"\n[... TEXTO TRUNCADO SEGURAMENTE PARA COMPLIANCE FORENSE - {lines.Length - bodyLines} LINHAS OCULTAS ...]");
+                    Console.WriteLine($"\n[... PREVIEW TRUNCADO - {lines.Length - bodyLines} LINHAS OCULTAS ...]");
                     Console.ResetColor();
                 }
             }
@@ -1347,7 +1347,7 @@ public static class Program
                 throw new InvalidOperationException("Metadados do caso estão ausentes da persistência.");
             }
 
-            await auditWriter.WriteEventAsync(new AuditEvent(Guid.NewGuid().ToString(), DateTimeOffset.Now, "SourceFileVerified", Environment.UserName, $"Evidência original verificada em: {caseInfo.SourceFile}"), CancellationToken.None);
+            await auditWriter.WriteEventAsync(new AuditEvent(Guid.NewGuid().ToString(), DateTimeOffset.Now, "SourceFileVerified", Environment.UserName, $"Arquivo de origem verificado em: {caseInfo.SourceFile}"), CancellationToken.None);
 
             var adapterResolver = new ReflectionAdapterResolver();
             await auditWriter.WriteEventAsync(new AuditEvent(Guid.NewGuid().ToString(), DateTimeOffset.Now, "AdapterResolved", Environment.UserName, "Resolvedor dinâmico de assemblies de adaptadores inicializado."), CancellationToken.None);
@@ -1377,7 +1377,7 @@ public static class Program
                 DryRun: dryRun
             );
 
-            await auditWriter.WriteEventAsync(new AuditEvent(Guid.NewGuid().ToString(), DateTimeOffset.Now, "StoreOpenedReadOnly", Environment.UserName, "Sessão física da evidência original aberta em modo Read-Only sob custódia forense."), CancellationToken.None);
+            await auditWriter.WriteEventAsync(new AuditEvent(Guid.NewGuid().ToString(), DateTimeOffset.Now, "StoreOpenedReadOnly", Environment.UserName, "Arquivo de origem aberto em modo somente-leitura."), CancellationToken.None);
             await auditWriter.WriteEventAsync(new AuditEvent(Guid.NewGuid().ToString(), DateTimeOffset.Now, "ExportStarted", Environment.UserName, $"Iniciando execução do motor de exportação ({format.ToUpperInvariant()}). DryRun={dryRun}."), CancellationToken.None);
 
             Console.WriteLine($"[*] Pasta do Caso     : {caseFolder.FullName}");
@@ -1434,7 +1434,7 @@ public static class Program
             }
             else
             {
-                await auditWriter.WriteEventAsync(new AuditEvent(Guid.NewGuid().ToString(), DateTimeOffset.Now, "ExportCompleted", Environment.UserName, $"Exportação forense finalizada perfeitamente. Exportadas {result.MessagesExported} mensagens."), CancellationToken.None);
+                await auditWriter.WriteEventAsync(new AuditEvent(Guid.NewGuid().ToString(), DateTimeOffset.Now, "ExportCompleted", Environment.UserName, $"Exportação finalizada. Exportadas {result.MessagesExported} mensagens."), CancellationToken.None);
             }
 
             return 0;
@@ -1607,7 +1607,7 @@ public static class Program
                 Console.ResetColor();
 
                 Console.WriteLine($"Caso ID            : {report.CaseId}");
-                Console.WriteLine($"Mídia Original     : {report.SourceFileMasked}");
+                Console.WriteLine($"Arquivo de Origem  : {report.SourceFileMasked}");
                 Console.WriteLine($"SHA-256 Original   : {report.SourceSha256}");
                 Console.WriteLine($"Adaptador Utilizado: {report.AdapterName} ({report.AdapterVersion})");
                 Console.WriteLine($"Exportação ID      : {report.ExportId}");
@@ -1623,7 +1623,7 @@ public static class Program
                 Console.WriteLine();
 
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("AUDITORIA FÍSICA E SEGURANÇA:");
+                Console.WriteLine("INTEGRIDADE E SEGURANÇA:");
                 Console.WriteLine("--------------------------------------------------------------------------------");
                 Console.ResetColor();
                 Console.WriteLine($"Arquivos Vazios (0 bytes)    : {report.EmptyExportedFiles}");
@@ -1665,7 +1665,7 @@ public static class Program
                 if (report.Status.Equals("Passed", StringComparison.OrdinalIgnoreCase))
                 {
                     Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine(">>> STATUS: PASSED (Integridade estrutural e segurança forense validadas!)");
+                    Console.WriteLine(">>> STATUS: PASSED (Integridade estrutural e segurança validadas!)");
                 }
                 else if (report.Status.Equals("PassedWithWarnings", StringComparison.OrdinalIgnoreCase))
                 {
@@ -1697,7 +1697,7 @@ public static class Program
         catch (Exception ex)
         {
             Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"[CRITICAL ERRO] Falha técnica durante validação forense: {ex.Message}");
+            Console.WriteLine($"[CRITICAL ERRO] Falha técnica durante a validação: {ex.Message}");
             Console.ResetColor();
 
             await auditWriter.WriteEventAsync(new AuditEvent(

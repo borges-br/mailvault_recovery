@@ -14,28 +14,36 @@ MailVault Recovery é uma solução .NET `net10.0` organizada em camadas:
 
 ```mermaid
 flowchart TB
-    UI["MailVault.Desktop\nAvalonia"] --> Worker["MailVault.Cli worker"]
+    UI["MailVault.Desktop<br/>Avalonia"] --> Worker["MailVault.Cli worker"]
     Operator["CLI direto"] --> CLI["MailVault.Cli"]
     Worker --> CLI
 
-    CLI --> Core["MailVault.Core\ncontratos, hash, normalizadores"]
-    Core --> Domain["MailVault.Domain\nmodelos e issues"]
-    CLI --> Audit["MailVault.Audit\nmanifest + audit log"]
-    CLI --> Indexing["MailVault.Indexing\nSQLite + engines"]
-    CLI --> Exporters["MailVault.Exporters\nEML/MBOX"]
-    CLI --> Validation["MailVault.Validation\nrelatórios"]
+    CLI --> Core["MailVault.Core<br/>contratos, hash, normalizadores"]
+    Core --> Domain["MailVault.Domain<br/>modelos e issues"]
+    CLI --> Audit["MailVault.Audit<br/>manifest + audit log"]
+    CLI --> Indexing["MailVault.Indexing<br/>SQLite + engines"]
+    CLI --> Exporters["MailVault.Exporters<br/>EML/MBOX"]
+    CLI --> Validation["MailVault.Validation<br/>relatórios"]
 
     Core --> Resolver["ReflectionAdapterResolver"]
     Resolver --> Xst["MailVault.Adapters.XstReader"]
-    Resolver --> LibpffAdapter["MailVault.Adapters.Libpff\nplaceholder"]
+    Resolver --> LibpffAdapter["MailVault.Adapters.Libpff<br/>placeholder"]
     Xst --> XstApi["XstReader.Api.dll"]
-    Indexing -. "LibpffExternal" .-> Pff["pffexport/libpff\nexperimental"]
+    Indexing -. "LibpffExternal" .-> Pff["pffexport/libpff<br/>experimental"]
 
     Indexing --> CaseDb["case.db"]
     Audit --> Manifest["manifest.json"]
     Audit --> AuditLog["audit.log"]
     Exporters --> Exports["exports + export-manifest.json"]
     Validation --> Report["validation-report.json"]
+
+    classDef iface fill:#9283F4,stroke:#7C6BEF,color:#15132A,stroke-width:2px;
+    classDef core fill:#2A2350,stroke:#7C6BEF,color:#E9E5FF,stroke-width:1.5px;
+    classDef store fill:#13261C,stroke:#2F6B4A,color:#A7F3CF,stroke-width:1.5px;
+    classDef exp fill:#2E2440,stroke:#A78BFA,color:#E9E5FF,stroke-width:1.5px;
+    class UI,Operator,CLI,Worker iface;
+    class Core,Domain,Audit,Indexing,Exporters,Validation,Resolver,Xst,LibpffAdapter exp;
+    class CaseDb,Manifest,AuditLog,Exports,Report store;
 ```
 
 ## Projetos da solução

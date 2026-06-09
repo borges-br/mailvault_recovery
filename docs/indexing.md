@@ -1,6 +1,6 @@
 # MailVault Recovery — Indexador Persistente (case.db)
 
-Este documento detalha o design, a estrutura do banco de dados relacional e a estratégia de indexação por caso introduzidos na Milestone 3.
+Este documento detalha o design, a estrutura do banco de dados relacional e a estratégia de indexação por caso.
 
 ## Arquitetura de Persistência
 
@@ -28,9 +28,9 @@ O MailVault Recovery exige integridade relacional forte para evitar registros ó
 
 ---
 
-## Schema do Banco de Dados (v1)
+## Schema do Banco de Dados
 
-O banco de dados relacional `case.db` é composto por 6 tabelas principais:
+O banco de dados relacional `case.db` é versionado (atualmente **v3**) e composto pelas seguintes tabelas principais:
 
 ### 1. `case_info`
 Armazena metadados forenses primários do arquivo inspecionado no caso.
@@ -130,7 +130,7 @@ CREATE TABLE index_runs (
 
 ## Índices de Alta Performance (Mandatórios)
 
-Para otimizar buscas complexas e filtros em grandes volumes de dados de e-mail inspecionados, o schema v1 implementa os seguintes índices mínimos mandatados:
+Para otimizar buscas complexas e filtros em grandes volumes de dados de e-mail inspecionados, o schema implementa os seguintes índices mínimos:
 
 ```sql
 CREATE INDEX idx_messages_folder_id ON messages(folder_id);

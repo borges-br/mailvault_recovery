@@ -32,7 +32,7 @@ graph TD
 
 ## 4. O Mecanismo mboxrd escaping
 
-Diferente de formatos legados como o mboxo, o padrão **mboxrd** é o mais robusto e forense porque impede a corrupção de mensagens cujo conteúdo real comece com a palavra `From `. Ele adiciona um caractere de escape maior que (`>`) à frente de qualquer linha do corpo da mensagem que corresponda à expressão regular de envelope `From ` ou que já comece com uma sequência arbitrária de caracteres maior que seguidos de `From ` (ex: `>From `, `>>From `, etc.).
+Diferente de formatos legados como o mboxo, o padrão **mboxrd** é o mais robusto porque impede a corrupção de mensagens cujo conteúdo real comece com a palavra `From `. Ele adiciona um caractere de escape maior que (`>`) à frente de qualquer linha do corpo da mensagem que corresponda à expressão regular de envelope `From ` ou que já comece com uma sequência arbitrária de caracteres maior que seguidos de `From ` (ex: `>From `, `>>From `, etc.).
 
 ### Implementação do Escaper
 Para cada mensagem a ser adicionada ao MBOX, o exportador:

@@ -1,4 +1,4 @@
-# Engine de Validação e Qualidade Forense (Recovery Quality)
+# Engine de Validação
 
 Este documento descreve as especificações técnicas, a arquitetura e as regras operacionais da Engine de Validação (`ValidationEngine`) do MailVault Recovery.
 

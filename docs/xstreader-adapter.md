@@ -1,14 +1,14 @@
 # Adapter Boundary — MailVault.Adapters.XstReader
 
-Este documento detalha o design técnico, a implementação e as garantias arquiteturais do adapter **MailVault.Adapters.XstReader**, integrado na Milestone 2.
+Este documento detalha o design técnico, a implementação e as garantias arquiteturais do adapter **MailVault.Adapters.XstReader**.
 
 ---
 
-## Objetivos e Diretrizes Forenses
+## Objetivos e diretrizes de leitura segura
 
 A integração do motor **XstReader.Api** (v1.0.6) obedece aos seguintes princípios rigorosos:
 
-1. **Preservação de Evidências (Read-Only)**: O arquivo original OST/PST é tratado como evidência forense intocável. O adapter abre o arquivo estritamente em modo de leitura compartilhada (`FileAccess.Read`, `FileShare.ReadWrite` ou `FileShare.Read`) para evitar qualquer bloqueio exclusivo ou modificação acidental de metadados no sistema de arquivos.
+1. **Preservação de Evidências (Read-Only)**: O arquivo original OST/PST é tratado como fonte intocável. O adapter abre o arquivo estritamente em modo de leitura compartilhada (`FileAccess.Read`, `FileShare.ReadWrite` ou `FileShare.Read`) para evitar qualquer bloqueio exclusivo ou modificação acidental de metadados no sistema de arquivos.
 2. **Clean Core (Isolamento Absoluto)**: Nenhum tipo, classe, interface ou exceção da biblioteca `XstReader` pode vazar para os contratos públicos de outros projetos. A dependência de compilação da biblioteca de terceiros está confinada exclusivamente neste projeto adapter.
 3. **Pluggable Adapter (Runtime Loading)**: O projeto CLI (`MailVault.Cli`) e os núcleos de negócio não referenciam o adapter em tempo de compilação. Em tempo de execução, o assembly `MailVault.Adapters.XstReader.dll` é carregado dinamicamente via reflexão por meio do `AssemblyLoadContext`, fornecendo alta resiliência, modularidade e desacoplamento.
 

@@ -14,7 +14,7 @@ Este documento registra as informações, licenças, justificativas e diretrizes
 
 O parsing do formato binário estruturado do Microsoft Outlook (`.ost` e `.pst`) é altamente complexo e envolve a decodificação de MAPI, tabelas NDB, sub-nós LTP e outras estruturas de dados Microsoft [MS-PST].
 
-A biblioteca `XstReader.Api` foi escolhida para a Milestone 2 pelas seguintes razões:
+A biblioteca `XstReader.Api` foi escolhida pelas seguintes razões:
 1. **Nativa em C#**: Escrita inteiramente em C# e compatível com .NET Standard 2.0+, rodando perfeitamente no runtime moderno **.NET 10 LTS**.
 2. **Independência de Plataforma**: Funciona offline em qualquer sistema operacional (Linux, macOS, Windows) sem requerer o Microsoft Outlook, Office ou MAPI nativo do Windows instalados.
 3. **Ergonomia e Confiabilidade**: Abstrai com eficácia a leitura hierárquica e decodificação do MAPI e propriedades, permitindo acelerar as entregas do MVP sem comprometer a estabilidade do Core.

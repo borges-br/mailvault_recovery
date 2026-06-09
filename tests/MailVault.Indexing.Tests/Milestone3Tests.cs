@@ -65,7 +65,7 @@ public class Milestone3Tests : IDisposable
         Assert.Contains("Linha 1", preview);
         Assert.Contains("Linha 10", preview);
         Assert.DoesNotContain("Linha 11", preview);
-        Assert.Contains("TEXTO TRUNCADO SEGURAMENTE PARA COMPLIANCE FORENSE", preview);
+        Assert.Contains("PREVIEW TRUNCADO", preview);
     }
 
     [Fact]
@@ -788,7 +788,7 @@ libpff_attachment_get_data_file_entry: unable to determine attachments in identi
         
         string sanitized = NativeToolErrorSummarizer.SanitizeAndLimitStderr(rawStderr, 1000);
         
-        Assert.Contains("[TECHNICAL WARNING: RAW STDERR TRUNCATED DUE TO 2MB FORENSIC LIMIT]", sanitized);
+        Assert.Contains("[TECHNICAL WARNING: RAW STDERR TRUNCATED DUE TO 2MB LIMIT]", sanitized);
         Assert.True(System.Text.Encoding.UTF8.GetBytes(sanitized).Length <= 1100);
     }
 
